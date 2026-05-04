@@ -625,6 +625,11 @@ body {
   max-height: 96vh;
   display: flex; flex-direction: column;
 }
+.room-scroll-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .room-header {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 16px 10px;
@@ -862,6 +867,68 @@ body {
 .room-next-emoji { font-size: 22px; line-height: 1; }
 .room-next-name  { font-size: 10px; font-weight: 700; color: #3D2B1A; }
 .room-next-req   { font-size: 10px; font-weight: 800; color: #C06A1A; }
+
+/* ── Room progress section (new) ────────────────── */
+.room-progress-section {
+  padding: 10px 18px 16px;
+  background: #FFF8EE;
+  border-top: 2px solid #EFE0C8;
+}
+.room-prog-header {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; font-weight: 800; color: #8A6040; margin-bottom: 8px;
+}
+.room-prog-counts {
+  font-size: 11px; font-weight: 700; color: #B07A40;
+}
+.room-next-unlock {
+  display: flex; align-items: center; gap: 10px;
+  background: #FEF0D8; border: 1.5px solid #E8C888;
+  border-radius: 12px; padding: 8px 12px;
+}
+.room-next-emoji { font-size: 22px; line-height: 1; }
+.room-next-info  { display: flex; flex-direction: column; gap: 2px; }
+.room-next-name  { font-size: 12px; font-weight: 800; color: #3D2B1A; }
+.room-next-req   { font-size: 11px; font-weight: 700; color: #C06A1A; }
+
+/* ── Floating hearts ─────────────────────────────── */
+.heart-float {
+  position: absolute;
+  bottom: 100%;
+  transform: translateX(-50%);
+  font-size: 18px;
+  pointer-events: none;
+  z-index: 50;
+  animation: heart-rise 1.3s ease-out forwards;
+}
+@keyframes heart-rise {
+  0%   { opacity: 1; transform: translateX(-50%) translateY(0)     scale(0.8); }
+  30%  { opacity: 1; transform: translateX(-50%) translateY(-20px)  scale(1.2); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-65px)  scale(0.9); }
+}
+
+/* ── Unlock popup ────────────────────────────────── */
+.unlock-popup {
+  position: absolute;
+  top: 12px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  display: flex; align-items: center; gap: 10px;
+  background: white;
+  border: 2.5px solid #F0B84A;
+  border-radius: 18px;
+  padding: 10px 18px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.22);
+  animation: unlock-pop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  white-space: nowrap;
+}
+.unlock-popup-emoji { font-size: 28px; line-height: 1; }
+.unlock-popup-title { font-size: 10px; font-weight: 700; color: #C06A1A; text-transform: uppercase; letter-spacing: 0.5px; }
+.unlock-popup-name  { font-size: 14px; font-weight: 900; color: #3D2B1A; }
+@keyframes unlock-pop {
+  from { opacity: 0; transform: translateX(-50%) scale(0.7) translateY(-10px); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1)   translateY(0); }
+}
 
 /* ── Room entry button in Profile ────────────────── */
 .room-entry-btn {
