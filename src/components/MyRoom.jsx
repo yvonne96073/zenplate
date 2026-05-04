@@ -170,7 +170,8 @@ function CatSVG({ state }) {
 
   if (isSleep) {
     return (
-      <svg viewBox="0 0 100 90" width={CAT_W} height={CAT_H} xmlns="http://www.w3.org/2000/svg">
+      <svg viewBox="0 0 100 90" width={CAT_W} height={CAT_H} xmlns="http://www.w3.org/2000/svg"
+        style={{ display: 'block', overflow: 'visible', background: 'transparent' }}>
         {/* Curled sleeping cat */}
         <ellipse cx="50" cy="65" rx="38" ry="22" fill="#C4A880" stroke="#8B6A4A" strokeWidth="1"/>
         <ellipse cx="50" cy="62" rx="26" ry="14" fill="#E0C8A0"/>
@@ -192,7 +193,8 @@ function CatSVG({ state }) {
   }
 
   return (
-    <svg viewBox="0 0 100 120" width={CAT_W} height={CAT_H} xmlns="http://www.w3.org/2000/svg">
+    <svg viewBox="0 0 100 120" width={CAT_W} height={CAT_H} xmlns="http://www.w3.org/2000/svg"
+      style={{ display: 'block', overflow: 'visible', background: 'transparent' }}>
       {/* Body */}
       <ellipse cx="50" cy={isVeryHung ? 84 : 80} rx="28" ry={isVeryHung ? 24 : 26} fill="#C4A880" stroke="#8B6A4A" strokeWidth="1.2"/>
       {/* Belly */}
@@ -378,9 +380,10 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
     setCatPos(dest)
     if (dist < 4) { cb?.(); return }
     setFlipX(dx < 0); setIsWalking(true)
+    // Timer must be ≥ CSS transition (1.3s). dist*60 adds extra time for longer walks.
     walkTimer.current = setTimeout(() => {
       setIsWalking(false); setFlipX(false); cb?.()
-    }, Math.max(500, dist * 38))
+    }, Math.max(1300, dist * 60))
   }, [])
 
   const spendXP = useCallback((amount) => {
@@ -446,12 +449,18 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
       const h = hungerRef.current
       const e = energyRef.current
 
-      // Auto-sleep (bed required)
-      if (e <= 10 && s === 'idle' && unlocksRef.current.bed) {
-        walkTo(OBJ.bed, () => {
+      // Auto-sleep (goes to bed if unlocked, otherwise sleeps in place)
+      if (e <= 10 && s === 'idle') {
+        if (unlocksRef.current.bed) {
+          walkTo(OBJ.bed, () => {
+            setPetState('sleeping'); stateDurRef.current = null
+            bubble('😴 Crawling into bed... zzz', 3000)
+          })
+        } else {
+          // No bed → sleep on the floor
           setPetState('sleeping'); stateDurRef.current = null
-          bubble('😴 So sleepy... taking a nap.', 3000)
-        })
+          bubble('😴 So sleepy... zzz', 2500)
+        }
         return
       }
 
@@ -715,18 +724,18 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             </div>
           )}
 
-        </div>{/* end rm-scene */}
-
-        {/* ── Wake dialog ────────────────────────────────────────────────── */}
-        {wakeDialog && (
-          <div className="rm-wake-dialog">
-            <p>😴 The cat is sleeping...<br/>Wake up and play?</p>
-            <div className="rm-wake-btns">
-              <button className="rm-wake-yes" onClick={confirmWake}>Yes, wake up!</button>
-              <button className="rm-wake-no"  onClick={() => setWakeDialog(false)}>Let it sleep</button>
+          {/* ── Wake dialog (inside scene so position:absolute anchors correctly) */}
+          {wakeDialog && (
+            <div className="rm-wake-dialog">
+              <p>😴 The cat is sleeping...<br/>Wake up and play?</p>
+              <div className="rm-wake-btns">
+                <button className="rm-wake-yes" onClick={confirmWake}>Yes, wake up!</button>
+                <button className="rm-wake-no"  onClick={() => setWakeDialog(false)}>Let it sleep</button>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+        </div>{/* end rm-scene */}
 
         {/* ── SCROLLABLE BOTTOM ──────────────────────────────────────────── */}
         <div className="rm-body">
