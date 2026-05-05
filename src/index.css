@@ -2002,33 +2002,26 @@ body {
 /* ── Cat wrapper ───────────────────────────────────────── */
 .rm-cat {
   position: absolute; z-index: 9; cursor: pointer; user-select: none;
-  display: flex; flex-direction: column; align-items: center;
+  display: block;
   /* 1.3s matches the walk timer in JS */
   transition: left 1.3s cubic-bezier(0.4,0,0.2,1), bottom 1.3s cubic-bezier(0.4,0,0.2,1);
 }
 .rm-cat:active .rm-cat-body { transform: scale(0.94); }
 .rm-cat-body {
-  position: relative; display: flex; justify-content: center; align-items: flex-end;
+  position: relative; display: block;
   transform-origin: bottom center;
-  /* NO filter here — filter: drop-shadow on a div creates a white compositing
-     layer on iOS/Safari, making the transparent SVG look like it has a background.
-     Shadow is handled by rm-cat-shadow oval instead. */
 }
-/* Apply shadow only to the SVG element directly (no compositing artefact) */
 .rm-cat-body > svg {
   display: block;
-  overflow: visible;                              /* let ears / tail bleed outside viewBox */
-  filter: drop-shadow(0 5px 8px rgba(0,0,0,0.18));
+  overflow: visible;   /* let ears / tail bleed outside viewBox */
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.22));
 }
+/* Oval floor shadow — absolutely anchored to bottom of cat */
 .rm-cat-shadow {
-  width: 72px; height: 12px; margin-top: -4px;  /* pull it up under the paws */
-  background: rgba(0,0,0,0.18); border-radius: 50%; filter: blur(5px); flex-shrink: 0;
-}
-.rm-cat-label {
-  font-size: 11px; font-weight: 900; padding: 3px 12px; border-radius: 20px;
-  margin-bottom: 6px; white-space: nowrap;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1); pointer-events: none;
-  order: -1;
+  position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+  width: 72px; height: 12px;
+  background: rgba(0,0,0,0.2); border-radius: 50%; filter: blur(5px);
+  pointer-events: none;
 }
 
 /* ── Cat animations ────────────────────────────────────── */

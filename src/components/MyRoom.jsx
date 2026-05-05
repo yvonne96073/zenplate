@@ -67,8 +67,9 @@ function loadPet() {
     hunger = Math.round(Math.min(100, Math.max(0, hunger)))
     energy = Math.round(Math.min(100, Math.max(0, energy)))
     mood   = Math.round(Math.min(100, Math.max(0, mood)))
-    if (hunger >= 90 && petState !== 'eating' && petState !== 'sleeping') petState = 'veryHungry'
-    else if (hunger >= 70 && petState !== 'eating' && petState !== 'sleeping') petState = 'hungry'
+    if (hunger >= 90 && petState !== 'sleeping') petState = 'veryHungry'
+    else if (hunger >= 70 && petState !== 'sleeping') petState = 'hungry'
+    else if (['walking','eating','playing','scratching'].includes(petState)) petState = 'idle'
     return { ...s, petState, hunger, mood, energy, lastUpdatedAt: Date.now() }
   } catch { return defaultPet() }
 }
@@ -464,12 +465,16 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
         return
       }
 
-      // Hunger state transitions (no happy states when hungry)
+      // Hunger state transitions — only walk to bowl on first transition
       if (h >= 90 && s !== 'eating' && s !== 'sleeping') {
-        setPetState('veryHungry')
-        bubble("I'm starving... 😿 Please feed me!!", 4500)
-      } else if (h >= 70 && s !== 'eating' && s !== 'sleeping' && s !== 'veryHungry') {
+        if (s !== 'veryHungry') {
+          setPetState('veryHungry')
+          walkTo(OBJ.bowl, () => {})
+          bubble("I'm starving... 😿 Please feed me!!", 4500)
+        }
+      } else if (h >= 70 && s !== 'eating' && s !== 'sleeping' && s !== 'veryHungry' && s !== 'hungry') {
         setPetState('hungry')
+        walkTo(OBJ.bowl, () => {})
         bubble("I'm hungry... 😿", 3500)
       } else if (h < 35 && (s === 'hungry' || s === 'veryHungry')) {
         setPetState('idle')
@@ -495,6 +500,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   }
 
   const doFeed = () => {
+    if (!spendXP(FEED_COST)) return
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
     walkTo(OBJ.bowl, () => {
       setPetState('eating')
@@ -525,6 +531,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   }
 
   const doPlay = () => {
+    if (!spendXP(PLAY_COST)) return
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
     const dest = unlocksRef.current.toy ? OBJ.toy : OBJ.center
     walkTo(dest, () => {
@@ -682,11 +689,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             }}
             onClick={handleCatClick}
           >
-            {/* State label above cat */}
-            <div className="rm-cat-label" style={{ background: label.bg, color: label.color }}>
-              {label.text}
-            </div>
-
             {/* Zzz */}
             {petState === 'sleeping' && !isWalking && (
               <div className="rm-zzz-wrap">
@@ -743,7 +745,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
           {/* Action buttons */}
           <div className="rm-actions">
             <button
-              className={`rm-btn rm-btn-feed ${hunger > 60 ? 'urgent' : ''}`}
+              className={`rm-btn rm-btn-feed ${hunger > 60 && canFeed ? 'urgent' : ''}`}
               onClick={handleFeed}
               disabled={!canFeed}
             >
