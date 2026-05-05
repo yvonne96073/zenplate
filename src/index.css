@@ -2014,13 +2014,15 @@ body {
 .rm-cat-body > svg {
   display: block;
   overflow: visible;   /* let ears / tail bleed outside viewBox */
-  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.22));
+  /* NO filter here — CSS filter on any element creates a white compositing
+     layer in iOS Safari, making the transparent cat look like a white card.
+     Shadow handled by rm-cat-shadow radial-gradient below. */
 }
-/* Oval floor shadow — absolutely anchored to bottom of cat */
+/* Oval floor shadow — radial-gradient, zero CSS filter to avoid white layer */
 .rm-cat-shadow {
-  position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
-  width: 72px; height: 12px;
-  background: rgba(0,0,0,0.2); border-radius: 50%; filter: blur(5px);
+  position: absolute; bottom: -4px; left: 50%; transform: translateX(-50%);
+  width: 70px; height: 16px;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, transparent 70%);
   pointer-events: none;
 }
 

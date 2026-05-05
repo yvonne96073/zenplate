@@ -703,9 +703,10 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
               <div key={h.id} className="rm-heart" style={{ left: `calc(50% + ${h.offsetX}px)` }}>💕</div>
             ))}
 
-            {/* The cat — SVG, transparent */}
+            {/* The cat — SVG, transparent. Pass petState for correct expression,
+                displayState only drives the animation class on the parent */}
             <div className="rm-cat-body">
-              <CatSVG state={displayState}/>
+              <CatSVG state={petState}/>
             </div>
 
             {/* Floor shadow */}
