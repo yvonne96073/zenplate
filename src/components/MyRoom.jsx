@@ -597,7 +597,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
 
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <div className="rm-header">
-          <span className="rm-title">🏠 My Room</span>
+          <span className="rm-title">🏠 My Room <span style={{fontSize:'10px',opacity:0.5}}>v3</span></span>
           <div className="rm-xp">
             <span>⚡</span>
             <span>{localXP.toLocaleString()} XP</span>
