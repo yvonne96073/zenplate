@@ -86,9 +86,12 @@ function HomeAvatar({ profile }) {
   )
 }
 
+const MEAL_TYPE_ZH = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '點心' }
+
 export default function Home({ session, profile, onLogMeal }) {
   const [meals, setMeals] = useState([])
   const [loading, setLoading] = useState(true)
+  const [expandedId, setExpandedId] = useState(null)
 
   useEffect(() => { fetchTodayMeals() }, [session])
 
@@ -165,18 +168,48 @@ export default function Home({ session, profile, onLogMeal }) {
             {meals.map(meal => {
               const score = calcPlateScore(meal)
               const info = scoreInfo(score)
+              const expanded = expandedId === meal.id
               return (
-                <div key={meal.id} className="meal-card">
+                <div key={meal.id}
+                  className={`meal-card ${expanded ? 'meal-card-expanded' : ''}`}
+                  onClick={() => setExpandedId(expanded ? null : meal.id)}
+                  style={{ cursor: 'pointer', flexWrap: 'wrap' }}
+                >
+                  {/* 主列 */}
                   <span className="meal-emoji">{MEAL_EMOJIS[meal.meal_type] || '🍽️'}</span>
                   <div className="meal-info">
                     <p className="meal-name">{meal.name}</p>
-                    <p className="meal-meta">{formatTime(meal.logged_at)} · {meal.meal_type}</p>
+                    <p className="meal-meta">{formatTime(meal.logged_at)} · {MEAL_TYPE_ZH[meal.meal_type] || meal.meal_type}</p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
+                  <div style={{ textAlign: 'right', marginRight: 4 }}>
                     <div className="meal-score" style={{ background: info.bg, color: info.color }}>{score} pts</div>
                     <span className="meal-calories">{meal.calories} kcal</span>
                   </div>
-                  <button className="meal-delete-btn" onClick={() => handleDeleteMeal(meal.id)}>✕</button>
+                  <button className="meal-delete-btn" onClick={e => { e.stopPropagation(); handleDeleteMeal(meal.id) }}>✕</button>
+
+                  {/* 展開的營養明細 */}
+                  {expanded && (
+                    <div className="meal-detail" onClick={e => e.stopPropagation()}>
+                      <div className="meal-detail-grid">
+                        {[
+                          ['🔥', '熱量',   meal.calories,  'kcal'],
+                          ['🥩', '蛋白質',  meal.protein_g, 'g'],
+                          ['🌾', '碳水',    meal.carbs_g,   'g'],
+                          ['🧈', '脂肪',    meal.fat_g,     'g'],
+                          ['🌿', '纖維',    meal.fiber_g,   'g'],
+                        ].map(([icon, label, val, unit]) => (
+                          <div key={label} className="meal-detail-item">
+                            <span className="meal-detail-icon">{icon}</span>
+                            <span className="meal-detail-label">{label}</span>
+                            <span className="meal-detail-val">{val ?? '–'}<span className="meal-detail-unit">{unit}</span></span>
+                          </div>
+                        ))}
+                      </div>
+                      {meal.data_source && (
+                        <p className="meal-detail-source">來源：{meal.data_source}</p>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })}
