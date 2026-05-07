@@ -338,7 +338,6 @@ export default function ScanModal({ session, onClose, onSaved }) {
         carbs_g:   +(item.carb100 * ratio).toFixed(1),
         fat_g:     +(item.fat100 * ratio).toFixed(1),
         fiber_g:   0,
-        data_source: `包裝食品資料庫（${item.brand}）`,
       }
     } else if (nycuSource && nycuResult) {
       const d = nycuResult.dish
@@ -351,7 +350,6 @@ export default function ScanModal({ session, onClose, onSaved }) {
         carbs_g:   d.carb,
         fat_g:     d.fat,
         fiber_g:   0,
-        data_source: `NYCU ${d.restaurantZh}`,
       }
     } else if (!fdaSource && barcodeResult) {
       payload = {
@@ -363,7 +361,6 @@ export default function ScanModal({ session, onClose, onSaved }) {
         carbs_g:   barcodeResult.carbs_g,
         fat_g:     barcodeResult.fat_g,
         fiber_g:   barcodeResult.fiber_g,
-        data_source: 'OpenFoodFacts',
       }
     } else {
       const matched = ingredients.filter(i => i.fdaItem)
@@ -378,7 +375,6 @@ export default function ScanModal({ session, onClose, onSaved }) {
         carbs_g:   totals.carbs || 0,
         fat_g:     totals.fat || 0,
         fiber_g:   totals.fiber || 0,
-        data_source: matched.length > 0 ? 'Taiwan FDA 2025' : 'AI 辨識（無 FDA 數據）',
       }
     }
 
@@ -609,7 +605,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
               <div className="fda-totals">
                 <div className="fda-total-title">📊 營養成分（依份量計算）</div>
-                <div className="fda-total-row">
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 4px' }}>
                   {[
                     [Math.round(packagedResult.item.cal100  * packagedResult.servingG / 100), 'kcal'],
                     [+(packagedResult.item.pro100  * packagedResult.servingG / 100).toFixed(1), '蛋白質 g'],
