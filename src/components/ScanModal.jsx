@@ -164,9 +164,10 @@ export default function ScanModal({ session, onClose, onSaved }) {
   const [nycuSource,  setNycuSource]  = useState(false)
   const [nycuResult,  setNycuResult]  = useState(null)  // { dish, score, confidence }
 
-  const videoRef    = useRef(null)
-  const codeRef     = useRef(null)
-  const fileInputRef = useRef(null)
+  const videoRef       = useRef(null)
+  const codeRef        = useRef(null)
+  const fileInputRef   = useRef(null)   // camera (capture)
+  const galleryRef     = useRef(null)   // gallery (no capture)
 
   // Load FDA DB eagerly when modal opens
   useEffect(() => {
@@ -410,7 +411,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
   // ────────────────────────────────────────────────────────────────────────────
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
+      <div className="modal-sheet fullscreen" onClick={e => e.stopPropagation()}>
         <div className="modal-handle"/>
         <div className="modal-content">
 
@@ -429,12 +430,21 @@ export default function ScanModal({ session, onClose, onSaved }) {
                   <span className="scan-option-sub">包裝食品</span>
                 </button>
                 <button className="scan-option-btn" onClick={() => fileInputRef.current?.click()}>
-                  <span className="scan-option-icon">🤖</span>
-                  <span className="scan-option-label">AI 辨識</span>
-                  <span className="scan-option-sub">拍照 → FDA 查詢</span>
+                  <span className="scan-option-icon">📷</span>
+                  <span className="scan-option-label">拍照辨識</span>
+                  <span className="scan-option-sub">開相機 → AI 分析</span>
+                </button>
+                <button className="scan-option-btn" onClick={() => galleryRef.current?.click()}>
+                  <span className="scan-option-icon">🖼️</span>
+                  <span className="scan-option-label">從相簿上傳</span>
+                  <span className="scan-option-sub">選已有照片</span>
                 </button>
               </div>
+              {/* camera */}
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
+                style={{ display:'none' }} onChange={handlePhotoCapture}/>
+              {/* gallery — no capture attribute */}
+              <input ref={galleryRef} type="file" accept="image/*"
                 style={{ display:'none' }} onChange={handlePhotoCapture}/>
 
               {/* FDA search entry */}
