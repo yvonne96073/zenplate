@@ -1997,6 +1997,7 @@ body {
 .rm-cat:active .rm-cat-body { transform: scale(0.94); }
 .rm-cat-body {
   position: relative; display: block;
+  overflow: hidden;
   transform-origin: bottom center;
 }
 .rm-cat-body > svg {
