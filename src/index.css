@@ -483,6 +483,7 @@ body {
   border-radius: 0;
   max-height: 100vh;
   height: 100vh;
+  padding-top: env(safe-area-inset-top, 48px);
 }
 .modal-sheet::-webkit-scrollbar { display: none; }
 .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto; }
