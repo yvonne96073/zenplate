@@ -434,10 +434,10 @@ export default function ScanModal({ session, onClose, onSaved }) {
                   <span className="scan-option-label">拍照辨識</span>
                   <span className="scan-option-sub">開相機 → AI 分析</span>
                 </button>
-                <button className="scan-option-btn" onClick={() => galleryRef.current?.click()}>
+                <button className="scan-option-btn scan-option-gallery" onClick={() => galleryRef.current?.click()}>
                   <span className="scan-option-icon">🖼️</span>
                   <span className="scan-option-label">從相簿上傳</span>
-                  <span className="scan-option-sub">選已有照片</span>
+                  <span className="scan-option-sub">選擇手機已有的照片</span>
                 </button>
               </div>
               {/* camera */}
