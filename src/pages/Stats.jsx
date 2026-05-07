@@ -150,10 +150,11 @@ export default function Stats({ session, profile }) {
 
           <div className="macro-section">
             <h3 className="section-title">Macronutrients</h3>
-            <MacroBar label="Protein" value={total.protein} goal={proteinGoal} unit="g" color="#2BB5A0" />
-            <MacroBar label="Carbs" value={total.carbs} goal={MACRO_GOALS.carbs} unit="g" color="#6C8EBD" />
-            <MacroBar label="Fat" value={total.fat} goal={MACRO_GOALS.fat} unit="g" color="#F5A623" />
-            <MacroBar label="Fiber" value={total.fiber} goal={MACRO_GOALS.fiber} unit="g" color="#8BC34A" />
+            <MacroBar label="🔥 Calories" value={total.calories} goal={calorieGoal} unit=" kcal" color="#E65100" />
+            <MacroBar label="💪 Protein" value={total.protein} goal={proteinGoal} unit="g" color="#2BB5A0" />
+            <MacroBar label="🌾 Carbs" value={total.carbs} goal={MACRO_GOALS.carbs} unit="g" color="#6C8EBD" />
+            <MacroBar label="🧈 Fat" value={total.fat} goal={MACRO_GOALS.fat} unit="g" color="#F5A623" />
+            <MacroBar label="🌿 Fiber" value={total.fiber} goal={MACRO_GOALS.fiber} unit="g" color="#8BC34A" />
           </div>
 
           <div className="section">
