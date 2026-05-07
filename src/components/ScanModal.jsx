@@ -223,14 +223,14 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
     try {
       const base64 = await fileToBase64(file)
-      const model  = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      const model  = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
       const resp   = await model.generateContent([
         { inlineData: { data: base64.split(',')[1], mimeType: file.type || 'image/jpeg' } },
         VISION_PROMPT,
       ])
       const text  = resp.response.text().trim()
       const match = text.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error('AI 未回傳有效 JSON')
+      if (!match) throw new Error(`AI 回傳非 JSON：${text.slice(0, 100)}`)
 
       const parsed = JSON.parse(match[0])
 
