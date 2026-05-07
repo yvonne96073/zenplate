@@ -478,14 +478,15 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   // ── Random wander (Animal Crossing–style) ─────────────────────────────────
   useEffect(() => {
     if (!inited) return
+    const BUSY = ['sleeping', 'eating', 'playing', 'scratching']
     const doWander = () => {
-      if (stateRef.current === 'idle' && !isWalkRef.current) {
+      if (!BUSY.includes(stateRef.current) && !isWalkRef.current) {
         const x = 8 + Math.random() * 84   // 8~92% of room width
         walkTo({ x, y: 8 }, null)
       }
-      wanderTimer.current = setTimeout(doWander, 3000 + Math.random() * 4000)
+      wanderTimer.current = setTimeout(doWander, 2500 + Math.random() * 3000)
     }
-    wanderTimer.current = setTimeout(doWander, 1500)
+    wanderTimer.current = setTimeout(doWander, 800)
     return () => clearTimeout(wanderTimer.current)
   }, [inited, walkTo])
 
