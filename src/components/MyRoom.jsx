@@ -373,6 +373,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   const stateTimer  = useRef(null)
   const walkTimer   = useRef(null)
   const scratchTimer= useRef(null)
+  const wanderTimer = useRef(null)
   const stateStarted = useRef(Date.now())
   const stateDurRef  = useRef(null)
 
@@ -474,6 +475,20 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
     else clearTimeout(scratchTimer.current)
   }, [petState, inited, scheduleAutoScratch])
 
+  // ── Random wander (Animal Crossing–style) ─────────────────────────────────
+  useEffect(() => {
+    if (!inited) return
+    const doWander = () => {
+      if (stateRef.current === 'idle' && !isWalkRef.current) {
+        const x = 8 + Math.random() * 84   // 8~92% of room width
+        walkTo({ x, y: 8 }, null)
+      }
+      wanderTimer.current = setTimeout(doWander, 3000 + Math.random() * 4000)
+    }
+    wanderTimer.current = setTimeout(doWander, 1500)
+    return () => clearTimeout(wanderTimer.current)
+  }, [inited, walkTo])
+
   // ── Game tick ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!inited) return
@@ -521,6 +536,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
       clearInterval(tick)
       clearTimeout(msgTimer.current); clearTimeout(stateTimer.current)
       clearTimeout(walkTimer.current); clearTimeout(scratchTimer.current)
+      clearTimeout(wanderTimer.current)
     }
   }, [inited, walkTo, bubble])
 
