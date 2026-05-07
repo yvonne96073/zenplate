@@ -1925,103 +1925,22 @@ body {
   overflow: hidden; flex-shrink: 0;
 }
 
-/* Room layers — Cat room theme: green moss wall left, pink wall right, grass floor */
-.rm-ceiling {
-  position: absolute; left: 0; right: 0; top: 0; height: 16px; z-index: 5;
-  background: linear-gradient(180deg, #EFE0C8 0%, #D8C4A0 100%);
-  box-shadow: 0 2px 0 #C4A878;
-}
+/* Room layers — background image */
+.rm-ceiling { display: none; }
 .rm-wall {
-  position: absolute; left: 0; right: 0; top: 0; height: 62%;
-  /* Left 58% = moss green, right 42% = soft pink */
-  background: linear-gradient(to right, #3A6B38 0%, #3A6B38 57%, #F2C4C8 57%, #F2C4C8 100%);
+  position: absolute; inset: 0;
+  background: url('/room-bg.jpg') center center / cover no-repeat;
+  z-index: 1;
 }
-/* Moss texture on green wall */
-.rm-wall::before {
-  content: ''; position: absolute; left: 0; top: 0; width: 57%; height: 100%;
-  background-image:
-    radial-gradient(circle, rgba(90,160,80,0.5) 1.5px, transparent 1.5px),
-    radial-gradient(circle, rgba(60,120,55,0.4) 1px, transparent 1px);
-  background-size: 12px 12px, 7px 7px;
-  background-position: 0 0, 4px 4px;
-}
-.rm-baseboard {
-  position: absolute; left: 0; right: 0; top: 62%; height: 8px; z-index: 3;
-  background: linear-gradient(180deg, #C8A060, #A07838);
-  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-}
-.rm-floor {
-  position: absolute; left: 0; right: 0; bottom: 0; top: calc(62% + 8px); z-index: 1;
-  background-color: #5A9C48;
-  background-image:
-    repeating-linear-gradient(90deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 18px),
-    repeating-linear-gradient(180deg, rgba(80,160,60,0.3) 0px, rgba(80,160,60,0.3) 1px, transparent 1px, transparent 8px);
-}
-.rm-floor::after {
-  content: ''; position: absolute; inset: 0;
-  background: radial-gradient(ellipse 70% 50% at 50% 0%, rgba(160,220,100,0.25) 0%, transparent 100%);
-}
+.rm-wall::before { display: none; }
+.rm-baseboard { display: none; }
+.rm-floor { display: none; }
+.rm-floor::after { display: none; }
 
-/* ── Wooden cat shelves (wall-mounted) ──────────────────── */
-.rm-shelf {
-  position: absolute; z-index: 6;
-  background: linear-gradient(180deg, #D4A055 0%, #B8823A 60%, #A06828 100%);
-  border-radius: 4px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,220,140,0.4);
-}
-.rm-shelf::before {
-  content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  background: linear-gradient(90deg, rgba(255,230,150,0.5), rgba(255,210,100,0.2));
-  border-radius: 4px 4px 0 0;
-}
-/* Rope hanging shelf effect */
-.rm-shelf-rope-l, .rm-shelf-rope-r {
-  position: absolute; top: -40px; width: 3px;
-  background: repeating-linear-gradient(180deg, #C4903A 0px, #A87028 4px, #C4903A 8px);
-  border-radius: 2px;
-}
-.rm-shelf-rope-l { left: 10px; }
-.rm-shelf-rope-r { right: 10px; }
-
-/* ── Wooden cat house ───────────────────────────────────── */
-.rm-cat-house {
-  position: absolute; right: 2%; bottom: 8%; z-index: 5;
-  width: 68px; height: 58px;
-}
-.rm-cat-house-body {
-  position: absolute; bottom: 0; left: 0; right: 0; height: 40px;
-  background: linear-gradient(180deg, #D4A055 0%, #B8823A 100%);
-  border-radius: 4px;
-  box-shadow: 2px 2px 8px rgba(0,0,0,0.2);
-}
-.rm-cat-house-arch {
-  position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-  width: 28px; height: 28px; border-radius: 14px 14px 0 0;
-  background: #2A1A0A;
-  box-shadow: inset 0 2px 6px rgba(0,0,0,0.5);
-}
-.rm-cat-house-roof {
-  position: absolute; top: 0; left: -4px; right: -4px; height: 22px;
-  background: linear-gradient(180deg, #C89040 0%, #A06828 100%);
-  clip-path: polygon(50% 0%, 0% 100%, 100% 100%);
-  box-shadow: 0 -2px 4px rgba(0,0,0,0.15);
-}
-
-/* ── Pink round wall cushion (right wall deco) ─────────── */
-.rm-wall-cushion {
-  position: absolute; right: 8%; top: 8%; z-index: 6;
-  width: 38px; height: 38px; border-radius: 50%;
-  background: radial-gradient(circle at 38% 38%, #FFC8D0 0%, #F090A0 60%, #D86878 100%);
-  box-shadow: 0 3px 10px rgba(0,0,0,0.2), inset 0 -2px 4px rgba(180,60,80,0.2);
-}
-.rm-wall-cushion::after {
-  content: '🌿'; position: absolute; top: -8px; right: -4px; font-size: 14px;
-}
-
-/* ── Window (hidden, replaced by room scene) */
-.rm-win-wrap { display: none; }
-.rm-window, .rm-win-sky, .rm-sun, .rm-cloud,
+/* ── Wooden cat shelves — hidden, replaced by background image ── */
+.rm-shelf, .rm-shelf::before, .rm-shelf-rope-l, .rm-shelf-rope-r,
+.rm-cat-house, .rm-cat-house-body, .rm-cat-house-arch, .rm-cat-house-roof,
+.rm-wall-cushion, .rm-win-wrap, .rm-window, .rm-win-sky, .rm-sun, .rm-cloud,
 .rm-win-bar-h, .rm-win-bar-v, .rm-curtain { display: none; }
 
 /* ── Floor & wall objects ──────────────────────────────── */
