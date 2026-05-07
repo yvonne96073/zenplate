@@ -317,12 +317,8 @@ export default function ScanModal({ session, onClose, onSaved }) {
       }
     } else {
       const matched = ingredients.filter(i => i.fdaItem)
-      if (matched.length === 0) {
-        setError('請至少確認一項食材')
-        setSaving(false); return
-      }
       const nutritions = matched.map(i => calcNutrition(i.fdaItem, i.grams))
-      const totals = sumNutrition(nutritions)
+      const totals = matched.length > 0 ? sumNutrition(nutritions) : {}
       payload = {
         user_id:   session.user.id,
         name:      dishName,
@@ -332,7 +328,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
         carbs_g:   totals.carbs || 0,
         fat_g:     totals.fat || 0,
         fiber_g:   totals.fiber || 0,
-        data_source: 'Taiwan FDA 2025',
+        data_source: matched.length > 0 ? 'Taiwan FDA 2025' : 'AI 辨識（無 FDA 數據）',
       }
     }
 
@@ -525,8 +521,8 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
               {error && <p className="login-error">{error}</p>}
 
-              <button className="submit-btn" onClick={handleSave} disabled={saving || matchedIngs.length === 0}>
-                {saving ? '儲存中...' : `✓ 記錄餐點（${matchedIngs.length} 項食材）`}
+              <button className="submit-btn" onClick={handleSave} disabled={saving || ingredients.length === 0}>
+                {saving ? '儲存中...' : matchedIngs.length > 0 ? `✓ 記錄餐點（${matchedIngs.length} 項食材）` : '✓ 記錄餐點（無 FDA 數據）'}
               </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
