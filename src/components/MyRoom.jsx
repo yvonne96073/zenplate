@@ -597,7 +597,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
 
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <div className="rm-header">
-          <span className="rm-title">🏠 My Room <span style={{fontSize:'10px',opacity:0.5}}>v3</span></span>
+          <span className="rm-title">🌿 My Room</span>
           <div className="rm-xp">
             <span>⚡</span>
             <span>{localXP.toLocaleString()} XP</span>
@@ -614,25 +614,32 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
           <div className="rm-baseboard"/>
           <div className="rm-floor"/>
 
-          {/* Window */}
-          <div className="rm-win-wrap">
-            <div className="rm-curtain rm-curtain-l"/>
-            <div className="rm-window">
-              <div className="rm-win-sky">
-                <div className="rm-sun"/>
-                <div className="rm-cloud rm-cloud-1"/>
-                <div className="rm-cloud rm-cloud-2"/>
-              </div>
-              <div className="rm-win-bar-h"/><div className="rm-win-bar-v"/>
-            </div>
-            <div className="rm-curtain rm-curtain-r"/>
+          {/* Pink round wall cushion */}
+          <div className="rm-wall-cushion"/>
+
+          {/* Wooden cat shelves (left moss wall) */}
+          <div className="rm-shelf" style={{ left:'4%', top:'8%', width:'38%', height:'10px' }}>
+            <div className="rm-shelf-rope-l" style={{ height:28 }}/>
+            <div className="rm-shelf-rope-r" style={{ height:28 }}/>
+          </div>
+          <div className="rm-shelf" style={{ left:'2%', top:'26%', width:'44%', height:'10px' }}>
+            <div className="rm-shelf-rope-l" style={{ height:24 }}/>
+            <div className="rm-shelf-rope-r" style={{ height:24 }}/>
+          </div>
+          <div className="rm-shelf" style={{ left:'5%', top:'42%', width:'36%', height:'10px' }}/>
+
+          {/* Wooden cat house (right side) */}
+          <div className="rm-cat-house">
+            <div className="rm-cat-house-roof"/>
+            <div className="rm-cat-house-body"/>
+            <div className="rm-cat-house-arch"/>
           </div>
 
           {/* ── Conditional furniture (unlock gated) ──── */}
 
           {/* Bed — streak ≥ 3 */}
           {unlocks.bed && (
-            <div className="rm-floor-obj" style={{ left:'2%', bottom:'20%', fontSize:52 }}>🛏️</div>
+            <div className="rm-floor-obj" style={{ left:'8%', bottom:'20%', fontSize:36 }}>🪺</div>
           )}
 
           {/* Scratch post — feedCount ≥ 3 */}
@@ -657,12 +664,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             </div>
           )}
 
-          {/* Wall decor (unlockable) */}
-          {unlocks.painting   && <div className="rm-wall-obj" style={{ left:'18%', top:'8%'  }}>🖼️</div>}
-          {unlocks.bookshelf  && <div className="rm-wall-obj" style={{ left:'2%',  top:'8%'  }}>📚</div>}
-          {unlocks.plant      && <div className="rm-floor-obj" style={{ left:'30%', bottom:'25%' }}><div className="rm-obj-icon">🪴</div></div>}
-          {unlocks.lamp       && <div className="rm-floor-obj" style={{ left:'18%', bottom:'28%' }}><div className="rm-obj-icon">🪔</div></div>}
-          {unlocks.sofa       && <div className="rm-floor-obj" style={{ right:'0%', bottom:'28%' }}><div className="rm-obj-icon" style={{fontSize:46}}>🛋️</div></div>}
+          {/* Wall decor */}
+          {unlocks.plant     && <div className="rm-floor-obj" style={{ left:'30%', bottom:'22%' }}><div className="rm-obj-icon">🌿</div></div>}
+          {unlocks.lamp      && <div className="rm-floor-obj" style={{ left:'55%', bottom:'10%' }}><div className="rm-obj-icon">🪔</div></div>}
+          {unlocks.painting  && <div className="rm-wall-obj"  style={{ left:'62%', top:'5%'    }}>🖼️</div>}
+          {unlocks.bookshelf && <div className="rm-wall-obj"  style={{ left:'60%', top:'14%'   }}>📚</div>}
+          {unlocks.sofa      && <div className="rm-floor-obj" style={{ left:'75%', bottom:'10%'}}><div className="rm-obj-icon" style={{fontSize:40}}>🛋️</div></div>}
 
           {/* ── SPEECH BUBBLE (clamped, never clipped) ── */}
           {showMsg && (
