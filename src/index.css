@@ -1929,7 +1929,8 @@ body {
 .rm-ceiling { display: none; }
 .rm-wall {
   position: absolute; inset: 0;
-  background: url('/room-bg.jpg') center center / cover no-repeat;
+  background: url('/room-bg.jpg') center center / contain no-repeat;
+  background-color: #f5ede3;
   z-index: 1;
 }
 .rm-wall::before { display: none; }
