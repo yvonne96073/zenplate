@@ -40,18 +40,21 @@ export const ROOM_ITEMS = UNLOCK_MILESTONES   // Profile.jsx compat
 
 // ── Room themes ───────────────────────────────────────────────────────────────
 const THEMES = [
-  { id: 'japandi',  name: 'Japandi',     emoji: '🪨', req: null,           reqCheck: null },
-  { id: 'cozy',     name: 'Cozy Cabin',  emoji: '🏠', req: '3 streak days', reqCheck: (_xp, str) => (str||0) >= 3 },
-  { id: 'forest',   name: 'Forest',      emoji: '🌿', req: '100 XP',        reqCheck: (xp) => xp >= 100 },
-  { id: 'beach',    name: 'Beach',       emoji: '🌊', req: '20 meals',      reqCheck: (_xp, _str, feed) => feed >= 20 },
+  { id: 'japandi', name: 'Cozy',   emoji: '🪨', req: null,           reqCheck: null },
+  { id: 'cafe',    name: 'Cafe',   emoji: '☕', req: '3-day streak', reqCheck: (_xp, str) => (str||0) >= 3 },
+  { id: 'forest',  name: 'Forest', emoji: '🌿', req: '7-day streak', reqCheck: (_xp, str) => (str||0) >= 7 },
+  { id: 'beach',   name: 'Beach',  emoji: '🌊', req: '100 XP',       reqCheck: (xp) => xp >= 100 },
+  { id: 'night',   name: 'Night',  emoji: '🌙', req: 'Weekly goal',  reqCheck: (_xp, str) => (str||0) >= 7 },
 ]
-const DECORATIONS = [
-  { id: 'bowl',        name: 'Food Bowl',   emoji: '🥣', req: 'Default',    check: () => true },
-  { id: 'scratchPost', name: 'Scratch Post',emoji: '🪵', req: '3 feeds',    check: (p) => p.feedCount >= 3 },
-  { id: 'toy',         name: 'Yarn Toy',    emoji: '🧶', req: '5 plays',    check: (p) => p.playCount >= 5 },
-  { id: 'bed',         name: 'Cat Bed',     emoji: '🛏️', req: '3d streak',  check: (p,s) => (s||0) >= 3 },
-  { id: 'plant',       name: 'Plant',       emoji: '🪴', req: '10 feeds',   check: (p) => p.feedCount >= 10 },
-  { id: 'lamp',        name: 'Floor Lamp',  emoji: '🪔', req: '10 plays',   check: (p) => p.playCount >= 10 },
+
+// ── Cat accessories ───────────────────────────────────────────────────────────
+const ACCESSORIES = [
+  { id: 'none',         name: 'None',         emoji: '—',  dispEmoji: null, req: null,              check: () => true },
+  { id: 'green_collar', name: 'Green Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',          check: () => true },
+  { id: 'bell_collar',  name: 'Bell Collar',  emoji: '🔔', dispEmoji: '🔔', req: '3 feeds',         check: (p) => p.feedCount >= 3 },
+  { id: 'sunny_scarf',  name: 'Sunny Scarf',  emoji: '🌻', dispEmoji: '🌻', req: '5 healthy meals', check: (p) => p.feedCount >= 5 },
+  { id: 'tiny_hat',     name: 'Tiny Hat',     emoji: '🎩', dispEmoji: '🎩', req: '10 feeds',        check: (p) => p.feedCount >= 10 },
+  { id: 'bow_tie',      name: 'Bow Tie',      emoji: '🎀', dispEmoji: '🎀', req: '50 XP',           check: (p, s, xp) => xp >= 50 },
 ]
 
 function getUnlocks(prog, streak) {
@@ -358,6 +361,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   const [equippedTheme, setEquippedTheme] = useState(() => {
     try { return localStorage.getItem('zp_theme') || 'japandi' } catch { return 'japandi' }
   })
+  const [equippedAcc, setEquippedAcc] = useState(() => {
+    try { return localStorage.getItem('zp_acc') || 'green_collar' } catch { return 'green_collar' }
+  })
 
   // ── Progression ───────────────────────────────────────────────────────────
   const [prog,       setProg]       = useState(defaultProg)
@@ -652,6 +658,11 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
     setEquippedTheme(id)
     try { localStorage.setItem('zp_theme', id) } catch {}
   }
+  const handleEquipAcc = (id) => {
+    setEquippedAcc(id)
+    try { localStorage.setItem('zp_acc', id) } catch {}
+  }
+  const activeAcc = ACCESSORIES.find(a => a.id === equippedAcc)
 
   if (!inited) return null
 
@@ -741,6 +752,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             {/* Sprite cat — image-based animation */}
             <div className="rm-cat-body">
               <CatSprite state={petState} isWalking={isWalking}/>
+              {activeAcc?.dispEmoji && (
+                <div className="rm-cat-acc">{activeAcc.dispEmoji}</div>
+              )}
             </div>
 
             {/* Floor shadow */}
@@ -776,6 +790,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
 
         {/* ── SCROLLABLE BOTTOM ──────────────────────────────────────────── */}
         <div className="rm-body">
+
+          {/* Encouraging quote */}
+          <div className="rm-quote">
+            <span className="rm-quote-label">A little note ✨</span>
+            <p className="rm-quote-text">"Hope and happiness grow when you make room for what you love."</p>
+          </div>
 
           {/* Cat status */}
           <div className="rm-stats">
@@ -854,16 +874,23 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
               })}
             </div>
 
-            <p className="rm-sub-label">Decorations</p>
-            <div className="rm-deco-grid">
-              {DECORATIONS.map(d => {
-                const owned = d.check(prog, streak || 0)
+            <p className="rm-sub-label">Accessories</p>
+            <div className="rm-acc-grid">
+              {ACCESSORIES.map(a => {
+                const isOn      = equippedAcc === a.id
+                const unlocked  = a.check(prog, streak || 0, localXP)
                 return (
-                  <div key={d.id} className={`rm-deco-card ${owned ? 'owned' : 'locked'}`}>
-                    <span className="rm-deco-icon">{d.emoji}</span>
-                    <span className="rm-deco-name">{d.name}</span>
-                    <span className="rm-deco-status">{owned ? 'Owned' : d.req}</span>
-                  </div>
+                  <button
+                    key={a.id}
+                    className={`rm-acc-card ${isOn ? 'on' : ''} ${!unlocked ? 'locked' : ''}`}
+                    onClick={() => unlocked && handleEquipAcc(a.id)}
+                  >
+                    <span className="rm-acc-emoji">{a.emoji}</span>
+                    <span className="rm-acc-name">{a.name}</span>
+                    <span className="rm-acc-status">
+                      {isOn ? '✓ On' : unlocked ? 'Equip' : `🔒 ${a.req}`}
+                    </span>
+                  </button>
                 )
               })}
             </div>
