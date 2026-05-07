@@ -473,17 +473,11 @@ body {
 }
 .modal-sheet {
   background: white;
-  border-radius: 28px 28px 0 0;
+  border-radius: 24px 24px 0 0;
   width: 100%;
-  max-height: 92vh;
+  max-height: 95vh;
   overflow-y: auto;
-  padding-bottom: 32px;
-}
-.modal-sheet.fullscreen {
-  border-radius: 0;
-  max-height: 100vh;
-  height: 100vh;
-  padding-top: env(safe-area-inset-top, 48px);
+  padding-bottom: env(safe-area-inset-bottom, 24px);
 }
 .modal-sheet::-webkit-scrollbar { display: none; }
 .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto; }

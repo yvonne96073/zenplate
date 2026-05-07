@@ -411,7 +411,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
   // ────────────────────────────────────────────────────────────────────────────
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-sheet fullscreen" onClick={e => e.stopPropagation()}>
+      <div className="modal-sheet" onClick={e => e.stopPropagation()}>
         <div className="modal-handle"/>
         <div className="modal-content">
 
