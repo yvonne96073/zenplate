@@ -245,21 +245,27 @@ export default function ScanModal({ session, onClose, onSaved }) {
       const base64 = await fileToBase64(file)
       const imgPart = { inlineData: { data: base64.split(',')[1], mimeType: file.type || 'image/jpeg' } }
 
+      const withTimeout = (promise, ms) => Promise.race([
+        promise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
+      ])
+
       let resp = null
       let lastErr = null
       for (const modelName of GEMINI_MODELS) {
         try {
           const m = genAI.getGenerativeModel({ model: modelName })
-          resp = await m.generateContent([imgPart, VISION_PROMPT])
+          resp = await withTimeout(m.generateContent([imgPart, VISION_PROMPT]), 30000)
           break
         } catch (err) {
           lastErr = err
-          const status = err?.message?.match(/\[(\d+)\s/)?.[1]
-          if (status === '503' || status === '429' || status === '404') continue
-          throw err  // 其他錯誤直接丟出
+          const msg = err?.message || ''
+          const status = msg.match(/\[(\d+)\s/)?.[1]
+          if (status === '503' || status === '429' || status === '404' || msg === 'TIMEOUT') continue
+          throw err
         }
       }
-      if (!resp) throw lastErr
+      if (!resp) throw new Error(lastErr?.message === 'TIMEOUT' ? 'AI 回應逾時，請重試' : lastErr?.message)
 
       const text  = resp.response.text().trim()
       const match = text.match(/\{[\s\S]*\}/)
@@ -431,7 +437,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
         <div className="modal-content">
 
           {/* ── Mode select ── */}
-          {step === 'select' && (
+          {step === 'select' && !analyzing && (
             <>
               <h3 className="modal-title">掃描食物 📷</h3>
               {!dbReady && (
