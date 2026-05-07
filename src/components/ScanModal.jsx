@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '../lib/supabase'
 import { loadFdaDb, lookupByName, searchFda, calcNutrition, sumNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
 import { matchNycuDish } from '../utils/nycuDb'
+import { lookupPackagedFood } from '../data/packagedFoods'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
@@ -147,6 +148,18 @@ export default function ScanModal({ session, onClose, onSaved }) {
   // Barcode fallback result (OpenFoodFacts, no FDA)
   const [barcodeResult, setBarcodeResult] = useState(null)
 
+  // Packaged food result (from local packaged foods DB)
+  const [packagedResult, setPackagedResult] = useState(null)  // { item, servingG }
+  const [isPackaged,     setIsPackaged]     = useState(false)
+
+  // Manual entry
+  const [manualMode, setManualMode] = useState(false)
+  const [manualName, setManualName] = useState('')
+  const [manualCal,  setManualCal]  = useState('')
+  const [manualPro,  setManualPro]  = useState('')
+  const [manualCarb, setManualCarb] = useState('')
+  const [manualFat,  setManualFat]  = useState('')
+
   // NYCU campus restaurant match
   const [nycuSource,  setNycuSource]  = useState(false)
   const [nycuResult,  setNycuResult]  = useState(null)  // { dish, score, confidence }
@@ -245,8 +258,21 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
       if (parsed.type === 'packaged') {
         const name = [parsed.brandName, parsed.productName].filter(Boolean).join(' ')
-        setError(`📦 偵測到包裝食品「${name}」—— 請改用「掃條碼」功能，可從條碼查到完整營養標示。`)
-        setMode(null); setAnalyzing(false); return
+        // First try local packaged food DB
+        const found = lookupPackagedFood(parsed.brandName || '', parsed.productName || '')
+        if (found) {
+          setDishName(`${found.item.brand} ${found.item.name}`)
+          setPackagedResult({ item: found.item, servingG: found.item.per })
+          setIsPackaged(true)
+          setFdaSource(false)
+          setNycuSource(false)
+          setStep('result')
+        } else {
+          // Not in DB — fall back to barcode suggestion
+          setError(`📦 偵測到包裝食品「${name}」，但資料庫沒有此產品。請試試「掃條碼」，或用下方 FDA 搜尋欄位手動查詢。`)
+          setMode(null)
+        }
+        setAnalyzing(false); return
       }
 
       if (parsed.type === 'simple') {
@@ -300,7 +326,21 @@ export default function ScanModal({ session, onClose, onSaved }) {
     setSaving(true)
     let payload
 
-    if (nycuSource && nycuResult) {
+    if (isPackaged && packagedResult) {
+      const { item, servingG } = packagedResult
+      const ratio = servingG / 100
+      payload = {
+        user_id:   session.user.id,
+        name:      dishName,
+        meal_type: MEAL_TYPE_VAL[mealType],
+        calories:  Math.round(item.cal100 * ratio),
+        protein_g: +(item.pro100 * ratio).toFixed(1),
+        carbs_g:   +(item.carb100 * ratio).toFixed(1),
+        fat_g:     +(item.fat100 * ratio).toFixed(1),
+        fiber_g:   0,
+        data_source: `包裝食品資料庫（${item.brand}）`,
+      }
+    } else if (nycuSource && nycuResult) {
       const d = nycuResult.dish
       payload = {
         user_id:   session.user.id,
@@ -359,6 +399,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
     setStep('select'); setMode(null); setError('')
     setIngredients([]); setBarcodeResult(null); setFdaSource(true)
     setNycuSource(false); setNycuResult(null)
+    setPackagedResult(null); setIsPackaged(false)
   }
 
   // ── Derived: total nutrition from FDA ingredients ─────────────────────────
@@ -533,6 +574,76 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
               <button className="submit-btn" onClick={handleSave} disabled={saving || ingredients.length === 0}>
                 {saving ? '儲存中...' : matchedIngs.length > 0 ? `✓ 記錄餐點（${matchedIngs.length} 項食材）` : '✓ 記錄餐點（無 FDA 數據）'}
+              </button>
+              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
+            </>
+          )}
+
+          {/* ── Result (packaged food DB match) ── */}
+          {step === 'result' && !analyzing && isPackaged && packagedResult && (
+            <>
+              <h3 className="modal-title">確認餐點 ✅</h3>
+
+              <div className="fda-badge" style={{ background:'#FFF8E1', borderColor:'#FFB300', color:'#7B5800' }}>
+                📦 包裝食品資料庫 ·&nbsp;<strong>{packagedResult.item.brand}</strong>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 10 }}>
+                <label>餐點名稱</label>
+                <input className="form-input" value={dishName}
+                  onChange={e => setDishName(e.target.value)}/>
+              </div>
+
+              {/* Serving size control */}
+              <div className="fda-ing-bottom" style={{ marginBottom: 12 }}>
+                <span style={{ fontSize:13, color:'#666' }}>份量：</span>
+                <input
+                  className="fda-ing-grams"
+                  type="number" min="1" max="2000"
+                  value={packagedResult.servingG}
+                  onChange={e => setPackagedResult(r => ({ ...r, servingG: parseInt(e.target.value) || r.item.per }))}
+                />
+                <span className="fda-ing-grams-lbl">g</span>
+                <span style={{ fontSize:11, color:'#aaa', marginLeft:6 }}>（標準份量 {packagedResult.item.per}g）</span>
+              </div>
+
+              <div className="fda-totals">
+                <div className="fda-total-title">📊 營養成分（依份量計算）</div>
+                <div className="fda-total-row">
+                  {[
+                    [Math.round(packagedResult.item.cal100  * packagedResult.servingG / 100), 'kcal'],
+                    [+(packagedResult.item.pro100  * packagedResult.servingG / 100).toFixed(1), '蛋白質 g'],
+                    [+(packagedResult.item.carb100 * packagedResult.servingG / 100).toFixed(1), '碳水 g'],
+                    [+(packagedResult.item.fat100  * packagedResult.servingG / 100).toFixed(1), '脂肪 g'],
+                  ].map(([val, lbl]) => (
+                    <div key={lbl} className="fda-total-item">
+                      <span className="fda-total-val">{val}</span>
+                      <span className="fda-total-lbl">{lbl}</span>
+                    </div>
+                  ))}
+                </div>
+                {packagedResult.item.sod100 > 0 && (
+                  <div style={{ fontSize:11, color:'#888', marginTop:4, textAlign:'center' }}>
+                    鈉 {Math.round(packagedResult.item.sod100 * packagedResult.servingG / 100)} mg
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group" style={{ marginTop: 12 }}>
+                <label>餐別</label>
+                <div className="meal-type-btns">
+                  {MEAL_TYPES.map(t => (
+                    <button key={t} type="button"
+                      className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
+                      onClick={() => setMealType(t)}>{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              {error && <p className="login-error">{error}</p>}
+
+              <button className="submit-btn" onClick={handleSave} disabled={saving}>
+                {saving ? '儲存中...' : '✓ 記錄餐點'}
               </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
