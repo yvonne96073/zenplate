@@ -330,51 +330,55 @@ export default function ScanModal({ session, onClose, onSaved }) {
       const { item, servingG } = packagedResult
       const ratio = servingG / 100
       payload = {
-        user_id:   session.user.id,
-        name:      dishName,
-        meal_type: MEAL_TYPE_VAL[mealType],
-        calories:  Math.round(item.cal100 * ratio),
-        protein_g: +(item.pro100 * ratio).toFixed(1),
-        carbs_g:   +(item.carb100 * ratio).toFixed(1),
-        fat_g:     +(item.fat100 * ratio).toFixed(1),
-        fiber_g:   0,
+        user_id:     session.user.id,
+        name:        dishName,
+        meal_type:   MEAL_TYPE_VAL[mealType],
+        calories:    Math.round(item.cal100 * ratio),
+        protein_g:   +(item.pro100 * ratio).toFixed(1),
+        carbs_g:     +(item.carb100 * ratio).toFixed(1),
+        fat_g:       +(item.fat100 * ratio).toFixed(1),
+        fiber_g:     0,
+        data_source: `包裝食品資料庫（${item.brand}）`,
       }
     } else if (nycuSource && nycuResult) {
       const d = nycuResult.dish
       payload = {
-        user_id:   session.user.id,
-        name:      dishName,
-        meal_type: MEAL_TYPE_VAL[mealType],
-        calories:  d.cal,
-        protein_g: d.pro,
-        carbs_g:   d.carb,
-        fat_g:     d.fat,
-        fiber_g:   0,
+        user_id:     session.user.id,
+        name:        dishName,
+        meal_type:   MEAL_TYPE_VAL[mealType],
+        calories:    d.cal,
+        protein_g:   d.pro,
+        carbs_g:     d.carb,
+        fat_g:       d.fat,
+        fiber_g:     0,
+        data_source: `NYCU ${d.restaurantZh}`,
       }
     } else if (!fdaSource && barcodeResult) {
       payload = {
-        user_id:  session.user.id,
-        name:     barcodeResult.name,
-        meal_type: MEAL_TYPE_VAL[mealType],
-        calories:  barcodeResult.calories,
-        protein_g: barcodeResult.protein_g,
-        carbs_g:   barcodeResult.carbs_g,
-        fat_g:     barcodeResult.fat_g,
-        fiber_g:   barcodeResult.fiber_g,
+        user_id:     session.user.id,
+        name:        barcodeResult.name,
+        meal_type:   MEAL_TYPE_VAL[mealType],
+        calories:    barcodeResult.calories,
+        protein_g:   barcodeResult.protein_g,
+        carbs_g:     barcodeResult.carbs_g,
+        fat_g:       barcodeResult.fat_g,
+        fiber_g:     barcodeResult.fiber_g,
+        data_source: 'OpenFoodFacts',
       }
     } else {
       const matched = ingredients.filter(i => i.fdaItem)
       const nutritions = matched.map(i => calcNutrition(i.fdaItem, i.grams))
       const totals = matched.length > 0 ? sumNutrition(nutritions) : {}
       payload = {
-        user_id:   session.user.id,
-        name:      dishName,
-        meal_type: MEAL_TYPE_VAL[mealType],
-        calories:  Math.round(totals.calories || 0),
-        protein_g: totals.protein || 0,
-        carbs_g:   totals.carbs || 0,
-        fat_g:     totals.fat || 0,
-        fiber_g:   totals.fiber || 0,
+        user_id:     session.user.id,
+        name:        dishName,
+        meal_type:   MEAL_TYPE_VAL[mealType],
+        calories:    Math.round(totals.calories || 0),
+        protein_g:   totals.protein || 0,
+        carbs_g:     totals.carbs || 0,
+        fat_g:       totals.fat || 0,
+        fiber_g:     totals.fiber || 0,
+        data_source: matched.length > 0 ? 'Taiwan FDA 2025' : 'AI 辨識（無 FDA 數據）',
       }
     }
 
