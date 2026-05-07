@@ -15,6 +15,9 @@ const VISION_PROMPT = `你是台灣的營養師，正在協助一個飲食追蹤
 
 請仔細分析這張照片，辨識食物並回傳 JSON，格式如下：
 
+如果是**包裝食品**（有品牌、條碼、包裝袋，例如：義美餅乾、統一泡麵、光泉牛奶）：
+{"type":"packaged","brandName":"品牌名","productName":"產品名稱"}
+
 如果是單一食材（例如：白飯、雞腿、蘋果）：
 {"type":"simple","nameZh":"食物名稱","estimatedGrams":150}
 
@@ -26,10 +29,11 @@ const VISION_PROMPT = `你是台灣的營養師，正在協助一個飲食追蹤
 
 重要規則：
 1. 只回傳 JSON，不要加任何說明或 markdown
-2. nameZh 請使用台灣 FDA 食品成分資料庫的標準名稱，例如：白飯、糙米飯、雞腿、雞胸肉、豬里肌、豬五花、牛腱、空心菜、高麗菜、青花椰菜、花椰菜、雞蛋、豆腐、豆干等
-3. estimatedGrams 為估計克數
-4. 複合料理請拆解成主要食材（3-6 種），不要太細
-5. 如果無法辨識，回傳 {"type":"unknown"}`
+2. 有看到包裝、品牌、條碼 → 一定要用 packaged type
+3. nameZh 請使用台灣 FDA 食品成分資料庫的標準名稱
+4. estimatedGrams 為估計克數
+5. 複合料理請拆解成主要食材（3-6 種），不要太細
+6. 如果無法辨識，回傳 {"type":"unknown"}`
 
 // ── Helper: try FDA lookup, fallback to search ────────────────────────────────
 function findFdaItem(nameZh) {
@@ -236,6 +240,12 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
       if (parsed.type === 'unknown') {
         setError('無法辨識食物，請重試或手動新增。')
+        setMode(null); setAnalyzing(false); return
+      }
+
+      if (parsed.type === 'packaged') {
+        const name = [parsed.brandName, parsed.productName].filter(Boolean).join(' ')
+        setError(`📦 偵測到包裝食品「${name}」—— 請改用「掃條碼」功能，可從條碼查到完整營養標示。`)
         setMode(null); setAnalyzing(false); return
       }
 
