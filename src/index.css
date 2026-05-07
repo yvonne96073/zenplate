@@ -1921,7 +1921,7 @@ body {
 /* ── Scene ─────────────────────────────────────────────── */
 .rm-scene {
   position: relative;
-  width: 100%; height: 300px;
+  width: 100%; aspect-ratio: 1;
   overflow: hidden; flex-shrink: 0;
 }
 
@@ -1929,8 +1929,7 @@ body {
 .rm-ceiling { display: none; }
 .rm-wall {
   position: absolute; inset: 0;
-  background: url('/room-bg.jpg') center center / contain no-repeat;
-  background-color: #f5ede3;
+  background: url('/room-bg.jpg') center center / cover no-repeat;
   z-index: 1;
 }
 .rm-wall::before { display: none; }
