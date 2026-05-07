@@ -171,10 +171,10 @@ export default function LogMealModal({ session, onClose, onSaved }) {
           {/* Tab toggle */}
           <div className="log-tab-row">
             <button className={`log-tab-btn ${tab === 'fda' ? 'active' : ''}`} onClick={() => setTab('fda')}>
-              🏛️ FDA 資料庫
+              FDA 查詢
             </button>
             <button className={`log-tab-btn ${tab === 'manual' ? 'active' : ''}`} onClick={() => setTab('manual')}>
-              ✏️ 手動輸入
+              手動輸入
             </button>
           </div>
 

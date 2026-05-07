@@ -1690,18 +1690,19 @@ body {
 
 /* ── LogMealModal tabs ── */
 .log-tab-row {
-  display: flex; gap: 8px; margin-bottom: 14px;
+  display: flex; gap: 0; margin-bottom: 16px;
+  background: #F0F4F3; border-radius: 12px; padding: 4px;
 }
 .log-tab-btn {
-  flex: 1; padding: 9px 12px;
-  border: 1.5px solid var(--border); border-radius: 12px;
-  background: white; font-family: 'Nunito', sans-serif;
-  font-size: 12px; font-weight: 800; color: var(--muted);
-  cursor: pointer; transition: all 0.15s;
+  flex: 1; padding: 8px 10px;
+  border: none; border-radius: 9px;
+  background: transparent; font-family: 'Nunito', sans-serif;
+  font-size: 13px; font-weight: 800; color: var(--muted);
+  cursor: pointer; transition: all 0.18s;
 }
 .log-tab-btn.active {
-  border-color: var(--primary); background: var(--primary-light);
-  color: var(--primary-dark);
+  background: white; color: var(--primary-dark);
+  box-shadow: 0 1px 4px rgba(0,0,0,0.10);
 }
 
 /* ── Log meal FDA rows ── */
