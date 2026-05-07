@@ -115,9 +115,9 @@ const SPRITE_CFG = {
   eating:     { src: '/sprites/eat.png',     frames: 5, origH: 188 },
   playing:    { src: '/sprites/play.png',    frames: 5, origH: 200 },
   scratching: { src: '/sprites/scratch.png', frames: 5, origH: 247 },
-  idle:       { src: '/sprites/walk.png',    frames: 1, origH: 185 },
-  hungry:     { src: '/sprites/walk.png',    frames: 1, origH: 185 },
-  veryHungry: { src: '/sprites/walk.png',    frames: 1, origH: 185 },
+  idle:       { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  hungry:     { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  veryHungry: { src: '/sprites/walk.png',    frames: 5, origH: 185 },
 }
 const ORIG_STRIP_W = 1408
 
