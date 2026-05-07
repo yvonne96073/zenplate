@@ -234,6 +234,8 @@ export default function ScanModal({ session, onClose, onSaved }) {
   }
 
   // ── AI photo scan ─────────────────────────────────────────────────────────
+  const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
+
   const handlePhotoCapture = async (e) => {
     const file = e.target.files[0]
     if (!file) return
@@ -241,11 +243,24 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
     try {
       const base64 = await fileToBase64(file)
-      const model  = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
-      const resp   = await model.generateContent([
-        { inlineData: { data: base64.split(',')[1], mimeType: file.type || 'image/jpeg' } },
-        VISION_PROMPT,
-      ])
+      const imgPart = { inlineData: { data: base64.split(',')[1], mimeType: file.type || 'image/jpeg' } }
+
+      let resp = null
+      let lastErr = null
+      for (const modelName of GEMINI_MODELS) {
+        try {
+          const m = genAI.getGenerativeModel({ model: modelName })
+          resp = await m.generateContent([imgPart, VISION_PROMPT])
+          break
+        } catch (err) {
+          lastErr = err
+          const status = err?.message?.match(/\[(\d+)\s/)?.[1]
+          if (status === '503' || status === '429' || status === '404') continue
+          throw err  // 其他錯誤直接丟出
+        }
+      }
+      if (!resp) throw lastErr
+
       const text  = resp.response.text().trim()
       const match = text.match(/\{[\s\S]*\}/)
       if (!match) throw new Error(`AI 回傳非 JSON：${text.slice(0, 100)}`)
