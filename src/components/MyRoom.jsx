@@ -38,6 +38,22 @@ export const UNLOCK_MILESTONES = [
 
 export const ROOM_ITEMS = UNLOCK_MILESTONES   // Profile.jsx compat
 
+// ── Room themes ───────────────────────────────────────────────────────────────
+const THEMES = [
+  { id: 'japandi',  name: 'Japandi',     emoji: '🪨', req: null,           reqCheck: null },
+  { id: 'cozy',     name: 'Cozy Cabin',  emoji: '🏠', req: '3 streak days', reqCheck: (_xp, str) => (str||0) >= 3 },
+  { id: 'forest',   name: 'Forest',      emoji: '🌿', req: '100 XP',        reqCheck: (xp) => xp >= 100 },
+  { id: 'beach',    name: 'Beach',       emoji: '🌊', req: '20 meals',      reqCheck: (_xp, _str, feed) => feed >= 20 },
+]
+const DECORATIONS = [
+  { id: 'bowl',        name: 'Food Bowl',   emoji: '🥣', req: 'Default',    check: () => true },
+  { id: 'scratchPost', name: 'Scratch Post',emoji: '🪵', req: '3 feeds',    check: (p) => p.feedCount >= 3 },
+  { id: 'toy',         name: 'Yarn Toy',    emoji: '🧶', req: '5 plays',    check: (p) => p.playCount >= 5 },
+  { id: 'bed',         name: 'Cat Bed',     emoji: '🛏️', req: '3d streak',  check: (p,s) => (s||0) >= 3 },
+  { id: 'plant',       name: 'Plant',       emoji: '🪴', req: '10 feeds',   check: (p) => p.feedCount >= 10 },
+  { id: 'lamp',        name: 'Floor Lamp',  emoji: '🪔', req: '10 plays',   check: (p) => p.playCount >= 10 },
+]
+
 function getUnlocks(prog, streak) {
   const r = {}
   for (const m of UNLOCK_MILESTONES) r[m.id] = m.check(prog, streak)
@@ -339,6 +355,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   const [localXP,    setLocalXP]    = useState(xp || 0)
   const [hearts,     setHearts]     = useState([])         // [{id,offsetX}]
   const [unlockPop,  setUnlockPop]  = useState(null)       // milestone obj
+  const [equippedTheme, setEquippedTheme] = useState(() => {
+    try { return localStorage.getItem('zp_theme') || 'japandi' } catch { return 'japandi' }
+  })
 
   // ── Progression ───────────────────────────────────────────────────────────
   const [prog,       setProg]       = useState(defaultProg)
@@ -559,7 +578,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
       setPetState('eating')
       setHunger(h => Math.max(0, h - 45))
       setMood(m   => Math.min(m + 10, 100))
-      bubble('😋 Yum! Thank you! 💕', 3500)
+      bubble('😋 Yum! Fullness +45 💕', 3500)
       showHearts()
       setProg(prev => {
         const next = { ...prev, feedCount: prev.feedCount + 1 }
@@ -621,14 +640,18 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const displayState  = isWalking ? 'walking' : petState
-  const label         = STATE_LABEL[displayState] || STATE_LABEL.idle
-  const canFeed       = localXP >= FEED_COST
-  const canPlay       = localXP >= PLAY_COST && energy >= 20
-  const hungerColor   = hunger >= 70 ? '#E53935' : hunger >= 45 ? '#FB8C00' : '#43A047'
-  const moodColor     = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
-  const energyColor   = energy >= 60 ? '#2196F3' : energy >= 30 ? '#FF9800' : '#9E9E9E'
-  const nextMilestone = UNLOCK_MILESTONES.find(m => !m.check(prog, streak || 0))
+  const displayState    = isWalking ? 'walking' : petState
+  const label           = STATE_LABEL[displayState] || STATE_LABEL.idle
+  const canFeed         = localXP >= FEED_COST
+  const canPlay         = localXP >= PLAY_COST && energy >= 20
+  const fullness        = 100 - hunger   // flip: higher = fuller (intuitive)
+  const fullnessColor   = fullness >= 70 ? '#43A047' : fullness >= 30 ? '#FB8C00' : '#E53935'
+  const moodColor       = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
+  const energyColor     = energy >= 60 ? '#2196F3' : energy >= 30 ? '#FF9800' : '#9E9E9E'
+  const handleEquipTheme = (id) => {
+    setEquippedTheme(id)
+    try { localStorage.setItem('zp_theme', id) } catch {}
+  }
 
   if (!inited) return null
 
@@ -667,62 +690,14 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
           <div className="rm-baseboard"/>
           <div className="rm-floor"/>
 
-          {/* Pink round wall cushion */}
-          <div className="rm-wall-cushion"/>
-
-          {/* Wooden cat shelves (left moss wall) */}
-          <div className="rm-shelf" style={{ left:'4%', top:'8%', width:'38%', height:'10px' }}>
-            <div className="rm-shelf-rope-l" style={{ height:28 }}/>
-            <div className="rm-shelf-rope-r" style={{ height:28 }}/>
-          </div>
-          <div className="rm-shelf" style={{ left:'2%', top:'26%', width:'44%', height:'10px' }}>
-            <div className="rm-shelf-rope-l" style={{ height:24 }}/>
-            <div className="rm-shelf-rope-r" style={{ height:24 }}/>
-          </div>
-          <div className="rm-shelf" style={{ left:'5%', top:'42%', width:'36%', height:'10px' }}/>
-
-          {/* Wooden cat house (right side) */}
-          <div className="rm-cat-house">
-            <div className="rm-cat-house-roof"/>
-            <div className="rm-cat-house-body"/>
-            <div className="rm-cat-house-arch"/>
-          </div>
-
-          {/* ── Conditional furniture (unlock gated) ──── */}
-
-          {/* Bed — streak ≥ 3 */}
-          {unlocks.bed && (
-            <div className="rm-floor-obj" style={{ left:'8%', bottom:'20%', fontSize:36 }}>🪺</div>
-          )}
-
-          {/* Scratch post — feedCount ≥ 3 */}
-          {unlocks.scratchPost && (
-            <div className="rm-floor-obj" style={{ left:`${OBJ.scratch.x}%`, bottom:`${OBJ.scratch.y}%` }}>
-              <div className="rm-obj-icon">🪵</div>
-              <div className="rm-obj-label">Scratch Post</div>
-            </div>
-          )}
-
-          {/* Food bowl — ALWAYS visible */}
-          <div className="rm-floor-obj" style={{ left:`${OBJ.bowl.x}%`, bottom:`${OBJ.bowl.y}%` }}>
-            <div className="rm-obj-icon">🥣</div>
-            <div className="rm-obj-label">Food Bowl</div>
-          </div>
-
-          {/* Toy — playCount ≥ 5 */}
+          {/* Only show earned decorations — no bowl (bg already has one) */}
           {unlocks.toy && (
             <div className="rm-floor-obj" style={{ left:`${OBJ.toy.x}%`, bottom:`${OBJ.toy.y}%` }}>
               <div className={`rm-obj-icon ${petState === 'playing' ? 'rm-ball-active' : ''}`}>🧶</div>
-              <div className="rm-obj-label">Yarn Toy</div>
             </div>
           )}
-
-          {/* Wall decor */}
-          {unlocks.plant     && <div className="rm-floor-obj" style={{ left:'30%', bottom:'22%' }}><div className="rm-obj-icon">🌿</div></div>}
-          {unlocks.lamp      && <div className="rm-floor-obj" style={{ left:'55%', bottom:'10%' }}><div className="rm-obj-icon">🪔</div></div>}
-          {unlocks.painting  && <div className="rm-wall-obj"  style={{ left:'62%', top:'5%'    }}>🖼️</div>}
-          {unlocks.bookshelf && <div className="rm-wall-obj"  style={{ left:'60%', top:'14%'   }}>📚</div>}
-          {unlocks.sofa      && <div className="rm-floor-obj" style={{ left:'75%', bottom:'10%'}}><div className="rm-obj-icon" style={{fontSize:40}}>🛋️</div></div>}
+          {unlocks.plant  && <div className="rm-floor-obj" style={{ left:'78%', bottom:'18%' }}><div className="rm-obj-icon">🪴</div></div>}
+          {unlocks.lamp   && <div className="rm-floor-obj" style={{ left:'6%', bottom:'12%'  }}><div className="rm-obj-icon">🪔</div></div>}
 
           {/* ── SPEECH BUBBLE (clamped, never clipped) ── */}
           {showMsg && (
@@ -802,18 +777,38 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
         {/* ── SCROLLABLE BOTTOM ──────────────────────────────────────────── */}
         <div className="rm-body">
 
-          {/* Action buttons */}
+          {/* Cat status */}
+          <div className="rm-stats">
+            {[
+              { icon: '🍚', label: 'Fullness', val: fullness, color: fullnessColor },
+              { icon: '💕', label: 'Mood',     val: mood,     color: moodColor     },
+              { icon: '⚡', label: 'Energy',   val: energy,   color: energyColor   },
+            ].map(({ icon, label: lbl, val, color }) => (
+              <div key={lbl} className="rm-stat-row">
+                <span className="rm-stat-lbl">{icon} {lbl}</span>
+                <div className="rm-stat-track">
+                  <div className="rm-stat-fill" style={{ width:`${val}%`, background: color }}/>
+                </div>
+                <span className="rm-stat-num" style={{ color }}>{val}<span className="rm-stat-den">/100</span></span>
+              </div>
+            ))}
+          </div>
+
+          {/* Care actions */}
           <div className="rm-actions">
             <button
-              className={`rm-btn rm-btn-feed ${hunger > 60 && canFeed ? 'urgent' : ''}`}
+              className={`rm-btn rm-btn-feed ${fullness < 40 && canFeed ? 'urgent' : ''}`}
               onClick={handleFeed}
               disabled={!canFeed}
             >
-              {hunger > 70 && <span className="rm-btn-dot"/>}
-              <span className="rm-btn-icon">🥣</span>
+              {fullness < 30 && <span className="rm-btn-dot"/>}
+              <span className="rm-btn-icon">🍚</span>
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Feed</span>
-                <span className="rm-btn-cost">{canFeed ? `${FEED_COST} XP` : `Need ${FEED_COST} XP`}</span>
+                {canFeed
+                  ? <span className="rm-btn-effect">Fullness +45 · {FEED_COST} XP</span>
+                  : <span className="rm-btn-cost">{localXP} / {FEED_COST} XP · Need {FEED_COST - localXP} more</span>
+                }
               </div>
             </button>
 
@@ -825,51 +820,53 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
               <span className="rm-btn-icon">🧶</span>
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Play</span>
-                <span className="rm-btn-cost">{canPlay ? `${PLAY_COST} XP` : localXP < PLAY_COST ? `Need ${PLAY_COST} XP` : 'Too tired'}</span>
+                {canPlay
+                  ? <span className="rm-btn-effect">Mood +20 · {PLAY_COST} XP</span>
+                  : localXP < PLAY_COST
+                    ? <span className="rm-btn-cost">{localXP} / {PLAY_COST} XP · Need {PLAY_COST - localXP} more</span>
+                    : <span className="rm-btn-cost">Too tired 😴</span>
+                }
               </div>
             </button>
           </div>
 
-          {/* Hint */}
-          <div className="rm-hint">
-            💡 Complete quests → earn XP → care for your cat · Scratch is automatic ✨
-          </div>
+          {/* Room Customization */}
+          <div className="rm-customize">
+            <p className="rm-section-title">🏠 Customize Room</p>
 
-          {/* Stats */}
-          <div className="rm-stats">
-            {[
-              { icon: '🍜', label: 'Hunger',  hint: '↓ lower = full',    val: hunger, color: hungerColor },
-              { icon: '💕', label: 'Mood',    hint: '↑ higher = happy',  val: mood,   color: moodColor   },
-              { icon: '⚡', label: 'Energy',  hint: '↑ higher = active', val: energy, color: energyColor },
-            ].map(({ icon, label: lbl, hint, val, color }) => (
-              <div key={lbl} className="rm-stat-row">
-                <div className="rm-stat-lbl">
-                  <span>{icon} {lbl}</span>
-                  <span className="rm-stat-hint">{hint}</span>
-                </div>
-                <div className="rm-stat-track">
-                  <div className="rm-stat-fill" style={{ width:`${val}%`, background: color }}/>
-                </div>
-                <span className="rm-stat-num" style={{ color }}>{val}<span className="rm-stat-den">/100</span></span>
-              </div>
-            ))}
-          </div>
-
-          {/* Progression */}
-          <div className="rm-prog">
-            <div className="rm-prog-header">
-              <span>🌟 Room Progress</span>
-              <span className="rm-prog-counts">🍜 {prog.feedCount} · 🧶 {prog.playCount}</span>
+            <p className="rm-sub-label">Themes</p>
+            <div className="rm-theme-row">
+              {THEMES.map(t => {
+                const isOn = equippedTheme === t.id
+                const ok   = !t.reqCheck || t.reqCheck(localXP, streak || 0, prog.feedCount)
+                return (
+                  <button
+                    key={t.id}
+                    className={`rm-theme-chip ${isOn ? 'on' : ''} ${!ok ? 'locked' : ''}`}
+                    onClick={() => ok && handleEquipTheme(t.id)}
+                  >
+                    <span>{t.emoji}</span>
+                    <span>{t.name}</span>
+                    {isOn  && <span className="rm-chip-badge">✓</span>}
+                    {!ok   && <span className="rm-chip-lock">🔒</span>}
+                  </button>
+                )
+              })}
             </div>
-            {nextMilestone && (
-              <div className="rm-next-unlock">
-                <span className="rm-next-emoji">{nextMilestone.emoji}</span>
-                <div>
-                  <div className="rm-next-name">{nextMilestone.name}</div>
-                  <div className="rm-next-req">{nextMilestone.req}</div>
-                </div>
-              </div>
-            )}
+
+            <p className="rm-sub-label">Decorations</p>
+            <div className="rm-deco-grid">
+              {DECORATIONS.map(d => {
+                const owned = d.check(prog, streak || 0)
+                return (
+                  <div key={d.id} className={`rm-deco-card ${owned ? 'owned' : 'locked'}`}>
+                    <span className="rm-deco-icon">{d.emoji}</span>
+                    <span className="rm-deco-name">{d.name}</span>
+                    <span className="rm-deco-status">{owned ? 'Owned' : d.req}</span>
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
         </div>{/* end rm-body */}

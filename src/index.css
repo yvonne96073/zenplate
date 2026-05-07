@@ -2223,18 +2223,37 @@ body {
   border-top: 2px solid #EFE0C8; display: flex; flex-direction: column; gap: 5px;
 }
 .rm-stat-row    { display: flex; align-items: center; gap: 8px; }
-.rm-stat-lbl    { font-size: 11px; font-weight: 800; color: #8A6040; min-width: 90px; display: flex; flex-direction: column; gap: 1px; }
+.rm-stat-lbl    { font-size: 11px; font-weight: 800; color: #8A6040; min-width: 72px; }
 .rm-stat-hint   { font-size: 9px; font-weight: 600; color: #B09070; opacity: 0.8; }
 .rm-stat-track  { flex: 1; height: 8px; background: #EFE0C8; border-radius: 5px; overflow: hidden; }
 .rm-stat-fill   { height: 100%; border-radius: 5px; transition: width 0.5s ease, background 0.4s; }
 .rm-stat-num    { font-size: 12px; font-weight: 900; min-width: 40px; text-align: right; transition: color 0.3s; }
 .rm-stat-den    { font-size: 9px; font-weight: 600; opacity: 0.5; }
 
-/* ── Progression ─────────────────────────────────────────── */
-.rm-prog          { padding: 10px 16px 16px; background: #FFF8EE; border-top: 2px solid #EFE0C8; }
-.rm-prog-header   { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 800; color: #8A6040; margin-bottom: 8px; }
-.rm-prog-counts   { font-size: 11px; font-weight: 700; color: #B07A40; }
-.rm-next-unlock   { display: flex; align-items: center; gap: 10px; background: #FEF0D8; border: 1.5px solid #E8C888; border-radius: 12px; padding: 8px 12px; }
-.rm-next-emoji    { font-size: 22px; line-height: 1; }
-.rm-next-name     { font-size: 12px; font-weight: 800; color: #3D2B1A; }
-.rm-next-req      { font-size: 11px; font-weight: 700; color: #C06A1A; }
+/* ── Room Customization ──────────────────────────────────── */
+.rm-customize     { padding: 14px 16px 20px; background: #FFF9F3; border-top: 1.5px solid #EDE0D0; }
+.rm-section-title { font-size: 13px; font-weight: 800; color: #5A3E28; margin: 0 0 12px; }
+.rm-sub-label     { font-size: 11px; font-weight: 700; color: #9A7A60; text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 8px; }
+
+.rm-theme-row     { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+.rm-theme-row::-webkit-scrollbar { display: none; }
+.rm-theme-chip    { flex-shrink: 0; display: flex; align-items: center; gap: 5px; padding: 7px 12px; border-radius: 20px; border: 1.5px solid #DDD0C0; background: #FDF6EE; font-size: 12px; font-weight: 700; color: #7A5A3A; cursor: pointer; position: relative; transition: all 0.18s; }
+.rm-theme-chip.on { background: #5A3E28; color: #fff; border-color: #5A3E28; }
+.rm-theme-chip.locked { opacity: 0.55; cursor: default; }
+.rm-chip-badge    { font-size: 10px; }
+.rm-chip-lock     { font-size: 10px; }
+
+.rm-deco-grid     { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.rm-deco-card     { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 6px; border-radius: 12px; border: 1.5px solid #EDE0D0; background: #FDF8F2; }
+.rm-deco-card.owned  { border-color: #C8A870; background: #FEF6E6; }
+.rm-deco-card.locked { opacity: 0.55; }
+.rm-deco-icon     { font-size: 22px; }
+.rm-deco-name     { font-size: 11px; font-weight: 700; color: #5A3E28; text-align: center; }
+.rm-deco-status   { font-size: 10px; font-weight: 600; color: #9A7A60; text-align: center; }
+.rm-deco-card.owned .rm-deco-status { color: #C08030; }
+
+/* ── Button effects text ─────────────────────────────────── */
+.rm-btn-effect    { font-size: 10px; font-weight: 700; color: #4A8A4A; }
+
+/* ── Cat sprite integration ──────────────────────────────── */
+.rm-cat-body > div { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
