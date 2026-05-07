@@ -223,7 +223,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
     try {
       const base64 = await fileToBase64(file)
-      const model  = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' })
+      const model  = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
       const resp   = await model.generateContent([
         { inlineData: { data: base64.split(',')[1], mimeType: file.type || 'image/jpeg' } },
         VISION_PROMPT,
