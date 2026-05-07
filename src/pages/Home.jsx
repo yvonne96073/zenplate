@@ -3,8 +3,69 @@ import { supabase } from '../lib/supabase'
 import { getLevel, getLevelXp, getNextLevelXp } from '../hooks/useProfile'
 import { calcPlateScore, scoreInfo } from '../utils/scoring'
 
-const MEAL_EMOJIS = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: '🍎' }
+const MEAL_EMOJIS = { breakfast: '🌅', lunch: '☀️', dinner: '🌙', snack: '🍿' }
 const ALL_MEAL_TYPES = ['breakfast', 'lunch', 'dinner']
+
+const FOOD_EMOJI_MAP = [
+  // 穀物 / 澱粉
+  [/飯|白飯|炒飯|米飯|糙米|粥/, '🍚'],
+  [/麵|拉麵|泡麵|烏龍|義大利麵|冬粉|河粉|米粉/, '🍜'],
+  [/麵包|吐司|貝果|可頌/, '🍞'],
+  [/饅頭|包子|水餃|餃子|鍋貼|湯包|小籠包/, '🥟'],
+  [/披薩|pizza/i, '🍕'],
+  [/漢堡|burger/i, '🍔'],
+  [/三明治|sandwich/i, '🥪'],
+  [/薯條|薯片/, '🍟'],
+  // 餅乾 / 點心
+  [/餅乾|薄餅|餅|蘇打|小泡芙|泡芙|威化|夾心|乖乖|洋芋片/, '🍪'],
+  [/蛋糕|起司蛋糕|布朗尼/, '🎂'],
+  [/巧克力|chocolate/i, '🍫'],
+  [/糖果|軟糖|棒棒糖/, '🍬'],
+  [/冰淇淋|霜淇淋|雪糕|冰/, '🍦'],
+  [/布丁|果凍|仙草|愛玉/, '🍮'],
+  [/甜甜圈|donut/i, '🍩'],
+  // 蛋白質
+  [/雞|烤雞|炸雞|雞腿|雞胸|雞翅/, '🍗'],
+  [/牛肉|牛排|漢堡排/, '🥩'],
+  [/豬|排骨|豬腳|培根|火腿/, '🥓'],
+  [/魚|鮭魚|鮪魚|鱸魚|秋刀魚|鯖魚/, '🐟'],
+  [/蝦|海鮮|螃蟹|透抽|花枝/, '🦐'],
+  [/蛋|荷包蛋|炒蛋|茶葉蛋/, '🥚'],
+  [/豆腐|豆漿/, '🧈'],
+  // 蔬菜 / 沙拉
+  [/沙拉|生菜|萵苣/, '🥗'],
+  [/蔬菜|青菜|花椰菜|菠菜|高麗菜|空心菜/, '🥦'],
+  [/番茄|西紅柿/, '🍅'],
+  [/玉米/, '🌽'],
+  [/地瓜|番薯|馬鈴薯/, '🍠'],
+  // 水果
+  [/蘋果/, '🍎'],
+  [/香蕉/, '🍌'],
+  [/橘子|柳橙|橙/, '🍊'],
+  [/葡萄/, '🍇'],
+  [/西瓜/, '🍉'],
+  [/草莓/, '🍓'],
+  [/水果/, '🍑'],
+  // 湯 / 鍋
+  [/湯|火鍋|麻辣鍋|滷/, '🍲'],
+  [/咖哩|curry/i, '🍛'],
+  [/壽司|生魚片|握壽司/, '🍣'],
+  [/便當|定食/, '🍱'],
+  // 飲料
+  [/牛奶|鮮乳|奶|拿鐵|豆漿/, '🥛'],
+  [/咖啡|coffee/i, '☕'],
+  [/茶|綠茶|紅茶|烏龍茶/, '🍵'],
+  [/可樂|沙士|汽水|果汁|飲料/, '🥤'],
+  [/啤酒|酒/, '🍺'],
+]
+
+function getFoodEmoji(name = '', mealType = '') {
+  const n = name.toLowerCase()
+  for (const [pattern, emoji] of FOOD_EMOJI_MAP) {
+    if (pattern.test(n)) return emoji
+  }
+  return MEAL_EMOJIS[mealType] || '🍽️'
+}
 
 function getTimeOfDay() {
   const h = new Date().getHours()
@@ -176,7 +237,7 @@ export default function Home({ session, profile, onLogMeal }) {
                   style={{ cursor: 'pointer', flexWrap: 'wrap' }}
                 >
                   {/* 主列 */}
-                  <span className="meal-emoji">{MEAL_EMOJIS[meal.meal_type] || '🍽️'}</span>
+                  <span className="meal-emoji">{getFoodEmoji(meal.name, meal.meal_type)}</span>
                   <div className="meal-info">
                     <p className="meal-name">{meal.name}</p>
                     <p className="meal-meta">{formatTime(meal.logged_at)} · {MEAL_TYPE_ZH[meal.meal_type] || meal.meal_type}</p>
