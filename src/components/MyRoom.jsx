@@ -8,8 +8,8 @@ const PET_KEY    = 'zp_pet_v3'
 const PROG_KEY   = 'zp_prog_v2'          // new key → old data ignored
 const FEED_COST  = 30
 const PLAY_COST  = 20
-const CAT_W      = 100                    // SVG display width
-const CAT_H      = 110                    // SVG display height
+const CAT_W      = 120                    // sprite display width per frame
+const CAT_H      = 100                    // sprite approx display height
 
 const STATE_DURATION = { eating: 5000, playing: 8000, scratching: 6000 }
 
@@ -107,8 +107,44 @@ function pickMessage(petState, hunger, mood, energy) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SVG CAT — transparent, state-aware, floor-placed
+// SPRITE CAT — image-based, state-aware, animated
 // ─────────────────────────────────────────────────────────────────────────────
+const SPRITE_CFG = {
+  walking:    { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  sleeping:   { src: '/sprites/sleep.png',   frames: 4, origH: 123 },
+  eating:     { src: '/sprites/eat.png',     frames: 5, origH: 188 },
+  playing:    { src: '/sprites/play.png',    frames: 5, origH: 200 },
+  scratching: { src: '/sprites/scratch.png', frames: 5, origH: 247 },
+  idle:       { src: '/sprites/walk.png',    frames: 1, origH: 185 },
+  hungry:     { src: '/sprites/walk.png',    frames: 1, origH: 185 },
+  veryHungry: { src: '/sprites/walk.png',    frames: 1, origH: 185 },
+}
+const ORIG_STRIP_W = 1408
+
+function CatSprite({ state, isWalking }) {
+  const key = isWalking ? 'walking' : (SPRITE_CFG[state] ? state : 'idle')
+  const cfg = SPRITE_CFG[key]
+  const origFrameW = ORIG_STRIP_W / cfg.frames
+  const scale = CAT_W / origFrameW
+  const dispH = Math.round(cfg.origH * scale)
+  const totalW = CAT_W * cfg.frames
+  const animated = key !== 'idle' && key !== 'hungry' && key !== 'veryHungry'
+  return (
+    <div
+      className={animated ? `cat-sprite-anim-${key}` : ''}
+      style={{
+        width: CAT_W, height: dispH,
+        backgroundImage: `url('${cfg.src}')`,
+        backgroundSize: `${totalW}px ${dispH}px`,
+        backgroundRepeat: 'no-repeat',
+        backgroundPosition: '0 0',
+        imageRendering: 'auto',
+      }}
+    />
+  )
+}
+
+// Legacy — kept to avoid parse errors but unused
 function CatSVG({ state }) {
   const isSleep    = state === 'sleeping'
   const isHungry   = state === 'hungry' || state === 'veryHungry'
@@ -687,7 +723,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
 
           {/* ── CAT ── */}
           <div
-            className={`rm-cat rm-cat-anim-${displayState}`}
+            className="rm-cat"
             style={{
               left:             `${catPos.x}%`,
               bottom:           `${catPos.y}%`,
@@ -710,10 +746,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
               <div key={h.id} className="rm-heart" style={{ left: `calc(50% + ${h.offsetX}px)` }}>💕</div>
             ))}
 
-            {/* The cat — SVG, transparent. Pass petState for correct expression,
-                displayState only drives the animation class on the parent */}
+            {/* Sprite cat — image-based animation */}
             <div className="rm-cat-body">
-              <CatSVG state={petState}/>
+              <CatSprite state={petState} isWalking={isWalking}/>
             </div>
 
             {/* Floor shadow */}

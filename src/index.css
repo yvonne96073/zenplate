@@ -2014,15 +2014,18 @@ body {
   pointer-events: none;
 }
 
-/* ── Cat animations ────────────────────────────────────── */
-.rm-cat-anim-idle .rm-cat-body        { animation: rm-cat-idle    2.6s ease-in-out infinite; }
-.rm-cat-anim-walking .rm-cat-body     { animation: rm-cat-walk    0.38s ease-in-out infinite; }
-.rm-cat-anim-sleeping .rm-cat-body    { animation: rm-cat-sleep   3.8s ease-in-out infinite; }
-.rm-cat-anim-eating .rm-cat-body      { animation: rm-cat-eat     0.42s ease-in-out infinite; }
-.rm-cat-anim-playing .rm-cat-body     { animation: rm-cat-play    0.62s cubic-bezier(0.36,0.07,0.19,0.97) infinite; }
-.rm-cat-anim-scratching .rm-cat-body  { animation: rm-cat-scratch 0.17s linear infinite; }
-.rm-cat-anim-hungry .rm-cat-body      { animation: rm-cat-hungry  0.55s ease-in-out infinite; }
-.rm-cat-anim-veryHungry .rm-cat-body  { animation: rm-cat-vhungry 0.38s ease-in-out infinite; }
+/* ── Cat sprite animations ─────────────────────────────── */
+@keyframes cat-walk    { to { background-position-x: -600px; } }
+@keyframes cat-sleep   { to { background-position-x: -480px; } }
+@keyframes cat-eat     { to { background-position-x: -600px; } }
+@keyframes cat-play    { to { background-position-x: -600px; } }
+@keyframes cat-scratch { to { background-position-x: -600px; } }
+
+.cat-sprite-anim-walking    { animation: cat-walk    0.625s steps(5) infinite; }
+.cat-sprite-anim-sleeping   { animation: cat-sleep   1.333s steps(4) infinite; }
+.cat-sprite-anim-eating     { animation: cat-eat     0.833s steps(5) infinite; }
+.cat-sprite-anim-playing    { animation: cat-play    0.714s steps(5) infinite; }
+.cat-sprite-anim-scratching { animation: cat-scratch 1.0s   steps(5) infinite; }
 
 @keyframes rm-cat-idle {
   0%, 100% { transform: translateY(0)    rotate(-0.5deg) scaleX(1); }
