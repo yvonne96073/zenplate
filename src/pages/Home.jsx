@@ -91,6 +91,7 @@ function DailyQuests({ meals, profile }) {
     {
       icon: '🍽️',
       title: 'Log 3 meals today',
+      desc: 'Each meal earns 1 🌿 Care Energy for your cat',
       progress: Math.min(mealCount, 3),
       total: 3,
       xp: 30,
@@ -99,6 +100,7 @@ function DailyQuests({ meals, profile }) {
     {
       icon: '💪',
       title: `Hit protein goal (${proteinGoal}g)`,
+      desc: 'Bonus 🌿 CE when you nail your macros',
       progress: Math.round(todayProtein),
       total: proteinGoal,
       xp: 40,
@@ -107,6 +109,7 @@ function DailyQuests({ meals, profile }) {
     {
       icon: '🔥',
       title: `Hit calorie goal (${calorieGoal} kcal)`,
+      desc: 'Consistent days build ZenCoin rewards',
       progress: todayCalories,
       total: calorieGoal,
       xp: 50,
@@ -116,12 +119,16 @@ function DailyQuests({ meals, profile }) {
 
   return (
     <div className="section">
-      <h3 className="section-title">Daily Quests</h3>
+      <div className="section-header">
+        <h3 className="section-title">Daily Quests</h3>
+        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)' }}>🌿 = Cat Care Energy</span>
+      </div>
       {quests.map((q, i) => (
         <div key={i} className={`quest-card ${q.done ? 'done' : ''}`}>
           <span className="quest-icon">{q.done ? '✅' : q.icon}</span>
           <div className="quest-info">
             <p className="quest-title">{q.title}</p>
+            <p style={{ fontSize: 10, color: 'var(--muted)', fontWeight: 600, margin: '1px 0 4px' }}>{q.desc}</p>
             <div className="quest-bar-wrap">
               <div className="quest-bar" style={{ width: `${Math.min((q.progress / q.total) * 100, 100)}%` }} />
             </div>

@@ -268,6 +268,60 @@ export const NYCU_DB = [
   { id:'tz-03', restaurantId:'taizu', restaurantZh:'太祖魷魚羹', campus:'guangfu',
     dishZh:'肉羹湯', aliases:['肉羹','羹湯'],
     cal:200, pro:14, carb:22, fat:5, sod:760 },
+
+  // ── 拉亞漢堡 · 光復校區 ──────────────────────────────────────────────────
+  // Source: estimated from 拉亞漢堡 official menu + TFDA similar items
+  // (拉亞漢堡 does not publish full nutrition labels; values are calibrated estimates)
+
+  // 三明治 / 吐司類
+  { id:'la-01', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'精緻三明治', aliases:['精緻sandwich','拉亞三明治','三明治'],
+    cal:380, pro:18, carb:38, fat:16, sod:780 },
+  { id:'la-02', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'總匯三明治', aliases:['總匯sandwich','火腿總匯三明治'],
+    cal:420, pro:20, carb:40, fat:18, sod:850 },
+  { id:'la-03', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'雞腿排三明治', aliases:['雞排三明治','炸雞三明治'],
+    cal:460, pro:24, carb:42, fat:20, sod:900 },
+  { id:'la-04', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'吐司夾蛋', aliases:['烤吐司夾蛋','厚片夾蛋'],
+    cal:310, pro:14, carb:34, fat:13, sod:620 },
+
+  // 漢堡類
+  { id:'la-05', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'雞腿堡', aliases:['炸雞腿堡','拉亞雞腿堡'],
+    cal:450, pro:22, carb:44, fat:20, sod:820 },
+  { id:'la-06', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'牛肉堡', aliases:['漢堡','牛肉漢堡','拉亞漢堡主餐'],
+    cal:400, pro:20, carb:38, fat:18, sod:780 },
+  { id:'la-07', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'豬排堡', aliases:['炸豬排堡','豬排漢堡'],
+    cal:430, pro:20, carb:40, fat:20, sod:800 },
+
+  // 飲料類
+  { id:'la-08', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'鮮奶茶', aliases:['奶茶','拉亞奶茶','熱奶茶','冰奶茶'],
+    cal:140, pro:4, carb:24, fat:3, sod:80 },
+  { id:'la-09', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'鮮奶', aliases:['熱鮮奶','冰鮮奶','牛奶','拉亞鮮奶'],
+    cal:120, pro:6, carb:12, fat:5, sod:100 },
+  { id:'la-10', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'豆漿', aliases:['無糖豆漿','甜豆漿','熱豆漿','冰豆漿','拉亞豆漿','soy milk'],
+    cal:85, pro:7, carb:8, fat:2, sod:110 },
+  { id:'la-11', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'紅茶', aliases:['熱紅茶','冰紅茶','拉亞紅茶'],
+    cal:10, pro:0, carb:2, fat:0, sod:10 },
+  { id:'la-12', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'柳橙汁', aliases:['鮮柳橙','柳丁汁'],
+    cal:110, pro:1, carb:26, fat:0, sod:10 },
+
+  // 薯條 / 點心
+  { id:'la-13', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'薯條', aliases:['炸薯條','拉亞薯條'],
+    cal:290, pro:4, carb:38, fat:14, sod:380 },
+  { id:'la-14', restaurantId:'laiya', restaurantZh:'拉亞漢堡', campus:'guangfu',
+    dishZh:'雞塊', aliases:['炸雞塊','nuggets'],
+    cal:260, pro:16, carb:18, fat:14, sod:520 },
 ]
 
 // ── Normalize helper ──────────────────────────────────────────────────────────
@@ -338,4 +392,5 @@ export const NYCU_RESTAURANTS = {
   woshixuan:     { zh: '和食軒丼飯',      campus: '光復校區' },
   amafantong:    { zh: '阿嬤的飯桶',      campus: '光復校區' },
   taizu:         { zh: '太祖魷魚羹',      campus: '光復校區' },
+  laiya:         { zh: '拉亞漢堡',        campus: '光復校區' },
 }

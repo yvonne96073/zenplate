@@ -6,10 +6,14 @@ import { createPortal } from 'react-dom'
 // ─────────────────────────────────────────────────────────────────────────────
 const PET_KEY    = 'zp_pet_v3'
 const PROG_KEY   = 'zp_prog_v2'          // new key → old data ignored
-const FEED_COST  = 30
-const PLAY_COST  = 20
+const CE_KEY     = 'zp_care_energy'      // Care Energy — earned from logging meals
+const FEED_COST  = 1                      // 1 CE per feed
+const PLAY_COST  = 1                      // 1 CE per play
 const CAT_W      = 120                    // sprite display width per frame
 const CAT_H      = 100                    // sprite approx display height
+
+function loadCE() { return Math.max(0, parseInt(localStorage.getItem(CE_KEY) || '0')) }
+function saveCE(n) { localStorage.setItem(CE_KEY, String(Math.max(0, n))) }
 
 const STATE_DURATION = { eating: 5000, playing: 8000, scratching: 6000 }
 
@@ -38,24 +42,48 @@ export const UNLOCK_MILESTONES = [
 
 export const ROOM_ITEMS = UNLOCK_MILESTONES   // Profile.jsx compat
 
-// ── Room themes ───────────────────────────────────────────────────────────────
-const THEMES = [
-  { id: 'japandi', name: 'Cozy',   emoji: '🪨', req: null,           reqCheck: null },
-  { id: 'cafe',    name: 'Cafe',   emoji: '☕', req: '3-day streak', reqCheck: (_xp, str) => (str||0) >= 3 },
-  { id: 'forest',  name: 'Forest', emoji: '🌿', req: '7-day streak', reqCheck: (_xp, str) => (str||0) >= 7 },
-  { id: 'beach',   name: 'Beach',  emoji: '🌊', req: '100 XP',       reqCheck: (xp) => xp >= 100 },
-  { id: 'night',   name: 'Night',  emoji: '🌙', req: 'Weekly goal',  reqCheck: (_xp, str) => (str||0) >= 7 },
+// ── Room themes — shared with Wardrobe in Profile.jsx ────────────────────────
+// unlock(ctx) where ctx = { streak, zenCoins, mealCount, purchased[] }
+export const THEMES = [
+  { id: 'japandi', name: 'Cozy',   emoji: '🪨', req: null,                unlock: () => true },
+  { id: 'cafe',    name: 'Cafe',   emoji: '☕', req: '3-day streak',      unlock: (c) => c.streak >= 3 },
+  { id: 'forest',  name: 'Forest', emoji: '🌿', req: '7-day streak',      unlock: (c) => c.streak >= 7 },
+  { id: 'ocean',   name: 'Ocean',  emoji: '🌊', req: '50 🪙',             unlock: (c) => c.purchased.includes('ocean') },
+  { id: 'night',   name: 'Night',  emoji: '🌙', req: '100 🪙',            unlock: (c) => c.purchased.includes('night') },
 ]
 
-// ── Cat accessories ───────────────────────────────────────────────────────────
-const ACCESSORIES = [
-  { id: 'none',         name: 'None',         emoji: '—',  dispEmoji: null, req: null,              check: () => true },
-  { id: 'green_collar', name: 'Green Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',          check: () => true },
-  { id: 'bell_collar',  name: 'Bell Collar',  emoji: '🔔', dispEmoji: '🔔', req: '3 feeds',         check: (p) => p.feedCount >= 3 },
-  { id: 'sunny_scarf',  name: 'Sunny Scarf',  emoji: '🌻', dispEmoji: '🌻', req: '5 healthy meals', check: (p) => p.feedCount >= 5 },
-  { id: 'tiny_hat',     name: 'Tiny Hat',     emoji: '🎩', dispEmoji: '🎩', req: '10 feeds',        check: (p) => p.feedCount >= 10 },
-  { id: 'bow_tie',      name: 'Bow Tie',      emoji: '🎀', dispEmoji: '🎀', req: '50 XP',           check: (p, s, xp) => xp >= 50 },
+// ── Cat accessories — shared with Wardrobe in Profile.jsx ────────────────────
+export const ACCESSORIES = [
+  { id: 'none',         name: 'None',         emoji: '—',  dispEmoji: null, req: null,             unlock: () => true },
+  { id: 'green_collar', name: 'Green Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',         unlock: () => true },
+  { id: 'bell_collar',  name: 'Bell Collar',  emoji: '🔔', dispEmoji: '🔔', req: '3-day streak',   unlock: (c) => c.streak >= 3 },
+  { id: 'sunny_scarf',  name: 'Sunny Scarf',  emoji: '🌻', dispEmoji: '🌻', req: '5 Healthy Days', unlock: (c) => c.mealCount >= 5 },
+  { id: 'tiny_hat',     name: 'Tiny Hat',     emoji: '🎩', dispEmoji: '🎩', req: '80 🪙',          unlock: (c) => c.purchased.includes('tiny_hat') },
+  { id: 'bow_tie',      name: 'Bow Tie',      emoji: '🎀', dispEmoji: '🎀', req: '50 🪙',          unlock: (c) => c.purchased.includes('bow_tie') },
 ]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DAILY QUOTE
+// ─────────────────────────────────────────────────────────────────────────────
+const DAILY_QUOTES = [
+  "Hope and happiness grow when you make room for what you love.",
+  "Life feels brighter when you spend time on what matters to you.",
+  "Little healthy choices can lead to beautiful changes.",
+  "You are building a life that cares for both body and mind.",
+  "Small steps still count, especially the gentle ones.",
+  "A calm routine can create powerful change.",
+  "Taking care of yourself is never a small thing.",
+  "Progress can be quiet and still meaningful.",
+  "Joy often grows from the little things we keep doing.",
+  "Healthy habits are a form of self-kindness.",
+]
+
+function getDailyQuote() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), 0, 0)
+  const day = Math.floor((now - start) / 86400000)
+  return DAILY_QUOTES[day % DAILY_QUOTES.length]
+}
 
 function getUnlocks(prog, streak) {
   const r = {}
@@ -339,7 +367,7 @@ const STATE_LABEL = {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, onSpendXP }) {
+export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }) {
   // ── Pet state ──────────────────────────────────────────────────────────────
   const [inited,     setInited]     = useState(false)
   const [petState,   setPetState]   = useState('idle')
@@ -351,12 +379,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   const [flipX,      setFlipX]      = useState(false)
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  const [message,    setMessage]    = useState(null)
-  const [showMsg,    setShowMsg]    = useState(false)
-  const [xpFlash,    setXpFlash]    = useState(null)
-  const [wakeDialog, setWakeDialog] = useState(false)
-  const [localXP,    setLocalXP]    = useState(xp || 0)
-  const [hearts,     setHearts]     = useState([])         // [{id,offsetX}]
+  const [message,     setMessage]     = useState(null)
+  const [showMsg,     setShowMsg]     = useState(false)
+  const [xpFlash,     setXpFlash]     = useState(null)
+  const [wakeDialog,  setWakeDialog]  = useState(false)
+  const [careEnergy,  setCareEnergy]  = useState(loadCE)   // Care Energy — local only
+  const [hearts,      setHearts]      = useState([])       // [{id,offsetX}]
   const [unlockPop,  setUnlockPop]  = useState(null)       // milestone obj
   const [equippedTheme, setEquippedTheme] = useState(() => {
     try { return localStorage.getItem('zp_theme') || 'japandi' } catch { return 'japandi' }
@@ -368,7 +396,13 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   // ── Progression ───────────────────────────────────────────────────────────
   const [prog,       setProg]       = useState(defaultProg)
 
-  useEffect(() => setLocalXP(xp || 0), [xp])
+  const zenCoins   = Math.floor((xp || 0) / 2)
+  const purchased  = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('zp_purchased') || '[]') } catch { return [] }
+  }, [])
+  const unlockCtx  = useMemo(() => ({
+    streak: streak || 0, zenCoins, mealCount: mealCount || 0, purchased,
+  }), [streak, zenCoins, mealCount, purchased])
 
   const unlocks = useMemo(() => getUnlocks(prog, streak || 0), [prog, streak])
 
@@ -449,14 +483,16 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
     }, Math.max(1300, dist * 60))
   }, [])
 
-  const spendXP = useCallback((amount) => {
-    if (localXP < amount) return false
-    setLocalXP(p => p - amount)
-    onSpendXP?.(amount)
-    setXpFlash(`-${amount} XP`)
+  const spendCE = useCallback((amount) => {
+    const curr = loadCE()
+    if (curr < amount) return false
+    const next = curr - amount
+    saveCE(next)
+    setCareEnergy(next)
+    setXpFlash(`-${amount} 🌿`)
     setTimeout(() => setXpFlash(null), 1800)
     return true
-  }, [localXP, onSpendXP])
+  }, [])
 
   // ── Hearts ────────────────────────────────────────────────────────────────
   const showHearts = useCallback(() => {
@@ -506,10 +542,15 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
     const BUSY = ['sleeping', 'eating', 'playing', 'scratching']
     const doWander = () => {
       if (!BUSY.includes(stateRef.current) && !isWalkRef.current) {
-        const x = 8 + Math.random() * 84   // 8~92% of room width
-        walkTo({ x, y: 8 }, null)
+        const x = 15 + Math.random() * 65  // keep cat 15–80% — away from edges
+        walkTo({ x, y: 8 }, () => {
+          // Arrived: pause naturally, then wander again
+          wanderTimer.current = setTimeout(doWander, 2000 + Math.random() * 2000)
+        })
+      } else {
+        // Cat is busy or mid-walk — check again shortly
+        wanderTimer.current = setTimeout(doWander, 1500)
       }
-      wanderTimer.current = setTimeout(doWander, 2500 + Math.random() * 3000)
     }
     wanderTimer.current = setTimeout(doWander, 800)
     return () => clearTimeout(wanderTimer.current)
@@ -578,7 +619,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   }
 
   const doFeed = () => {
-    if (!spendXP(FEED_COST)) return
+    if (!spendCE(FEED_COST)) return
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
     walkTo(OBJ.bowl, () => {
       setPetState('eating')
@@ -609,7 +650,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   }
 
   const doPlay = () => {
-    if (!spendXP(PLAY_COST)) return
+    if (!spendCE(PLAY_COST)) return
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
     const dest = unlocksRef.current.toy ? OBJ.toy : OBJ.center
     walkTo(dest, () => {
@@ -648,8 +689,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   // ── Derived ───────────────────────────────────────────────────────────────
   const displayState    = isWalking ? 'walking' : petState
   const label           = STATE_LABEL[displayState] || STATE_LABEL.idle
-  const canFeed         = localXP >= FEED_COST
-  const canPlay         = localXP >= PLAY_COST && energy >= 20
+  const canFeed         = careEnergy >= FEED_COST
+  const canPlay         = careEnergy >= PLAY_COST && energy >= 20
   const fullness        = 100 - hunger   // flip: higher = fuller (intuitive)
   const fullnessColor   = fullness >= 70 ? '#43A047' : fullness >= 30 ? '#FB8C00' : '#E53935'
   const moodColor       = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
@@ -685,9 +726,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <div className="rm-header">
           <span className="rm-title">🌿 My Room</span>
-          <div className="rm-xp">
-            <span>⚡</span>
-            <span>{localXP.toLocaleString()} XP</span>
+          <div className="rm-xp" title="Log meals to earn Care Energy">
+            <span>🌿</span>
+            <span>{careEnergy} CE</span>
           </div>
           <button className="rm-close" onClick={onClose}>✕</button>
         </div>
@@ -752,10 +793,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             {/* Sprite cat — image-based animation */}
             <div className="rm-cat-body">
               <CatSprite state={petState} isWalking={isWalking}/>
-              {activeAcc?.dispEmoji && (
-                <div className="rm-cat-acc">{activeAcc.dispEmoji}</div>
-              )}
             </div>
+
+            {/* Accessory overlay — outside rm-cat-body to avoid overflow:hidden clipping */}
+            {activeAcc?.dispEmoji && (
+              <div className="rm-cat-acc">{activeAcc.dispEmoji}</div>
+            )}
 
             {/* Floor shadow */}
             <div className="rm-cat-shadow"/>
@@ -794,7 +837,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
           {/* Encouraging quote */}
           <div className="rm-quote">
             <span className="rm-quote-label">A little note ✨</span>
-            <p className="rm-quote-text">"Hope and happiness grow when you make room for what you love."</p>
+            <p className="rm-quote-text">"{getDailyQuote()}"</p>
           </div>
 
           {/* Cat status */}
@@ -826,8 +869,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Feed</span>
                 {canFeed
-                  ? <span className="rm-btn-effect">Fullness +45 · {FEED_COST} XP</span>
-                  : <span className="rm-btn-cost">{localXP} / {FEED_COST} XP · Need {FEED_COST - localXP} more</span>
+                  ? <span className="rm-btn-effect">Fullness +45 · 1 🌿 CE</span>
+                  : <span className="rm-btn-cost">No Care Energy · Log a meal to earn 🌿</span>
                 }
               </div>
             </button>
@@ -841,9 +884,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Play</span>
                 {canPlay
-                  ? <span className="rm-btn-effect">Mood +20 · {PLAY_COST} XP</span>
-                  : localXP < PLAY_COST
-                    ? <span className="rm-btn-cost">{localXP} / {PLAY_COST} XP · Need {PLAY_COST - localXP} more</span>
+                  ? <span className="rm-btn-effect">Mood +20 · 1 🌿 CE</span>
+                  : careEnergy < PLAY_COST
+                    ? <span className="rm-btn-cost">No Care Energy · Log a meal to earn 🌿</span>
                     : <span className="rm-btn-cost">Too tired 😴</span>
                 }
               </div>
@@ -858,7 +901,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             <div className="rm-theme-row">
               {THEMES.map(t => {
                 const isOn = equippedTheme === t.id
-                const ok   = !t.reqCheck || t.reqCheck(localXP, streak || 0, prog.feedCount)
+                const ok   = !t.unlock || t.unlock(unlockCtx)
                 return (
                   <button
                     key={t.id}
@@ -878,7 +921,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             <div className="rm-acc-grid">
               {ACCESSORIES.map(a => {
                 const isOn      = equippedAcc === a.id
-                const unlocked  = a.check(prog, streak || 0, localXP)
+                const unlocked  = a.unlock(unlockCtx)
                 return (
                   <button
                     key={a.id}

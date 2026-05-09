@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getLevel, getLevelXp, getNextLevelXp } from '../hooks/useProfile'
 import { calcZenCoins } from '../utils/scoring'
 import { calcNutritionGoals } from '../utils/nutrition'
-import MyRoom from '../components/MyRoom'
+import MyRoom, { THEMES, ACCESSORIES } from '../components/MyRoom'
 
 const AVATAR_SEEDS = ['Felix', 'Lily', 'Zoe', 'Luna', 'Mia', 'Kai', 'Leo', 'Aria', 'Sam', 'Nova']
 const DICEBEAR = (seed) => `https://api.dicebear.com/9.x/initials/svg?seed=${seed}&backgroundColor=2BB5A0&textColor=ffffff&fontSize=40`
@@ -70,37 +70,40 @@ function getQuestResetTime() {
   return `${h}h ${m}m`
 }
 
-// ── Wardrobe: 4 sets, 22 items total ─────────────────────────
-function buildWardrobe(level, streak, xp, mealCount) {
-  return [
-    // 🌿 Forest Set
-    { set: '🌿 Forest', emoji: '🌿', name: 'Forest Hat',    unlocked: true,            lock: '' },
-    { set: '🌿 Forest', emoji: '🍃', name: 'Leaf Cape',     unlocked: xp >= 50,        lock: `50 XP (${xp}/50)` },
-    { set: '🌿 Forest', emoji: '🌲', name: 'Tree Shield',   unlocked: streak >= 5,     lock: `5d streak (${streak}/5)` },
-    { set: '🌿 Forest', emoji: '🦔', name: 'Hedgehog Pal',  unlocked: mealCount >= 10, lock: `10 meals (${mealCount}/10)` },
-    { set: '🌿 Forest', emoji: '🍄', name: 'Mushroom Cap',  unlocked: xp >= 150,       lock: `150 XP (${xp}/150)` },
-    // 🌊 Ocean Set
-    { set: '🌊 Ocean', emoji: '🐚', name: 'Shell Crown',    unlocked: xp >= 300,       lock: `300 XP (${xp}/300)` },
-    { set: '🌊 Ocean', emoji: '🌊', name: 'Wave Scarf',     unlocked: streak >= 10,    lock: `10d streak (${streak}/10)` },
-    { set: '🌊 Ocean', emoji: '🐠', name: 'Fish Charm',     unlocked: mealCount >= 20, lock: `20 meals (${mealCount}/20)` },
-    { set: '🌊 Ocean', emoji: '🦈', name: 'Shark Fin',      unlocked: xp >= 600,       lock: `600 XP (${xp}/600)` },
-    { set: '🌊 Ocean', emoji: '🐙', name: 'Octo Cape',      unlocked: streak >= 21,    lock: `21d streak (${streak}/21)` },
-    // 🚀 Space Set
-    { set: '🚀 Space', emoji: '⭐', name: 'Star Cape',      unlocked: xp >= 200,       lock: `200 XP (${xp}/200)` },
-    { set: '🚀 Space', emoji: '🚀', name: 'Rocket Badge',   unlocked: level >= 5,      lock: `Lv.5 (now ${level})` },
-    { set: '🚀 Space', emoji: '🌙', name: 'Moon Dress',     unlocked: streak >= 30,    lock: `30d streak (${streak}/30)` },
-    { set: '🚀 Space', emoji: '🛸', name: 'UFO Hat',        unlocked: xp >= 1000,      lock: `1000 XP (${xp}/1000)` },
-    { set: '🚀 Space', emoji: '🌌', name: 'Galaxy Cloak',   unlocked: level >= 8,      lock: `Lv.8 (now ${level})` },
-    // 👑 Royal Set
-    { set: '👑 Royal', emoji: '🎀', name: 'Pink Ribbon',   unlocked: streak >= 3,     lock: `3d streak (${streak}/3)` },
-    { set: '👑 Royal', emoji: '👑', name: 'Gold Crown',    unlocked: level >= 10,     lock: `Lv.10 (now ${level})` },
-    { set: '👑 Royal', emoji: '💎', name: 'Diamond Ring',  unlocked: xp >= 1500,      lock: `1500 XP (${xp}/1500)` },
-    { set: '👑 Royal', emoji: '🏆', name: 'Trophy',        unlocked: mealCount >= 50, lock: `50 meals (${mealCount}/50)` },
-    { set: '👑 Royal', emoji: '🦋', name: 'Butterfly',     unlocked: xp >= 500,       lock: `500 XP (${xp}/500)` },
-    { set: '👑 Royal', emoji: '🔮', name: 'Mystery Orb',   unlocked: level >= 15,     lock: `Lv.15 (now ${level})` },
-    { set: '👑 Royal', emoji: '🎭', name: 'Phantom Mask',  unlocked: streak >= 21,    lock: `21d streak (${streak}/21)` },
-  ]
-}
+// ── Zen Rewards — themed collections ─────────────────────────
+const ZEN_COLLECTIONS = [
+  {
+    name: '🌿 Forest',
+    items: [
+      { id: 'leaf_collar',   emoji: '🍃', name: 'Leaf Collar',   price: 30,  desc: 'A fresh forest touch' },
+      { id: 'mushroom_hat',  emoji: '🍄', name: 'Mushroom Hat',  price: 60,  desc: 'Cozy forest headwear' },
+    ],
+  },
+  {
+    name: '🌊 Ocean',
+    items: [
+      { id: 'ocean',         emoji: '🌊', name: 'Ocean Theme',   price: 50,  desc: 'Unlocks in My Room — dive into the deep blue' },
+      { id: 'wave_scarf',    emoji: '〰️', name: 'Wave Scarf',    price: 40,  desc: 'Flow with the ocean waves' },
+      { id: 'shell_crown',   emoji: '🐚', name: 'Shell Crown',   price: 80,  desc: 'Royal sea treasure' },
+    ],
+  },
+  {
+    name: '🌙 Night',
+    items: [
+      { id: 'night',         emoji: '🌙', name: 'Night Theme',   price: 100, desc: 'Unlocks in My Room — starry night vibes' },
+      { id: 'star_cape',     emoji: '⭐', name: 'Star Cape',     price: 70,  desc: 'Shine across the cosmos' },
+      { id: 'moon_hat',      emoji: '🌙', name: 'Moon Hat',      price: 90,  desc: 'Reach for the moon' },
+    ],
+  },
+]
+
+const ZEN_FEATURED = [
+  { id: 'tiny_hat',      emoji: '🎩', name: 'Tiny Hat',      price: 80,  desc: 'Unlocks in My Room — dapper cat accessory' },
+  { id: 'bow_tie',       emoji: '🎀', name: 'Bow Tie',       price: 50,  desc: 'Unlocks in My Room — dress your cat in style' },
+  { id: 'rainbow_hat',   emoji: '🌈', name: 'Rainbow Hat',   price: 100, desc: 'Celebrate your healthy wins' },
+  { id: 'flower_crown',  emoji: '🌺', name: 'Flower Crown',  price: 90,  desc: 'Bloom beautifully' },
+  { id: 'party_hat',     emoji: '🎉', name: 'Party Hat',     price: 120, desc: 'Every healthy day is worth celebrating' },
+]
 
 // ── Quest pool: 10 quests, pick 3 per day by date-seed ───────
 function buildQuestPool(meals, profile) {
@@ -138,18 +141,8 @@ function getDailyQuestIndices() {
 }
 
 const DAILY_INDICES = getDailyQuestIndices()
-const ROOM_ITEMS_COUNT = 18  // matches MyRoom.ROOM_ITEMS.length
 
-const SHOP_ITEMS = [
-  { emoji: '🌈', name: 'Rainbow Hat',   price: 100, desc: 'Colourful headwear' },
-  { emoji: '🛡️', name: 'Streak Shield', price: 150, desc: 'Protect streak for 1 day' },
-  { emoji: '🔮', name: 'XP Boost',      price: 80,  desc: '+50 XP instantly' },
-  { emoji: '🎭', name: 'Mystery Mask',  price: 200, desc: 'Rare cosmetic item' },
-  { emoji: '🍀', name: 'Lucky Charm',   price: 60,  desc: '+10% XP for today' },
-  { emoji: '🎪', name: 'Party Hat',     price: 120, desc: 'Celebrate your wins' },
-  { emoji: '💫', name: 'Sparkle Wand',  price: 180, desc: 'Dazzle everyone' },
-  { emoji: '🌺', name: 'Flower Crown',  price: 90,  desc: 'Blooming beautiful' },
-]
+// (Shop replaced by ZEN_COLLECTIONS + ZEN_FEATURED above)
 
 // ── Nutrition calculator helper ────────────────────────────────
 const ACTIVITY_LABELS = [
@@ -179,9 +172,14 @@ export default function Profile({ session, profile, updateProfile }) {
   const [mealCount, setMealCount]           = useState(0)
   const [todayMeals, setTodayMeals]         = useState([])
   const [notif, setNotif]                   = useState({ meals: true, streaks: true, tips: false })
-  const [toast, setToast]                   = useState('')
-  const [equippedItem, setEquippedItem]     = useState(
-    () => localStorage.getItem(`zp_eq_${session.user.id}`) || 'Forest Hat'
+  const [toast, setToast]           = useState('')
+  const [equippedTheme, setEquippedTheme] = useState(() => localStorage.getItem('zp_theme') || 'japandi')
+  const [equippedAcc, setEquippedAcc]     = useState(() => localStorage.getItem('zp_acc')   || 'green_collar')
+  const [purchases, setPurchases]         = useState(() => {
+    try { return JSON.parse(localStorage.getItem('zp_purchased') || '[]') } catch { return [] }
+  })
+  const [zenSpent, setZenSpent]           = useState(() =>
+    parseInt(localStorage.getItem('zp_zen_spent') || '0')
   )
 
   // Calculator form state
@@ -210,21 +208,31 @@ export default function Profile({ session, profile, updateProfile }) {
   const handleSignOut = () => supabase.auth.signOut()
   const displayName = session.user.user_metadata?.full_name || session.user.email?.split('@')[0]
 
-  const xp       = profile?.xp || 0
-  const streak   = profile?.streak || 0
-  const level    = getLevel(xp)
-  const levelEnd = getNextLevelXp(level)
-  const xpPct    = Math.round(((xp - getLevelXp(level)) / (levelEnd - getLevelXp(level))) * 100)
-  const zenCoins = calcZenCoins(xp)
+  const xp         = profile?.xp || 0
+  const streak     = profile?.streak || 0
+  const level      = getLevel(xp)
+  const levelEnd   = getNextLevelXp(level)
+  const xpPct      = Math.round(((xp - getLevelXp(level)) / (levelEnd - getLevelXp(level))) * 100)
+  const zenCoins   = calcZenCoins(xp)
+  const spendableZC = Math.max(0, zenCoins - zenSpent)   // actual available balance
 
-  const wardrobeItems = buildWardrobe(level, streak, xp, mealCount)
-  const previewItems  = wardrobeItems.slice(0, 5)  // first 5 in horizontal strip
+  // Unlock context — shared with My Room's THEMES/ACCESSORIES
+  const unlockCtx = { streak, zenCoins, mealCount, purchased: purchases }
 
-  const handleEquip = (item) => {
-    if (!item.unlocked) { showToast(`🔒 ${item.lock}`); return }
-    localStorage.setItem(`zp_eq_${session.user.id}`, item.name)
-    setEquippedItem(item.name)
-    showToast(`✅ ${item.name} equipped!`)
+  const handleEquipTheme = (id) => {
+    const t = THEMES.find(x => x.id === id)
+    if (!t?.unlock(unlockCtx)) { showToast(`🔒 Unlock: ${t?.req}`); return }
+    setEquippedTheme(id)
+    localStorage.setItem('zp_theme', id)
+    showToast(`✅ ${t.name} theme equipped!`)
+  }
+
+  const handleEquipAcc = (id) => {
+    const a = ACCESSORIES.find(x => x.id === id)
+    if (!a?.unlock(unlockCtx)) { showToast(`🔒 Unlock: ${a?.req}`); return }
+    setEquippedAcc(id)
+    localStorage.setItem('zp_acc', id)
+    showToast(`✅ ${a.name} equipped!`)
   }
 
   // Achievements list
@@ -272,13 +280,21 @@ export default function Profile({ session, profile, updateProfile }) {
   }
 
   const handleBuy = (item) => {
-    if (zenCoins < item.price) { showToast('🪙 Not enough ZenCoins!'); return }
-    showToast(`✅ Bought ${item.name}!`)
-    setShowShop(false)
+    if (purchases.includes(item.id)) { showToast(`✅ Already owned!`); return }
+    if (spendableZC < item.price) { showToast(`🪙 Need ${item.price} ZenCoins (have ${spendableZC})`); return }
+    const newSpent    = zenSpent + item.price
+    const newPurchases = [...purchases, item.id]
+    localStorage.setItem('zp_zen_spent',  String(newSpent))
+    localStorage.setItem('zp_purchased',  JSON.stringify(newPurchases))
+    setZenSpent(newSpent)
+    setPurchases(newPurchases)
+    showToast(`✅ ${item.name} added to wardrobe!`)
   }
 
-  const notifCount = Object.values(notif).filter(Boolean).length
-  const unlockedCount = wardrobeItems.filter(w => w.unlocked).length
+  const notifCount    = Object.values(notif).filter(Boolean).length
+  const unlockedThemes = THEMES.filter(t => !t.unlock || t.unlock(unlockCtx)).length
+  const unlockedAccs   = ACCESSORIES.filter(a => a.unlock(unlockCtx)).length
+  const unlockedCount  = unlockedThemes + unlockedAccs
 
   return (
     <>
@@ -290,7 +306,7 @@ export default function Profile({ session, profile, updateProfile }) {
         <div className="pf-av" onClick={() => setEditingAvatar(true)}>
           <img src={DICEBEAR(profile?.avatar || 'Felix')} alt="avatar" />
           <div className="pf-av-badge">
-            {wardrobeItems.find(w => w.name === equippedItem)?.emoji || '🌿'}
+            {ACCESSORIES.find(a => a.id === equippedAcc && a.dispEmoji)?.dispEmoji || '🌿'}
           </div>
         </div>
         <p className="pf-name">{displayName}</p>
@@ -302,8 +318,8 @@ export default function Profile({ session, profile, updateProfile }) {
         <div className="pf-stats-row">
           <div className="pf-stat"><div className="pf-snum">🔥 {streak}</div><div className="pf-slbl">Streak</div></div>
           <div className="pf-stat"><div className="pf-snum">Lv.{level}</div><div className="pf-slbl">Level</div></div>
-          <div className="pf-stat"><div className="pf-snum">{xp}</div><div className="pf-slbl">Total XP</div></div>
-          <div className="pf-stat"><div className="pf-snum">🪙{zenCoins}</div><div className="pf-slbl">ZenCoins</div></div>
+          <div className="pf-stat"><div className="pf-snum">🪙 {spendableZC}</div><div className="pf-slbl">ZenCoins</div></div>
+          <div className="pf-stat"><div className="pf-snum">🌿 {Math.max(0, parseInt(localStorage.getItem('zp_care_energy')||'0'))}</div><div className="pf-slbl">Care Energy</div></div>
         </div>
       </div>
 
@@ -327,49 +343,39 @@ export default function Profile({ session, profile, updateProfile }) {
       {/* ── Wardrobe ── */}
       <div className="section">
         <div className="section-header">
-          <h3 className="section-title">👗 My Wardrobe</h3>
+          <h3 className="section-title">👗 Wardrobe</h3>
           <span className="view-all-link" onClick={() => setShowAllWardrobe(true)}>
-            {unlockedCount}/{wardrobeItems.length} · View All ›
+            {unlockedCount}/{THEMES.length + ACCESSORIES.length} · Manage ›
           </span>
         </div>
-        <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 8, fontWeight: 600 }}>
-          Equipped: <strong>{equippedItem}</strong> · Tap to change
-        </p>
-        <div className="wardrobe-scroll">
-          {previewItems.map((item, i) => (
-            <div key={i}
-              className={`w-item ${equippedItem === item.name ? 'equipped' : ''} ${!item.unlocked ? 'locked' : ''}`}
-              style={{ cursor: 'pointer' }}
-              onClick={() => handleEquip(item)}>
-              <div className="w-emoji">{item.emoji}</div>
-              <div className="w-name">{item.name}</div>
-              <div className={`w-status ${equippedItem === item.name ? 'eq' : !item.unlocked ? 'lk' : ''}`}>
-                {equippedItem === item.name ? 'Equipped' : !item.unlocked ? '🔒' : 'Owned'}
-              </div>
+        <div className="wd-preview-row">
+          <div className="wd-preview-chip">
+            <span className="wd-chip-icon">{THEMES.find(t => t.id === equippedTheme)?.emoji}</span>
+            <div className="wd-chip-info">
+              <span className="wd-chip-label">Theme</span>
+              <span className="wd-chip-name">{THEMES.find(t => t.id === equippedTheme)?.name}</span>
             </div>
-          ))}
-          <div className="w-item" style={{ cursor: 'pointer', borderStyle: 'dashed' }} onClick={() => setShowAllWardrobe(true)}>
-            <div className="w-emoji">→</div>
-            <div className="w-name">More</div>
-            <div className="w-status">+{wardrobeItems.length - 5}</div>
           </div>
+          <div className="wd-preview-chip">
+            <span className="wd-chip-icon">{ACCESSORIES.find(a => a.id === equippedAcc)?.emoji}</span>
+            <div className="wd-chip-info">
+              <span className="wd-chip-label">Accessory</span>
+              <span className="wd-chip-name">{ACCESSORIES.find(a => a.id === equippedAcc)?.name}</span>
+            </div>
+          </div>
+          <button className="wd-manage-btn" onClick={() => setShowAllWardrobe(true)}>Edit ›</button>
         </div>
       </div>
 
       {/* ── My Room ── */}
       <div className="section">
-        <div className="section-header">
-          <h3 className="section-title">🏠 My Room</h3>
-          <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--muted)' }}>
-            {ROOM_ITEMS_COUNT} furniture items
-          </span>
-        </div>
+        <h3 className="section-title">🏠 My Room</h3>
         <button className="room-entry-btn" onClick={() => setShowRoom(true)}>
           <div className="room-entry-inner">
-            <span className="room-entry-icon">🏠</span>
+            <span className="room-entry-icon">🐱</span>
             <div className="room-entry-text">
-              <div className="room-entry-title">Enter My Room</div>
-              <div className="room-entry-sub">Decorate your space with earned furniture</div>
+              <div className="room-entry-title">Visit Your Cat</div>
+              <div className="room-entry-sub">Use 🌿 Care Energy to feed &amp; play · earned by logging meals</div>
             </div>
             <span className="room-entry-arrow">›</span>
           </div>
@@ -447,11 +453,11 @@ export default function Profile({ session, profile, updateProfile }) {
         <div className="setting-row" onClick={() => setShowShop(true)}>
           <div className="sr-icon" style={{ background: '#FFF4E4' }}>🪙</div>
           <div className="sr-info">
-            <div className="sr-name">ZenCoin Shop</div>
-            <div className="sr-sub">{zenCoins} coins available</div>
+            <div className="sr-name">Zen Rewards</div>
+            <div className="sr-sub">🪙 {spendableZC} available · cosmetic collections</div>
           </div>
           <div className="sr-right">
-            <div className="sr-badge" style={{ background: '#FAEEDA', color: '#633806' }}>Shop</div>
+            <div className="sr-badge" style={{ background: '#FAEEDA', color: '#633806' }}>Rewards</div>
             <div className="sr-arrow">›</div>
           </div>
         </div>
@@ -575,26 +581,50 @@ export default function Profile({ session, profile, updateProfile }) {
       )}
 
       {showAllWardrobe && (
-        <Modal title="👗 My Wardrobe" onClose={() => setShowAllWardrobe(false)}>
-          {['🌿 Forest', '🌊 Ocean', '🚀 Space', '👑 Royal'].map(setName => (
-            <div key={setName} style={{ marginBottom: 16 }}>
-              <p style={{ fontSize: 12, fontWeight: 800, color: 'var(--muted)', marginBottom: 8 }}>{setName} Set</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                {wardrobeItems.filter(w => w.set === setName).map((item, i) => (
-                  <div key={i}
-                    className={`w-item ${equippedItem === item.name ? 'equipped' : ''} ${!item.unlocked ? 'locked' : ''}`}
-                    style={{ cursor: 'pointer', width: '100%' }}
-                    onClick={() => { handleEquip(item); if (item.unlocked) setShowAllWardrobe(false) }}>
-                    <div className="w-emoji">{item.emoji}</div>
-                    <div className="w-name">{item.name}</div>
-                    <div className={`w-status ${equippedItem === item.name ? 'eq' : !item.unlocked ? 'lk' : ''}`}>
-                      {equippedItem === item.name ? '✓' : !item.unlocked ? '🔒' : 'Own'}
-                    </div>
+        <Modal title="👗 Wardrobe" onClose={() => setShowAllWardrobe(false)}>
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14, fontWeight: 600 }}>
+            Tap to equip · 🔒 items unlock by milestone or 🪙 purchase in Zen Rewards
+          </p>
+
+          <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Themes</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
+            {THEMES.map(t => {
+              const isOn     = equippedTheme === t.id
+              const unlocked = !t.unlock || t.unlock(unlockCtx)
+              return (
+                <div key={t.id}
+                  className={`w-item ${isOn ? 'equipped' : ''} ${!unlocked ? 'locked' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleEquipTheme(t.id)}>
+                  <div className="w-emoji">{t.emoji}</div>
+                  <div className="w-name">{t.name}</div>
+                  <div className={`w-status ${isOn ? 'eq' : !unlocked ? 'lk' : ''}`}>
+                    {isOn ? '✓ On' : !unlocked ? `🔒 ${t.req}` : 'Equip'}
                   </div>
-                ))}
-              </div>
-            </div>
-          ))}
+                </div>
+              )
+            })}
+          </div>
+
+          <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Accessories</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {ACCESSORIES.map(a => {
+              const isOn     = equippedAcc === a.id
+              const unlocked = a.unlock(unlockCtx)
+              return (
+                <div key={a.id}
+                  className={`w-item ${isOn ? 'equipped' : ''} ${!unlocked ? 'locked' : ''}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => handleEquipAcc(a.id)}>
+                  <div className="w-emoji">{a.emoji}</div>
+                  <div className="w-name">{a.name}</div>
+                  <div className={`w-status ${isOn ? 'eq' : !unlocked ? 'lk' : ''}`}>
+                    {isOn ? '✓ On' : !unlocked ? `🔒 ${a.req}` : 'Equip'}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
         </Modal>
       )}
 
@@ -632,28 +662,85 @@ export default function Profile({ session, profile, updateProfile }) {
           mealCount={mealCount}
           level={level}
           onClose={() => setShowRoom(false)}
-          onSpendXP={(amount) => updateProfile({ xp: Math.max(0, (profile?.xp || 0) - amount) })}
         />
       )}
 
       {showShop && (
-        <Modal title="🪙 ZenCoin Shop" onClose={() => setShowShop(false)}>
-          <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 16 }}>
-            Balance: <strong style={{ color: 'var(--accent)' }}>🪙 {zenCoins}</strong>
-          </p>
-          {SHOP_ITEMS.map((item, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg)', borderRadius: 14, padding: '12px 14px', marginBottom: 8 }}>
-              <span style={{ fontSize: 28 }}>{item.emoji}</span>
-              <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--dark)' }}>{item.name}</p>
-                <p style={{ fontSize: 11, color: 'var(--muted)' }}>{item.desc}</p>
+        <Modal title="✨ Zen Rewards" onClose={() => setShowShop(false)}>
+          {/* Balance bar */}
+          <div className="zr-balance-bar">
+            <div>
+              <p className="zr-balance-label">Your ZenCoins</p>
+              <p className="zr-balance-amt">🪙 {spendableZC}</p>
+            </div>
+            <p className="zr-balance-hint">Earn by eating well &amp; building streaks</p>
+          </div>
+
+          {/* How to earn */}
+          <div className="zr-earn-row">
+            {[
+              { icon: '🥗', act: 'Log a meal',      reward: '+5 🪙' },
+              { icon: '🌟', act: 'Healthy day',      reward: '+20 🪙' },
+              { icon: '🔥', act: '3-day streak',     reward: '+30 🪙' },
+              { icon: '🏆', act: 'Weekly goal',      reward: '+50 🪙' },
+            ].map(e => (
+              <div key={e.act} className="zr-earn-chip">
+                <span className="zr-earn-icon">{e.icon}</span>
+                <span className="zr-earn-act">{e.act}</span>
+                <span className="zr-earn-reward">{e.reward}</span>
               </div>
-              <button onClick={() => handleBuy(item)} style={{
-                background: zenCoins >= item.price ? 'var(--accent)' : 'var(--border)',
-                color: zenCoins >= item.price ? 'white' : 'var(--muted)',
-                border: 'none', borderRadius: 10, padding: '6px 12px',
-                fontFamily: 'Nunito', fontWeight: 800, fontSize: 12, cursor: 'pointer',
-              }}>🪙 {item.price}</button>
+            ))}
+          </div>
+
+          {/* Featured */}
+          <p className="zr-section-label">⭐ Featured</p>
+          <div className="zr-item-list">
+            {ZEN_FEATURED.map(item => {
+              const owned = purchases.includes(item.id)
+              const canBuy = spendableZC >= item.price
+              return (
+                <div key={item.id} className="zr-item">
+                  <span className="zr-item-emoji">{item.emoji}</span>
+                  <div className="zr-item-info">
+                    <p className="zr-item-name">{item.name}</p>
+                    <p className="zr-item-desc">{item.desc}</p>
+                  </div>
+                  <button
+                    className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
+                    onClick={() => handleBuy(item)}
+                  >
+                    {owned ? '✓ Owned' : `🪙 ${item.price}`}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Collections */}
+          {ZEN_COLLECTIONS.map(col => (
+            <div key={col.name}>
+              <p className="zr-section-label">{col.name}</p>
+              <div className="zr-item-list">
+                {col.items.map(item => {
+                  const owned  = purchases.includes(item.id)
+                  const canBuy = spendableZC >= item.price
+                  return (
+                    <div key={item.id} className="zr-item">
+                      <span className="zr-item-emoji">{item.emoji}</span>
+                      <div className="zr-item-info">
+                        <p className="zr-item-name">{item.name}</p>
+                        <p className="zr-item-desc">{item.desc}</p>
+                      </div>
+                      <button
+                        className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
+                        onClick={() => handleBuy(item)}
+                      >
+                        {owned ? '✓ Owned' : `🪙 ${item.price}`}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           ))}
         </Modal>

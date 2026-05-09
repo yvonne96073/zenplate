@@ -2,122 +2,136 @@ import { useState, useRef, useEffect } from 'react'
 import { BrowserMultiFormatReader } from '@zxing/library'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '../lib/supabase'
-import { loadFdaDb, lookupByName, searchFda, calcNutrition, sumNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
+import { loadFdaDb, lookupByName, searchFda, calcNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
 import { matchNycuDish } from '../utils/nycuDb'
 import { lookupPackagedFood } from '../data/packagedFoods'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
-const MEAL_TYPES = ['早餐', '午餐', '晚餐', '點心']
-const MEAL_TYPE_VAL = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
+const MEAL_TYPES   = ['早餐', '午餐', '晚餐', '點心']
+const MEAL_TYPE_V  = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
+const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
 
-// ── Gemini prompt — ask for FDA-friendly Chinese food names ───────────────────
-const VISION_PROMPT = `你是台灣的營養師，正在協助一個飲食追蹤 app 辨識食物照片。
+// ── New multi-candidate prompt ────────────────────────────────────────────────
+const VISION_PROMPT = `你是台灣 AI 營養師，分析食物照片。
 
-請仔細分析這張照片，辨識食物並回傳 JSON，格式如下：
+仔細觀察所有細節：食物外觀、包裝文字、容器形狀、品牌顏色、餐廳環境、托盤、旁邊的物品。
 
-如果是**包裝食品**（有品牌、條碼、包裝袋，例如：義美餅乾、統一泡麵、光泉牛奶）：
-{"type":"packaged","brandName":"品牌名","productName":"產品名稱"}
-
-如果是單一食材（例如：白飯、雞腿、蘋果）：
-{"type":"simple","nameZh":"食物名稱","estimatedGrams":150}
-
-如果是複合料理（例如：便當、炒飯、麵食）：
-{"type":"compound","dishName":"料理名稱","ingredients":[
-  {"nameZh":"食材名稱","estimatedGrams":200},
-  {"nameZh":"食材名稱","estimatedGrams":80}
-]}
-
-重要規則：
-1. 只回傳 JSON，不要加任何說明或 markdown
-2. 有看到包裝、品牌、條碼 → 一定要用 packaged type
-3. nameZh 請使用台灣 FDA 食品成分資料庫的標準名稱
-4. estimatedGrams 為估計克數
-5. 複合料理請拆解成主要食材（3-6 種），不要太細
-6. 如果無法辨識，回傳 {"type":"unknown"}`
-
-// ── Helper: try FDA lookup, fallback to search ────────────────────────────────
-function findFdaItem(nameZh) {
-  const exact = lookupByName(nameZh)
-  if (exact) return exact
-  const results = searchFda(nameZh, 1)
-  return results[0] || null
+只回傳 JSON（不加任何說明或 markdown）：
+{
+  "candidates": [
+    {
+      "name": "食物名稱（中文）",
+      "confidence": 75,
+      "clues": ["判斷依據1", "判斷依據2"],
+      "packaged": false,
+      "brand": "",
+      "components": [
+        { "name": "食材或品項名稱", "grams": 150, "cal_est": 200, "hint": "1碗" }
+      ]
+    }
+  ]
 }
 
-// ── Ingredient row (for compound dish editing) ────────────────────────────────
-function IngredientRow({ ing, onUpdate, onRemove }) {
-  const matched = ing.fdaItem
-  const cat = matched ? (CATEGORY_EMOJI[matched.cat] || '🍽️') : '❓'
-  const nutrition = matched ? calcNutrition(matched, ing.grams) : null
+規則：
+1. 永遠回傳 3 個 candidates，由高到低信心度排序
+2. confidence：0-100 整數
+3. 多個食物（便當/托盤/套餐）→ components 分列每個品項
+4. 包裝食品 → packaged:true，brand 填品牌名
+5. cal_est = 該份量的估計熱量（kcal），不是每 100g
+6. 就算不確定也要給最佳猜測，不可以回傳空 candidates
+7. 使用台灣常用中文食物名稱`
 
-  return (
-    <div className="fda-ing-row">
-      <div className="fda-ing-top">
-        <span className="fda-ing-cat">{cat}</span>
-        <span className="fda-ing-name">{matched ? matched.n : ing.nameZh}</span>
-        {!matched && <span className="fda-ing-warn">未找到</span>}
-        <button className="fda-ing-rm" onClick={onRemove}>✕</button>
-      </div>
-      <div className="fda-ing-bottom">
-        <input
-          className="fda-ing-grams"
-          type="number"
-          min="1"
-          max="2000"
-          value={ing.grams}
-          onChange={e => onUpdate({ ...ing, grams: parseInt(e.target.value) || 0 })}
-        />
-        <span className="fda-ing-grams-lbl">g</span>
-        {nutrition && (
-          <span className="fda-ing-cal">{nutrition.calories ?? '–'} kcal</span>
-        )}
-      </div>
-      {!matched && (
-        <FdaSearch
-          initialQuery={ing.nameZh}
-          onSelect={(item) => onUpdate({ ...ing, fdaItem: item, nameZh: item.n })}
-          compact
-        />
-      )}
-    </div>
-  )
+// ── Source metadata ───────────────────────────────────────────────────────────
+const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算' }
+const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E' }
+
+// ── Enrich one AI component with DB data ─────────────────────────────────────
+function enrichComp(ai, dbReady) {
+  const base = {
+    aiName: ai.name, grams: ai.grams || 100, baseGrams: ai.grams || 100,
+    portionMult: 1, calEst: ai.cal_est || 0, hint: ai.hint || '',
+  }
+
+  // 1. NYCU campus DB
+  const nycu = matchNycuDish(ai.name)
+  if (nycu && nycu.score >= 40) {
+    return { ...base, name: nycu.dish.dishZh, source: 'nycu', nycuDish: nycu.dish, fdaItem: null }
+  }
+
+  // 2. FDA DB
+  if (dbReady) {
+    const fda = lookupByName(ai.name) || (searchFda(ai.name, 1)[0] || null)
+    if (fda) return { ...base, name: fda.n, source: 'fda', fdaItem: fda, nycuDish: null }
+  }
+
+  // 3. AI estimate fallback — always succeeds
+  return { ...base, name: ai.name, source: 'ai', fdaItem: null, nycuDish: null }
 }
 
-// ── Inline FDA search dropdown ────────────────────────────────────────────────
+// ── Nutrition for one component ───────────────────────────────────────────────
+function calcCompNut(comp) {
+  const m = comp.portionMult ?? 1
+  if (comp.source === 'fda' && comp.fdaItem)
+    return calcNutrition(comp.fdaItem, comp.grams)
+  if (comp.source === 'nycu' && comp.nycuDish) {
+    const d = comp.nycuDish
+    return {
+      calories: Math.round((d.cal || 0) * m),
+      protein:  +((d.pro  || 0) * m).toFixed(1),
+      carbs:    +((d.carb || 0) * m).toFixed(1),
+      fat:      +((d.fat  || 0) * m).toFixed(1),
+      fiber: 0,
+    }
+  }
+  if (comp.source === 'packaged' && comp.packagedItem) {
+    const { item, servingG } = comp.packagedItem
+    const g = (servingG || 100) * m
+    return {
+      calories: Math.round(item.cal100 * g / 100),
+      protein:  +(item.pro100  * g / 100).toFixed(1),
+      carbs:    +(item.carb100 * g / 100).toFixed(1),
+      fat:      +(item.fat100  * g / 100).toFixed(1),
+      fiber: 0,
+    }
+  }
+  // AI estimate — calories only
+  return { calories: Math.round((comp.calEst || 0) * m), protein: null, carbs: null, fat: null, fiber: 0 }
+}
+
+// ── Sum all components ────────────────────────────────────────────────────────
+function sumComps(comps) {
+  const nuts = comps.map(calcCompNut)
+  return {
+    calories: Math.round(nuts.reduce((s, n) => s + (n.calories || 0), 0)),
+    protein:  nuts.some(n => n.protein != null) ? +nuts.reduce((s, n) => s + (n.protein || 0), 0).toFixed(1) : null,
+    carbs:    nuts.some(n => n.carbs   != null) ? +nuts.reduce((s, n) => s + (n.carbs   || 0), 0).toFixed(1) : null,
+    fat:      nuts.some(n => n.fat     != null) ? +nuts.reduce((s, n) => s + (n.fat     || 0), 0).toFixed(1) : null,
+  }
+}
+
+// ── FDA search dropdown ───────────────────────────────────────────────────────
 function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
-  const [q, setQ] = useState(initialQuery)
-  const [results, setResults] = useState([])
-  const [show, setShow] = useState(false)
+  const [q, setQ]         = useState(initialQuery)
+  const [results, setRes] = useState([])
+  const [show, setShow]   = useState(false)
 
   useEffect(() => {
-    if (q.trim().length < 1) { setResults([]); return }
-    const r = searchFda(q, 8)
-    setResults(r)
-    setShow(true)
+    if (q.trim().length < 1) { setRes([]); return }
+    setRes(searchFda(q, 8)); setShow(true)
   }, [q])
-
-  const pick = (item) => {
-    setQ(item.n)
-    setShow(false)
-    onSelect(item)
-  }
 
   return (
     <div className={`fda-search-wrap ${compact ? 'compact' : ''}`}>
-      <input
-        className="fda-search-input"
-        placeholder="搜尋食材..."
-        value={q}
-        onChange={e => setQ(e.target.value)}
-        onFocus={() => q && setShow(true)}
-      />
+      <input className="fda-search-input" placeholder="搜尋食材..."
+        value={q} onChange={e => setQ(e.target.value)} onFocus={() => q && setShow(true)}/>
       {show && results.length > 0 && (
         <div className="fda-search-dropdown">
           {results.map(item => (
-            <button key={item.id} className="fda-search-item" onMouseDown={() => pick(item)}>
+            <button key={item.id} className="fda-search-item"
+              onMouseDown={() => { setQ(item.n); setShow(false); onSelect(item) }}>
               <span className="fda-search-emoji">{CATEGORY_EMOJI[item.cat] || '🍽️'}</span>
               <span className="fda-search-name">{item.n}</span>
-              <span className="fda-search-cat">{item.cat}</span>
               <span className="fda-search-cal">{item.cal ?? '–'} kcal</span>
             </button>
           ))}
@@ -127,141 +141,154 @@ function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Component row with portion controls ──────────────────────────────────────
+const MULT_LABELS = { 0.5: '½份', 1: '1份', 1.5: '1.5份', 2: '2份' }
+const GRAM_OPTS   = [50, 100, 150, 200, 300]
+
+function ComponentRow({ comp, onChange, onRemove, dbReady }) {
+  const nut = calcCompNut(comp)
+
+  return (
+    <div className="comp-row">
+      <div className="comp-row-header">
+        <span className="comp-src-tag" style={{ background: SRC_COLOR[comp.source] }}>
+          {SRC_LABEL[comp.source]}
+        </span>
+        <span className="comp-name">{comp.name}</span>
+        {comp.hint ? <span className="comp-hint">{comp.hint}</span> : null}
+        <button className="comp-rm" onClick={onRemove}>✕</button>
+      </div>
+
+      {/* Portion controls */}
+      <div className="comp-portion-row">
+        {comp.source === 'fda'
+          ? <>
+              {GRAM_OPTS.map(g => (
+                <button key={g} className={`portion-btn ${comp.grams === g ? 'active' : ''}`}
+                  onClick={() => onChange({ ...comp, grams: g })}>{g}g</button>
+              ))}
+              <input className="portion-input" type="number" min="1" max="2000"
+                value={comp.grams}
+                onChange={e => onChange({ ...comp, grams: parseInt(e.target.value) || comp.grams })}/>
+            </>
+          : Object.entries(MULT_LABELS).map(([m, label]) => (
+              <button key={m}
+                className={`portion-btn ${comp.portionMult == m ? 'active' : ''}`}
+                onClick={() => onChange({ ...comp, portionMult: +m })}>{label}</button>
+            ))
+        }
+      </div>
+
+      {/* Nutrition */}
+      <div className="comp-nut-row">
+        <span className="comp-nut-cal">{nut.calories ?? '?'} kcal</span>
+        {nut.protein != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">蛋白 {nut.protein}g</span></>}
+        {nut.carbs   != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">碳水 {nut.carbs}g</span></>}
+        {nut.fat     != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">脂肪 {nut.fat}g</span></>}
+      </div>
+
+      {/* FDA override search for non-FDA items */}
+      {comp.source !== 'fda' && dbReady && (
+        <FdaSearch compact initialQuery={comp.aiName}
+          onSelect={item => onChange({ ...comp, name: item.n, source: 'fda', fdaItem: item })}/>
+      )}
+    </div>
+  )
+}
+
+// ── Main ScanModal ────────────────────────────────────────────────────────────
 export default function ScanModal({ session, onClose, onSaved }) {
-  const [mode,      setMode]      = useState(null)
-  const [scanning,  setScanning]  = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [step,      setStep]      = useState('select')  // select | result | confirm
+  const [step,      setStep]      = useState('select')  // select|analyzing|candidates|result|barcode
   const [error,     setError]     = useState('')
   const [mealType,  setMealType]  = useState('午餐')
   const [saving,    setSaving]    = useState(false)
   const [dbReady,   setDbReady]   = useState(false)
+  const [scanning,  setScanning]  = useState(false)
 
-  // Result state
-  const [dishName,  setDishName]  = useState('')
-  const [ingredients, setIngredients] = useState([])   // [{nameZh, grams, fdaItem}]
-  const [simpleGrams, setSimpleGrams] = useState(150)  // for simple single-food results
-  const [isCompound, setIsCompound]  = useState(false)
-  const [fdaSource,  setFdaSource]   = useState(true)  // false = barcode / manual
+  // AI candidates
+  const [candidates, setCandidates] = useState([])
+  const [chosenIdx,  setChosenIdx]  = useState(0)
 
-  // Barcode fallback result (OpenFoodFacts, no FDA)
+  // Processed result
+  const [mealName,   setMealName]   = useState('')
+  const [components, setComponents] = useState([])
+
+  // Barcode fallback
   const [barcodeResult, setBarcodeResult] = useState(null)
 
-  // Packaged food result (from local packaged foods DB)
-  const [packagedResult, setPackagedResult] = useState(null)  // { item, servingG }
-  const [isPackaged,     setIsPackaged]     = useState(false)
+  const videoRef     = useRef(null)
+  const codeRef      = useRef(null)
+  const fileInputRef = useRef(null)
+  const galleryRef   = useRef(null)
 
-  // Manual entry
-  const [manualMode, setManualMode] = useState(false)
-  const [manualName, setManualName] = useState('')
-  const [manualCal,  setManualCal]  = useState('')
-  const [manualPro,  setManualPro]  = useState('')
-  const [manualCarb, setManualCarb] = useState('')
-  const [manualFat,  setManualFat]  = useState('')
-
-  // NYCU campus restaurant match
-  const [nycuSource,  setNycuSource]  = useState(false)
-  const [nycuResult,  setNycuResult]  = useState(null)  // { dish, score, confidence }
-
-  const videoRef       = useRef(null)
-  const codeRef        = useRef(null)
-  const fileInputRef   = useRef(null)   // camera (capture)
-  const galleryRef     = useRef(null)   // gallery (no capture)
-
-  // Load FDA DB eagerly when modal opens
   useEffect(() => {
-    loadFdaDb().then(() => setDbReady(true)).catch(() => setDbReady(false))
+    loadFdaDb().then(() => setDbReady(true)).catch(() => {})
     return () => codeRef.current?.reset()
   }, [])
 
-  // ── Barcode scan ──────────────────────────────────────────────────────────
+  // ── Barcode scan (unchanged) ──────────────────────────────────────────────
   const startBarcodeScan = async () => {
-    setMode('barcode'); setScanning(true); setError('')
+    setScanning(true); setError('')
     setTimeout(async () => {
       try {
         const reader = new BrowserMultiFormatReader()
         codeRef.current = reader
-        await reader.decodeFromVideoDevice(null, videoRef.current, async (res) => {
-          if (res) {
-            reader.reset(); setScanning(false)
-            await lookupBarcode(res.getText())
-          }
+        await reader.decodeFromVideoDevice(null, videoRef.current, async res => {
+          if (res) { reader.reset(); setScanning(false); await lookupBarcode(res.getText()) }
         })
       } catch {
         setError('無法存取相機，請確認已允許相機權限。')
-        setScanning(false); setMode(null)
+        setScanning(false)
       }
     }, 100)
   }
 
   const lookupBarcode = async (barcode) => {
-    setAnalyzing(true)
+    setStep('analyzing')
     try {
-      const res = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`)
+      const res  = await fetch(`https://world.openfoodfacts.org/api/v0/product/${barcode}.json`)
       const data = await res.json()
       if (data.status === 1 && data.product) {
-        const p = data.product
-        const n = p.nutriments || {}
-        // Try to find in FDA by product name
-        const fdaItem = dbReady ? findFdaItem(p.product_name || '') : null
-        if (fdaItem) {
-          setDishName(fdaItem.n)
-          setIngredients([{ nameZh: fdaItem.n, grams: 100, fdaItem }])
-          setIsCompound(false); setFdaSource(true)
-        } else {
-          // Fallback to OpenFoodFacts values
-          setBarcodeResult({
-            name: p.product_name || p.product_name_en || '未知商品',
-            calories: Math.round(n['energy-kcal_100g'] || 0),
-            protein_g: +(n.proteins_100g || 0).toFixed(1),
-            carbs_g:   +(n.carbohydrates_100g || 0).toFixed(1),
-            fat_g:     +(n.fat_100g || 0).toFixed(1),
-            fiber_g:   +(n.fiber_100g || 0).toFixed(1),
-          })
-          setFdaSource(false)
-        }
-        setStep('result')
+        const p = data.product; const n = p.nutriments || {}
+        const name = p.product_name || '未知商品'
+        setBarcodeResult({
+          name,
+          calories:  Math.round(n['energy-kcal_100g'] || 0),
+          protein_g: +(n.proteins_100g       || 0).toFixed(1),
+          carbs_g:   +(n.carbohydrates_100g  || 0).toFixed(1),
+          fat_g:     +(n.fat_100g            || 0).toFixed(1),
+          fiber_g:   +(n.fiber_100g          || 0).toFixed(1),
+        })
+        setMealName(name); setStep('barcode')
       } else {
-        setError(`找不到條碼 ${barcode} 的商品，請改用 AI 拍照或手動輸入。`)
-        setMode(null)
+        setError(`找不到條碼 ${barcode}，請改用 AI 拍照。`)
+        setStep('select')
       }
     } catch {
-      setError('查詢失敗，請確認網路連線。')
-      setMode(null)
+      setError('查詢失敗，請確認網路連線。'); setStep('select')
     }
-    setAnalyzing(false)
   }
 
-  // ── AI photo scan ─────────────────────────────────────────────────────────
-  const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
-
+  // ── AI photo scan → returns candidates ───────────────────────────────────
   const handlePhotoCapture = async (e) => {
     const file = e.target.files[0]
     if (!file) return
-    setMode('photo'); setAnalyzing(true); setError('')
+    setStep('analyzing'); setError('')
 
     try {
-      const base64 = await fileToBase64(file)
+      const base64  = await fileToBase64(file)
       const imgPart = { inlineData: { data: base64.split(',')[1], mimeType: file.type || 'image/jpeg' } }
+      const timeout = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('TIMEOUT')), ms))])
 
-      const withTimeout = (promise, ms) => Promise.race([
-        promise,
-        new Promise((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms))
-      ])
-
-      let resp = null
-      let lastErr = null
-      for (const modelName of GEMINI_MODELS) {
+      let resp = null, lastErr = null
+      for (const model of GEMINI_MODELS) {
         try {
-          const m = genAI.getGenerativeModel({ model: modelName })
-          resp = await withTimeout(m.generateContent([imgPart, VISION_PROMPT]), 30000)
+          resp = await timeout(genAI.getGenerativeModel({ model }).generateContent([imgPart, VISION_PROMPT]), 30000)
           break
         } catch (err) {
           lastErr = err
-          const msg = err?.message || ''
-          const status = msg.match(/\[(\d+)\s/)?.[1]
-          if (status === '503' || status === '429' || status === '404' || msg === 'TIMEOUT') continue
+          const s = err?.message?.match(/\[(\d+)\s/)?.[1]
+          if (['503','429','404'].includes(s) || err.message === 'TIMEOUT') continue
           throw err
         }
       }
@@ -269,78 +296,44 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
       const text  = resp.response.text().trim()
       const match = text.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error(`AI 回傳非 JSON：${text.slice(0, 100)}`)
+      if (!match) throw new Error('AI 回傳格式錯誤，請重試')
 
       const parsed = JSON.parse(match[0])
+      const cands  = (parsed.candidates || []).filter(c => c.name)
+      if (!cands.length) throw new Error('AI 無法辨識，請重試或手動輸入')
 
-      if (parsed.type === 'unknown') {
-        setError('無法辨識食物，請重試或手動新增。')
-        setMode(null); setAnalyzing(false); return
-      }
-
-      if (parsed.type === 'packaged') {
-        const name = [parsed.brandName, parsed.productName].filter(Boolean).join(' ')
-        // First try local packaged food DB
-        const found = lookupPackagedFood(parsed.brandName || '', parsed.productName || '')
-        if (found) {
-          setDishName(`${found.item.brand} ${found.item.name}`)
-          setPackagedResult({ item: found.item, servingG: found.item.per })
-          setIsPackaged(true)
-          setFdaSource(false)
-          setNycuSource(false)
-          setStep('result')
-        } else {
-          // Not in DB — fall back to barcode suggestion
-          setError(`📦 偵測到包裝食品「${name}」，但資料庫沒有此產品。請試試「掃條碼」，或用下方 FDA 搜尋欄位手動查詢。`)
-          setMode(null)
-        }
-        setAnalyzing(false); return
-      }
-
-      if (parsed.type === 'simple') {
-        const queryName = parsed.nameZh
-        // Try NYCU first (simple foods unlikely to match, but check anyway)
-        const nycu = matchNycuDish(queryName)
-        if (nycu && (nycu.confidence === 'high' || nycu.confidence === 'medium')) {
-          setDishName(nycu.dish.dishZh)
-          setNycuSource(true)
-          setNycuResult(nycu)
-          setFdaSource(false)
-        } else {
-          const fdaItem = dbReady ? findFdaItem(queryName) : null
-          setDishName(queryName)
-          setSimpleGrams(parsed.estimatedGrams || 150)
-          setIngredients([{ nameZh: queryName, grams: parsed.estimatedGrams || 150, fdaItem }])
-          setIsCompound(false)
-          setFdaSource(true)
-        }
-      } else {
-        // compound — try NYCU match by dish name
-        const queryName = parsed.dishName || '複合料理'
-        const nycu = matchNycuDish(queryName)
-        if (nycu && (nycu.confidence === 'high' || nycu.confidence === 'medium')) {
-          setDishName(nycu.dish.dishZh)
-          setNycuSource(true)
-          setNycuResult(nycu)
-          setFdaSource(false)
-        } else {
-          const ings = (parsed.ingredients || []).map(ing => ({
-            nameZh:  ing.nameZh,
-            grams:   ing.estimatedGrams || 100,
-            fdaItem: dbReady ? findFdaItem(ing.nameZh) : null,
-          }))
-          setDishName(queryName)
-          setIngredients(ings)
-          setIsCompound(true)
-          setFdaSource(true)
-        }
-      }
-      setStep('result')
+      setCandidates(cands); setChosenIdx(0); setStep('candidates')
     } catch (err) {
-      setError('AI 辨識失敗：' + err.message)
-      setMode(null)
+      setError('辨識失敗：' + err.message); setStep('select')
     }
-    setAnalyzing(false)
+  }
+
+  // ── User confirms a candidate → build component list ─────────────────────
+  const confirmCandidate = (idx) => {
+    const cand = candidates[idx]
+    setMealName(cand.name)
+
+    // Packaged food → try local packaged DB first
+    if (cand.packaged) {
+      const pkg = lookupPackagedFood(cand.brand || '', cand.components?.[0]?.name || cand.name)
+      if (pkg) {
+        setComponents([{
+          name: `${pkg.item.brand} ${pkg.item.name}`,
+          aiName: cand.name, grams: pkg.item.per, baseGrams: pkg.item.per,
+          portionMult: 1, calEst: 0, hint: `${pkg.item.per}g/份`,
+          source: 'packaged', packagedItem: pkg, fdaItem: null, nycuDish: null,
+        }])
+        setStep('result'); return
+      }
+    }
+
+    // Build one component per AI component
+    const aiComps = cand.components?.length
+      ? cand.components
+      : [{ name: cand.name, grams: 200, cal_est: cand.components?.[0]?.cal_est || 300, hint: '1份' }]
+
+    setComponents(aiComps.map(ai => enrichComp(ai, dbReady)))
+    setStep('result')
   }
 
   // ── Save ──────────────────────────────────────────────────────────────────
@@ -348,59 +341,27 @@ export default function ScanModal({ session, onClose, onSaved }) {
     setSaving(true)
     let payload
 
-    if (isPackaged && packagedResult) {
-      const { item, servingG } = packagedResult
-      const ratio = servingG / 100
+    if (step === 'barcode' && barcodeResult) {
       payload = {
-        user_id:     session.user.id,
-        name:        dishName,
-        meal_type:   MEAL_TYPE_VAL[mealType],
-        calories:    Math.round(item.cal100 * ratio),
-        protein_g:   +(item.pro100 * ratio).toFixed(1),
-        carbs_g:     +(item.carb100 * ratio).toFixed(1),
-        fat_g:       +(item.fat100 * ratio).toFixed(1),
-        fiber_g:     0,
-        data_source: `包裝食品資料庫（${item.brand}）`,
-      }
-    } else if (nycuSource && nycuResult) {
-      const d = nycuResult.dish
-      payload = {
-        user_id:     session.user.id,
-        name:        dishName,
-        meal_type:   MEAL_TYPE_VAL[mealType],
-        calories:    d.cal,
-        protein_g:   d.pro,
-        carbs_g:     d.carb,
-        fat_g:       d.fat,
-        fiber_g:     0,
-        data_source: `NYCU ${d.restaurantZh}`,
-      }
-    } else if (!fdaSource && barcodeResult) {
-      payload = {
-        user_id:     session.user.id,
-        name:        barcodeResult.name,
-        meal_type:   MEAL_TYPE_VAL[mealType],
-        calories:    barcodeResult.calories,
-        protein_g:   barcodeResult.protein_g,
-        carbs_g:     barcodeResult.carbs_g,
-        fat_g:       barcodeResult.fat_g,
-        fiber_g:     barcodeResult.fiber_g,
-        data_source: 'OpenFoodFacts',
+        user_id: session.user.id, name: mealName, meal_type: MEAL_TYPE_V[mealType],
+        calories: barcodeResult.calories, protein_g: barcodeResult.protein_g,
+        carbs_g: barcodeResult.carbs_g, fat_g: barcodeResult.fat_g,
+        fiber_g: barcodeResult.fiber_g, data_source: 'OpenFoodFacts',
       }
     } else {
-      const matched = ingredients.filter(i => i.fdaItem)
-      const nutritions = matched.map(i => calcNutrition(i.fdaItem, i.grams))
-      const totals = matched.length > 0 ? sumNutrition(nutritions) : {}
+      const total   = sumComps(components)
+      const sources = [...new Set(components.map(c => SRC_LABEL[c.source]))]
+      const srcStr  = sources.length === 1
+        ? (sources[0] === 'FDA' ? 'Taiwan FDA 2025' : sources[0] === '交大' ? 'NYCU 交大官方資料' : sources[0])
+        : sources.join(' + ')
       payload = {
-        user_id:     session.user.id,
-        name:        dishName,
-        meal_type:   MEAL_TYPE_VAL[mealType],
-        calories:    Math.round(totals.calories || 0),
-        protein_g:   totals.protein || 0,
-        carbs_g:     totals.carbs || 0,
-        fat_g:       totals.fat || 0,
-        fiber_g:     totals.fiber || 0,
-        data_source: matched.length > 0 ? 'Taiwan FDA 2025' : 'AI 辨識（無 FDA 數據）',
+        user_id: session.user.id, name: mealName, meal_type: MEAL_TYPE_V[mealType],
+        calories:  total.calories  || 0,
+        protein_g: total.protein   || 0,
+        carbs_g:   total.carbs     || 0,
+        fat_g:     total.fat       || 0,
+        fiber_g:   0,
+        data_source: srcStr,
       }
     }
 
@@ -410,40 +371,33 @@ export default function ScanModal({ session, onClose, onSaved }) {
     else onSaved()
   }
 
-  const fileToBase64 = (file) => new Promise((resolve, reject) => {
-    const r = new FileReader()
-    r.onload = () => resolve(r.result)
-    r.onerror = reject
-    r.readAsDataURL(file)
+  const fileToBase64 = f => new Promise((res, rej) => {
+    const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f)
   })
 
   const reset = () => {
-    setStep('select'); setMode(null); setError('')
-    setIngredients([]); setBarcodeResult(null); setFdaSource(true)
-    setNycuSource(false); setNycuResult(null)
-    setPackagedResult(null); setIsPackaged(false)
+    setStep('select'); setError(''); setCandidates([]); setChosenIdx(0)
+    setComponents([]); setBarcodeResult(null); setMealName('')
   }
 
-  // ── Derived: total nutrition from FDA ingredients ─────────────────────────
-  const matchedIngs  = ingredients.filter(i => i.fdaItem)
-  const nutritions   = matchedIngs.map(i => calcNutrition(i.fdaItem, i.grams))
-  const totals       = sumNutrition(nutritions)
+  // Derived totals for result step
+  const total        = sumComps(components)
+  const hasAiEstimate = components.some(c => c.source === 'ai')
 
-  // ────────────────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-sheet" onClick={e => e.stopPropagation()}>
         <div className="modal-handle"/>
         <div className="modal-content">
 
-          {/* ── Mode select ── */}
-          {step === 'select' && !analyzing && (
+          {/* ── Select mode ── */}
+          {step === 'select' && !scanning && (
             <>
-              <h3 className="modal-title">掃描食物 📷</h3>
-              {!dbReady && (
-                <div className="fda-loading">⏳ 載入 FDA 食品資料庫...</div>
-              )}
+              <h3 className="modal-title">新增餐點 📷</h3>
+              {!dbReady && <div className="fda-loading">⏳ 載入食品資料庫...</div>}
               {error && <p className="login-error" style={{ marginBottom: 12 }}>{error}</p>}
+
               <div className="scan-options">
                 <button className="scan-option-btn" onClick={startBarcodeScan}>
                   <span className="scan-option-icon">📦</span>
@@ -453,43 +407,38 @@ export default function ScanModal({ session, onClose, onSaved }) {
                 <button className="scan-option-btn" onClick={() => fileInputRef.current?.click()}>
                   <span className="scan-option-icon">📷</span>
                   <span className="scan-option-label">拍照辨識</span>
-                  <span className="scan-option-sub">開相機 → AI 分析</span>
+                  <span className="scan-option-sub">AI 多候選分析</span>
                 </button>
                 <button className="scan-option-btn scan-option-gallery" onClick={() => galleryRef.current?.click()}>
                   <span className="scan-option-icon">🖼️</span>
                   <span className="scan-option-label">從相簿上傳</span>
-                  <span className="scan-option-sub">選擇手機已有的照片</span>
+                  <span className="scan-option-sub">選擇已有的照片</span>
                 </button>
               </div>
-              {/* camera */}
+
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment"
                 style={{ display:'none' }} onChange={handlePhotoCapture}/>
-              {/* gallery — no capture attribute */}
               <input ref={galleryRef} type="file" accept="image/*"
                 style={{ display:'none' }} onChange={handlePhotoCapture}/>
 
-              {/* FDA search entry */}
               <div className="fda-manual-section">
                 <p className="fda-manual-label">🔍 直接搜尋 FDA 資料庫</p>
-                {dbReady ? (
-                  <FdaSearch
-                    onSelect={(item) => {
-                      setDishName(item.n)
-                      setIngredients([{ nameZh: item.n, grams: 100, fdaItem: item }])
-                      setIsCompound(false)
-                      setFdaSource(true)
+                {dbReady
+                  ? <FdaSearch onSelect={item => {
+                      setMealName(item.n)
+                      setComponents([enrichComp({ name: item.n, grams: 150, cal_est: 0 }, true)])
                       setStep('result')
-                    }}
-                  />
-                ) : <p style={{ fontSize:12, color:'#999' }}>資料庫載入中...</p>}
+                    }}/>
+                  : <p style={{ fontSize:12, color:'#999' }}>資料庫載入中...</p>
+                }
               </div>
 
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={onClose}>取消</button>
             </>
           )}
 
-          {/* ── Camera ── */}
-          {mode === 'barcode' && scanning && (
+          {/* ── Barcode scanning ── */}
+          {scanning && (
             <>
               <h3 className="modal-title">對準條碼 📦</h3>
               <div className="scan-video-wrap">
@@ -497,166 +446,108 @@ export default function ScanModal({ session, onClose, onSaved }) {
                 <div className="scan-crosshair"/>
               </div>
               <p className="scan-hint">自動掃描中...</p>
-              <button className="signout-btn" style={{ marginTop: 12 }} onClick={() => {
-                codeRef.current?.reset(); setScanning(false); setMode(null)
-              }}>取消</button>
+              <button className="signout-btn" style={{ marginTop:12 }}
+                onClick={() => { codeRef.current?.reset(); setScanning(false) }}>取消</button>
             </>
           )}
 
           {/* ── Analyzing ── */}
-          {analyzing && (
+          {step === 'analyzing' && (
             <>
-              <h3 className="modal-title">分析中... 🤖</h3>
+              <h3 className="modal-title">AI 分析中... 🤖</h3>
               <div className="scan-analyzing">
                 <div className="scan-spinner">🔍</div>
-                <p>AI 辨識食物 → 比對 FDA 資料庫...</p>
+                <p>辨識食物 · 比對多個資料庫...</p>
+                <p style={{ fontSize:11, color:'var(--muted)', marginTop:4 }}>約需 5–15 秒</p>
               </div>
             </>
           )}
 
-          {/* ── Result (FDA ingredients) ── */}
-          {step === 'result' && !analyzing && fdaSource && !nycuSource && (
+          {/* ── Candidates ── */}
+          {step === 'candidates' && (
             <>
-              <h3 className="modal-title">確認食物內容 ✅</h3>
+              <h3 className="modal-title">這是什麼食物？</h3>
+              <p className="candidates-subtitle">
+                {candidates[0]?.confidence >= 70
+                  ? `AI 認為是「${candidates[0].name}」（${candidates[0].confidence}%）— 如果正確直接確認`
+                  : `AI 不太確定（${candidates[0]?.confidence ?? 0}%），請選最接近的選項：`
+                }
+              </p>
 
-              {/* Dish name */}
+              <div className="candidates-list">
+                {candidates.map((c, i) => (
+                  <button key={i}
+                    className={`candidate-card ${chosenIdx === i ? 'selected' : ''}`}
+                    onClick={() => setChosenIdx(i)}
+                  >
+                    <div className="candidate-card-top">
+                      <span className="candidate-name">{c.name}</span>
+                      <span className="candidate-pct">{c.confidence}%</span>
+                    </div>
+                    <div className="candidate-conf-bar">
+                      <div className="candidate-conf-fill" style={{ width: `${c.confidence}%` }}/>
+                    </div>
+                    <div className="candidate-meta">
+                      {c.clues?.slice(0, 2).map((cl, j) => (
+                        <span key={j} className="candidate-clue">{cl}</span>
+                      ))}
+                      <span className="candidate-items">{c.components?.length || 1} 個品項</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              <button className="submit-btn" onClick={() => confirmCandidate(chosenIdx)}>
+                確認「{candidates[chosenIdx]?.name}」→
+              </button>
+              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新拍照</button>
+            </>
+          )}
+
+          {/* ── Result / Edit ── */}
+          {step === 'result' && (
+            <>
+              <h3 className="modal-title">確認餐點內容 ✅</h3>
+
               <div className="form-group" style={{ marginBottom: 10 }}>
                 <label>餐點名稱</label>
-                <input className="form-input" value={dishName}
-                  onChange={e => setDishName(e.target.value)}/>
+                <input className="form-input" value={mealName}
+                  onChange={e => setMealName(e.target.value)}/>
               </div>
 
-              {/* FDA source badge */}
-              <div className="fda-badge">
-                🏛️ 數值來自：<strong>台灣 FDA 食品成分資料庫 2025</strong>
-              </div>
-
-              {/* Ingredient list */}
-              <div className="fda-ing-list">
-                {ingredients.map((ing, i) => (
-                  <IngredientRow
-                    key={i}
-                    ing={ing}
-                    onUpdate={updated => {
-                      const copy = [...ingredients]
-                      copy[i] = updated
-                      setIngredients(copy)
-                    }}
-                    onRemove={() => setIngredients(ingredients.filter((_, j) => j !== i))}
+              <div className="comp-list">
+                {components.map((comp, i) => (
+                  <ComponentRow key={i} comp={comp} dbReady={dbReady}
+                    onChange={updated => setComponents(cs => cs.map((c, j) => j === i ? updated : c))}
+                    onRemove={() => setComponents(cs => cs.filter((_, j) => j !== i))}
                   />
                 ))}
-
-                {/* Add ingredient */}
-                <div className="fda-add-section">
+                <div className="comp-add-row">
                   <p className="fda-add-label">＋ 新增食材</p>
-                  <FdaSearch
-                    key={ingredients.length}
-                    onSelect={item => setIngredients(prev => [
-                      ...prev,
-                      { nameZh: item.n, grams: 100, fdaItem: item }
-                    ])}
-                  />
+                  <FdaSearch key={components.length}
+                    onSelect={item => setComponents(prev => [
+                      ...prev, enrichComp({ name: item.n, grams: 100, cal_est: 0 }, true)
+                    ])}/>
                 </div>
               </div>
 
-              {/* Nutrition totals from FDA */}
-              {matchedIngs.length > 0 && (
-                <div className="fda-totals">
-                  <div className="fda-total-title">
-                    📊 總計營養（FDA 計算）
-                    {ingredients.length !== matchedIngs.length && (
-                      <span className="fda-missing"> ⚠ {ingredients.length - matchedIngs.length} 項未匹配</span>
-                    )}
-                  </div>
-                  <div className="fda-total-row">
-                    <div className="fda-total-item">
-                      <span className="fda-total-val">{totals.calories ?? '–'}</span>
-                      <span className="fda-total-lbl">kcal</span>
-                    </div>
-                    <div className="fda-total-item">
-                      <span className="fda-total-val">{totals.protein ?? '–'}</span>
-                      <span className="fda-total-lbl">蛋白質 g</span>
-                    </div>
-                    <div className="fda-total-item">
-                      <span className="fda-total-val">{totals.carbs ?? '–'}</span>
-                      <span className="fda-total-lbl">碳水 g</span>
-                    </div>
-                    <div className="fda-total-item">
-                      <span className="fda-total-val">{totals.fat ?? '–'}</span>
-                      <span className="fda-total-lbl">脂肪 g</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Meal type */}
-              <div className="form-group" style={{ marginTop: 12 }}>
-                <label>餐別</label>
-                <div className="meal-type-btns">
-                  {MEAL_TYPES.map(t => (
-                    <button key={t} type="button"
-                      className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
-                      onClick={() => setMealType(t)}>{t}</button>
-                  ))}
-                </div>
-              </div>
-
-              {error && <p className="login-error">{error}</p>}
-
-              <button className="submit-btn" onClick={handleSave} disabled={saving || ingredients.length === 0}>
-                {saving ? '儲存中...' : matchedIngs.length > 0 ? `✓ 記錄餐點（${matchedIngs.length} 項食材）` : '✓ 記錄餐點（無 FDA 數據）'}
-              </button>
-              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
-            </>
-          )}
-
-          {/* ── Result (packaged food DB match) ── */}
-          {step === 'result' && !analyzing && isPackaged && packagedResult && (
-            <>
-              <h3 className="modal-title">確認餐點 ✅</h3>
-
-              <div className="fda-badge" style={{ background:'#FFF8E1', borderColor:'#FFB300', color:'#7B5800' }}>
-                📦 包裝食品資料庫 ·&nbsp;<strong>{packagedResult.item.brand}</strong>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 10 }}>
-                <label>餐點名稱</label>
-                <input className="form-input" value={dishName}
-                  onChange={e => setDishName(e.target.value)}/>
-              </div>
-
-              {/* Serving size control */}
-              <div className="fda-ing-bottom" style={{ marginBottom: 12 }}>
-                <span style={{ fontSize:13, color:'#666' }}>份量：</span>
-                <input
-                  className="fda-ing-grams"
-                  type="number" min="1" max="2000"
-                  value={packagedResult.servingG}
-                  onChange={e => setPackagedResult(r => ({ ...r, servingG: parseInt(e.target.value) || r.item.per }))}
-                />
-                <span className="fda-ing-grams-lbl">g</span>
-                <span style={{ fontSize:11, color:'#aaa', marginLeft:6 }}>（標準份量 {packagedResult.item.per}g）</span>
-              </div>
-
-              <div className="fda-totals">
-                <div className="fda-total-title">📊 營養成分（依份量計算）</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:'8px 4px' }}>
+              {/* Total nutrition */}
+              <div className="result-totals">
+                <div className="result-total-row">
                   {[
-                    [Math.round(packagedResult.item.cal100  * packagedResult.servingG / 100), 'kcal'],
-                    [+(packagedResult.item.pro100  * packagedResult.servingG / 100).toFixed(1), '蛋白質 g'],
-                    [+(packagedResult.item.carb100 * packagedResult.servingG / 100).toFixed(1), '碳水 g'],
-                    [+(packagedResult.item.fat100  * packagedResult.servingG / 100).toFixed(1), '脂肪 g'],
+                    [total.calories ?? 0,   'kcal'],
+                    [total.protein  ?? '?', '蛋白質 g'],
+                    [total.carbs    ?? '?', '碳水 g'],
+                    [total.fat      ?? '?', '脂肪 g'],
                   ].map(([val, lbl]) => (
-                    <div key={lbl} className="fda-total-item">
-                      <span className="fda-total-val">{val}</span>
-                      <span className="fda-total-lbl">{lbl}</span>
+                    <div key={lbl} className="result-total-item">
+                      <span className="result-total-val">{val}</span>
+                      <span className="result-total-lbl">{lbl}</span>
                     </div>
                   ))}
                 </div>
-                {packagedResult.item.sod100 > 0 && (
-                  <div style={{ fontSize:11, color:'#888', marginTop:4, textAlign:'center' }}>
-                    鈉 {Math.round(packagedResult.item.sod100 * packagedResult.servingG / 100)} mg
-                  </div>
+                {hasAiEstimate && (
+                  <p className="result-total-warn">⚠ 含 AI 估算，實際數值可能略有差異</p>
                 )}
               </div>
 
@@ -673,96 +564,23 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
               {error && <p className="login-error">{error}</p>}
 
-              <button className="submit-btn" onClick={handleSave} disabled={saving}>
-                {saving ? '儲存中...' : '✓ 記錄餐點'}
+              <button className="submit-btn" onClick={handleSave}
+                disabled={saving || components.length === 0}>
+                {saving ? '儲存中...' : `✓ 記錄餐點（${total.calories ?? 0} kcal）`}
               </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
           )}
 
-          {/* ── Result (NYCU campus restaurant match) ── */}
-          {step === 'result' && !analyzing && nycuSource && nycuResult && (
+          {/* ── Barcode result ── */}
+          {step === 'barcode' && barcodeResult && (
             <>
               <h3 className="modal-title">確認餐點 ✅</h3>
-
-              <div className="fda-badge" style={{ background:'#E8F5E9', borderColor:'#81C784', color:'#2E7D32' }}>
-                🏫 交大官方營養資料 ·&nbsp;
-                <strong>{nycuResult.dish.restaurantZh}</strong>
-                &nbsp;
-                <span style={{ fontSize:11, opacity:0.75 }}>
-                  信心度：{nycuResult.confidence === 'high' ? '高' : '中'}
-                </span>
-              </div>
-
-              <div className="form-group" style={{ marginBottom: 10 }}>
-                <label>餐點名稱</label>
-                <input className="form-input" value={dishName}
-                  onChange={e => setDishName(e.target.value)}/>
-              </div>
-
-              <div className="fda-totals">
-                <div className="fda-total-title">📊 官方營養成分（每份）</div>
-                <div className="fda-total-row">
-                  {[
-                    [nycuResult.dish.cal,  'kcal'],
-                    [nycuResult.dish.pro,  '蛋白質 g'],
-                    [nycuResult.dish.carb, '碳水 g'],
-                    [nycuResult.dish.fat,  '脂肪 g'],
-                  ].map(([val, lbl]) => (
-                    <div key={lbl} className="fda-total-item">
-                      <span className="fda-total-val">{val ?? '–'}</span>
-                      <span className="fda-total-lbl">{lbl}</span>
-                    </div>
-                  ))}
-                </div>
-                {nycuResult.dish.sod > 0 && (
-                  <div style={{ fontSize:11, color:'#888', marginTop:4, textAlign:'center' }}>
-                    鈉 {nycuResult.dish.sod} mg
-                  </div>
-                )}
-              </div>
-
-              <div className="form-group" style={{ marginTop: 12 }}>
-                <label>餐別</label>
-                <div className="meal-type-btns">
-                  {MEAL_TYPES.map(t => (
-                    <button key={t} type="button"
-                      className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
-                      onClick={() => setMealType(t)}>{t}</button>
-                  ))}
-                </div>
-              </div>
-
-              {error && <p className="login-error">{error}</p>}
-
-              <button className="submit-btn" onClick={handleSave} disabled={saving}>
-                {saving ? '儲存中...' : '✓ 記錄餐點（交大官方資料）'}
-              </button>
-              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
-            </>
-          )}
-
-          {/* ── Result (barcode / OpenFoodFacts fallback) ── */}
-          {step === 'result' && !analyzing && !fdaSource && !nycuSource && barcodeResult && (
-            <>
-              <h3 className="modal-title">確認餐點 ✅</h3>
-              <div className="fda-badge fda-badge-warn">
-                ⚠️ 此商品未在 FDA 資料庫，使用 OpenFoodFacts 數值（每 100g）
-              </div>
+              <div className="fda-badge fda-badge-warn">📦 OpenFoodFacts · 每 100g 數值</div>
               <div className="form-group">
                 <label>餐點名稱</label>
-                <input className="form-input" value={barcodeResult.name}
-                  onChange={e => setBarcodeResult(r => ({ ...r, name: e.target.value }))}/>
-              </div>
-              <div className="form-group">
-                <label>餐別</label>
-                <div className="meal-type-btns">
-                  {MEAL_TYPES.map(t => (
-                    <button key={t} type="button"
-                      className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
-                      onClick={() => setMealType(t)}>{t}</button>
-                  ))}
-                </div>
+                <input className="form-input" value={mealName}
+                  onChange={e => setMealName(e.target.value)}/>
               </div>
               <div className="fda-totals">
                 <div className="fda-total-row">
@@ -774,11 +592,21 @@ export default function ScanModal({ session, onClose, onSaved }) {
                   ))}
                 </div>
               </div>
+              <div className="form-group" style={{ marginTop:12 }}>
+                <label>餐別</label>
+                <div className="meal-type-btns">
+                  {MEAL_TYPES.map(t => (
+                    <button key={t} type="button"
+                      className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
+                      onClick={() => setMealType(t)}>{t}</button>
+                  ))}
+                </div>
+              </div>
               {error && <p className="login-error">{error}</p>}
               <button className="submit-btn" onClick={handleSave} disabled={saving}>
                 {saving ? '儲存中...' : '✓ 記錄餐點'}
               </button>
-              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
+              <button className="signout-btn" style={{ marginTop:8 }} onClick={reset}>← 重新掃描</button>
             </>
           )}
 
