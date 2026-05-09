@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
+import { calcStars } from '../utils/scoring'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -7,8 +8,8 @@ import { createPortal } from 'react-dom'
 const PET_KEY    = 'zp_pet_v3'
 const PROG_KEY   = 'zp_prog_v2'          // new key → old data ignored
 const CE_KEY     = 'zp_care_energy'      // Care Energy — earned from logging meals
-const FEED_COST  = 1                      // 1 CE per feed
-const PLAY_COST  = 1                      // 1 CE per play
+const FEED_COST  = 20                     // 20 CE per feed
+const PLAY_COST  = 15                     // 15 CE per play
 const CAT_W      = 120                    // sprite display width per frame
 const CAT_H      = 100                    // sprite approx display height
 
@@ -43,13 +44,13 @@ export const UNLOCK_MILESTONES = [
 export const ROOM_ITEMS = UNLOCK_MILESTONES   // Profile.jsx compat
 
 // ── Room themes — shared with Wardrobe in Profile.jsx ────────────────────────
-// unlock(ctx) where ctx = { streak, zenCoins, mealCount, purchased[] }
+// unlock(ctx) where ctx = { streak, stars, mealCount, purchased[] }
 export const THEMES = [
-  { id: 'japandi', name: 'Cozy',   emoji: '🪨', req: null,                unlock: () => true },
-  { id: 'cafe',    name: 'Cafe',   emoji: '☕', req: '3-day streak',      unlock: (c) => c.streak >= 3 },
-  { id: 'forest',  name: 'Forest', emoji: '🌿', req: '7-day streak',      unlock: (c) => c.streak >= 7 },
-  { id: 'ocean',   name: 'Ocean',  emoji: '🌊', req: '50 🪙',             unlock: (c) => c.purchased.includes('ocean') },
-  { id: 'night',   name: 'Night',  emoji: '🌙', req: '100 🪙',            unlock: (c) => c.purchased.includes('night') },
+  { id: 'japandi', name: 'Cozy',   emoji: '🪨', req: null,              unlock: () => true },
+  { id: 'cafe',    name: 'Cafe',   emoji: '☕', req: '3-day streak',    unlock: (c) => c.streak >= 3 },
+  { id: 'forest',  name: 'Forest', emoji: '🌿', req: '7-day streak',    unlock: (c) => c.streak >= 7 },
+  { id: 'ocean',   name: 'Ocean',  emoji: '🌊', req: '5 ⭐',            unlock: (c) => c.purchased.includes('ocean') },
+  { id: 'night',   name: 'Night',  emoji: '🌙', req: '10 ⭐',           unlock: (c) => c.purchased.includes('night') },
 ]
 
 // ── Cat accessories — shared with Wardrobe in Profile.jsx ────────────────────
@@ -57,9 +58,10 @@ export const ACCESSORIES = [
   { id: 'none',         name: 'None',         emoji: '—',  dispEmoji: null, req: null,             unlock: () => true },
   { id: 'green_collar', name: 'Green Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',         unlock: () => true },
   { id: 'bell_collar',  name: 'Bell Collar',  emoji: '🔔', dispEmoji: '🔔', req: '3-day streak',   unlock: (c) => c.streak >= 3 },
-  { id: 'sunny_scarf',  name: 'Sunny Scarf',  emoji: '🌻', dispEmoji: '🌻', req: '5 Healthy Days', unlock: (c) => c.mealCount >= 5 },
-  { id: 'tiny_hat',     name: 'Tiny Hat',     emoji: '🎩', dispEmoji: '🎩', req: '80 🪙',          unlock: (c) => c.purchased.includes('tiny_hat') },
-  { id: 'bow_tie',      name: 'Bow Tie',      emoji: '🎀', dispEmoji: '🎀', req: '50 🪙',          unlock: (c) => c.purchased.includes('bow_tie') },
+  { id: 'sunny_scarf',  name: 'Sunny Scarf',  emoji: '🌻', dispEmoji: '🌻', req: '5 meals',        unlock: (c) => c.mealCount >= 5 },
+  { id: 'leaf_collar',  name: 'Leaf Collar',  emoji: '🍃', dispEmoji: '🍃', req: '3 ⭐',           unlock: (c) => c.purchased.includes('leaf_collar') },
+  { id: 'wave_scarf',   name: 'Wave Scarf',   emoji: '〰️', dispEmoji: '〰️', req: '5 ⭐',           unlock: (c) => c.purchased.includes('wave_scarf') },
+  { id: 'flower_crown', name: 'Flower Crown', emoji: '🌺', dispEmoji: '🌺', req: '8 ⭐',           unlock: (c) => c.purchased.includes('flower_crown') },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -365,6 +367,17 @@ const STATE_LABEL = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ROOM LEVEL
+// ─────────────────────────────────────────────────────────────────────────────
+function getRoomLevel(xp) {
+  if (xp >= 800) return 5
+  if (xp >= 500) return 4
+  if (xp >= 300) return 3
+  if (xp >= 100) return 2
+  return 1
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }) {
@@ -396,13 +409,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   // ── Progression ───────────────────────────────────────────────────────────
   const [prog,       setProg]       = useState(defaultProg)
 
-  const zenCoins   = Math.floor((xp || 0) / 2)
   const purchased  = useMemo(() => {
     try { return JSON.parse(localStorage.getItem('zp_purchased') || '[]') } catch { return [] }
   }, [])
   const unlockCtx  = useMemo(() => ({
-    streak: streak || 0, zenCoins, mealCount: mealCount || 0, purchased,
-  }), [streak, zenCoins, mealCount, purchased])
+    streak: streak || 0, stars: calcStars(streak || 0), mealCount: mealCount || 0, purchased,
+  }), [streak, mealCount, purchased])
 
   const unlocks = useMemo(() => getUnlocks(prog, streak || 0), [prog, streak])
 
@@ -489,7 +501,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     const next = curr - amount
     saveCE(next)
     setCareEnergy(next)
-    setXpFlash(`-${amount} 🌿`)
+    setXpFlash(`-${amount} ⚡`)
     setTimeout(() => setXpFlash(null), 1800)
     return true
   }, [])
@@ -725,10 +737,13 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
 
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <div className="rm-header">
-          <span className="rm-title">🌿 My Room</span>
-          <div className="rm-xp" title="Log meals to earn Care Energy">
-            <span>🌿</span>
-            <span>{careEnergy} CE</span>
+          <div className="rm-header-left">
+            <span className="rm-title">🐱 My Room</span>
+            <span className="rm-room-lv">Room Lv.{getRoomLevel(xp || 0)}</span>
+          </div>
+          <div className="rm-xp" title="Log meals to earn Care Energy (+30 per meal)">
+            <span>⚡</span>
+            <span>{careEnergy}</span>
           </div>
           <button className="rm-close" onClick={onClose}>✕</button>
         </div>
@@ -869,8 +884,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Feed</span>
                 {canFeed
-                  ? <span className="rm-btn-effect">Fullness +45 · 1 🌿 CE</span>
-                  : <span className="rm-btn-cost">No Care Energy · Log a meal to earn 🌿</span>
+                  ? <span className="rm-btn-effect">Fullness +45 · 20 ⚡</span>
+                  : <span className="rm-btn-cost">Need 20 ⚡ · Log a meal to earn</span>
                 }
               </div>
             </button>
@@ -884,9 +899,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Play</span>
                 {canPlay
-                  ? <span className="rm-btn-effect">Mood +20 · 1 🌿 CE</span>
+                  ? <span className="rm-btn-effect">Mood +20 · 15 ⚡</span>
                   : careEnergy < PLAY_COST
-                    ? <span className="rm-btn-cost">No Care Energy · Log a meal to earn 🌿</span>
+                    ? <span className="rm-btn-cost">Need 15 ⚡ · Log a meal to earn</span>
                     : <span className="rm-btn-cost">Too tired 😴</span>
                 }
               </div>

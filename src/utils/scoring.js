@@ -55,6 +55,12 @@ export function getAchievements(profile, mealCount) {
   ]
 }
 
-export function calcZenCoins(xp) {
-  return Math.floor(xp / 2)
+// Stars ⭐ — earned from streak milestones (cumulative)
+export function calcStars(streak = 0) {
+  let stars = 0
+  if (streak >= 3)  stars += 1
+  if (streak >= 7)  stars += 3
+  if (streak >= 14) stars += 7
+  if (streak >= 30) stars += 10
+  return stars
 }

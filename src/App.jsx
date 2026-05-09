@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { useProfile } from './hooks/useProfile'
-import { calcZenCoins } from './utils/scoring'
+
 import Login from './pages/Login'
 import Home from './pages/Home'
 import Stats from './pages/Stats'
@@ -38,8 +38,8 @@ export default function App() {
     setShowLogModal(false)
     setShowScanModal(false)
     await onMealLogged()
-    // Award +1 Care Energy per meal logged (cap at 20)
-    const next = Math.min(careEnergy + 1, 20)
+    // Award +30 Care Energy per meal logged (cap at 200)
+    const next = Math.min(careEnergy + 30, 200)
     localStorage.setItem('zp_care_energy', String(next))
     setCareEnergy(next)
     setRefreshKey(k => k + 1)
@@ -55,8 +55,7 @@ export default function App() {
         {profile && (
           <div className="app-header-right">
             <span className="header-streak">🔥 {profile.streak}</span>
-            <span className="header-xp">🌿 {careEnergy}</span>
-            <span className="header-coins">🪙 {calcZenCoins(profile.xp || 0)}</span>
+            <span className="header-xp">⚡ {careEnergy}</span>
           </div>
         )}
       </header>
