@@ -356,11 +356,11 @@ export default function ScanModal({ session, onClose, onSaved }) {
         : sources.join(' + ')
       payload = {
         user_id: session.user.id, name: mealName, meal_type: MEAL_TYPE_V[mealType],
-        calories:  total.calories  || 0,
-        protein_g: total.protein   || 0,
-        carbs_g:   total.carbs     || 0,
-        fat_g:     total.fat       || 0,
-        fiber_g:   0,
+        calories:  total.calories  ?? 0,
+        protein_g: total.protein   ?? null,
+        carbs_g:   total.carbs     ?? null,
+        fat_g:     total.fat       ?? null,
+        fiber_g:   null,
         data_source: srcStr,
       }
     }
