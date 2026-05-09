@@ -222,110 +222,110 @@ function MonthCalendar({ allMeals }) {
 }
 
 // ── Cat Coach insight engine ──────────────────────────────────────────────────
-function generateInsights(meals, profile) {
-  const proteinGoal = profile?.protein_goal || 60
-  const calorieGoal = profile?.calorie_goal || 2000
+const FRIED_PAT  = /炸|排骨|雞排|薯條|鍋貼|春捲|甜甜圈|fried|burger|fries|nugget|crispy|donut/i
+const SWEET_PAT  = /奶茶|珍奶|手搖|可樂|汽水|蛋糕|布丁|冰淇淋|巧克力|糖|甜點|bubble.?tea|boba|soda|cake|dessert|cookie|candy/i
+const VEGGIE_PAT = /青菜|燙青菜|沙拉|蔬菜|花椰菜|菠菜|高麗菜|番茄|玉米|地瓜|salad|vegetable|broccoli|spinach|greens/i
 
+function generateInsights(meals) {
+  if (meals.length === 0) return []
+
+  const n = meals.length
+  const lowData = n < 5
+
+  // Per-meal averages — only what was actually logged
+  const avgProtein = meals.reduce((s, m) => s + (m.protein_g || 0), 0) / n
+  const avgCarbs   = meals.reduce((s, m) => s + (m.carbs_g   || 0), 0) / n
+  const avgFiber   = meals.reduce((s, m) => s + (m.fiber_g   || 0), 0) / n
+
+  const friedCount  = meals.filter(m => FRIED_PAT.test(m.name  || '')).length
+  const sweetCount  = meals.filter(m => SWEET_PAT.test(m.name  || '')).length
+  const veggieCount = meals.filter(m => VEGGIE_PAT.test(m.name || '')).length
+
+  const friedPct  = friedCount  / n
+  const sweetPct  = sweetCount  / n
+  const veggiePct = veggieCount / n
+
+  // Days with any meal logged in last 14
   const days14 = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date()
-    d.setDate(d.getDate() - (13 - i))
-    return toLocalDateStr(d)
+    const d = new Date(); d.setDate(d.getDate() - (13 - i)); return toLocalDateStr(d)
   })
-
-  const loggedDays = days14.filter(date =>
+  const daysLogged = days14.filter(date =>
     meals.some(m => mealLocalDate(m.logged_at) === date)
-  )
+  ).length
 
-  if (loggedDays.length === 0) return []
-
-  const dayStats = loggedDays.map(date => {
-    const dm = meals.filter(m => mealLocalDate(m.logged_at) === date)
-    return {
-      date,
-      protein:    dm.reduce((s, m) => s + (m.protein_g || 0), 0),
-      fiber:      dm.reduce((s, m) => s + (m.fiber_g   || 0), 0),
-      calories:   dm.reduce((s, m) => s + (m.calories  || 0), 0),
-      fat:        dm.reduce((s, m) => s + (m.fat_g     || 0), 0),
-      hasBrkfst:  dm.some(m => m.meal_type === 'breakfast'),
-    }
-  })
-
-  const n = dayStats.length
-  const avgProtein  = Math.round(dayStats.reduce((s, d) => s + d.protein,  0) / n)
-  const avgFiber    = Math.round(dayStats.reduce((s, d) => s + d.fiber,    0) / n)
-  const avgCal      = Math.round(dayStats.reduce((s, d) => s + d.calories, 0) / n)
-  const brkfstDays  = dayStats.filter(d => d.hasBrkfst).length
-  const brkfstPct   = Math.round((brkfstDays / n) * 100)
+  // Framing prefix — honest about data scope
+  const prefix = lowData
+    ? `Based on the ${n} meal${n > 1 ? 's' : ''} you've logged recently,`
+    : `Based on your logged meals recently,`
 
   const insights = []
 
-  // Just started — not enough data yet
-  if (n < 3) {
-    insights.push({
-      key: 'just_started',
-      message: `目前還在建立紀錄的初期，只有 ${n} 天的資料，但開始了就是好事 🌱`,
-      suggestion: '試著連續記錄三天，就能看到有趣的飲食模式了',
-      foods: [],
-    })
-    return insights
-  }
-
-  // Low protein
-  if (avgProtein < proteinGoal * 0.7) {
+  // Low protein in logged meals
+  if (avgProtein < 15) {
     insights.push({
       key: 'low_protein',
-      message: `最近 ${n} 天每天平均蛋白質 ${avgProtein}g，距離目標 ${proteinGoal}g 還有點差距`,
-      suggestion: '早餐加顆茶葉蛋，或下午來杯豆漿，蛋白質就能悄悄補上來，不用特別費力',
-      foods: ['茶葉蛋', '豆漿', '雞胸便當', '蒸蛋'],
+      observation: `${prefix} protein sources seem a bit limited.`,
+      suggestion: 'Try adding one protein source tomorrow:',
+      foods: ['Tea egg', 'Soy milk', 'Tofu', 'Grilled chicken'],
     })
   }
 
-  // Low fiber
-  if (avgFiber < 8) {
+  // Carb-heavy pattern
+  if (avgCarbs > 50 && avgProtein < 20 && avgCarbs / Math.max(avgProtein, 1) > 3) {
     insights.push({
-      key: 'low_fiber',
-      message: `這幾天纖維質平均每天 ${avgFiber}g，蔬菜可能稍微少了一點點`,
-      suggestion: '點便當時多選一份燙青菜，或晚餐換地瓜代替白飯，腸胃會謝謝你',
-      foods: ['燙青菜', '地瓜', '玉米', '水果'],
+      key: 'carb_heavy',
+      observation: `${prefix} your meals seem a bit carb-heavy 🍜`,
+      suggestion: 'Pairing carbs with a protein source helps balance things out:',
+      foods: ['Tea egg', 'Soy milk', 'Tofu', 'Boiled egg'],
     })
   }
 
-  // Skipped breakfast often
-  if (brkfstPct < 35 && n >= 5) {
+  // Fried food frequency
+  if (friedPct >= 0.3) {
     insights.push({
-      key: 'skip_brkfst',
-      message: `你有 ${100 - brkfstPct}% 的天都沒有記錄早餐，可能真的很忙，或者本來就不習慣吃`,
-      suggestion: '光復門口的茶葉蛋 + 豆漿，兩樣加起來不到 50 元，卻能撐到午餐 ☀️',
-      foods: ['茶葉蛋', '豆漿', '全麥吐司', '香蕉'],
+      key: 'fried_food',
+      observation: `${prefix} your meals included more fried foods 🍤`,
+      suggestion: 'Maybe try a lighter option for one meal tomorrow:',
+      foods: ['Steamed greens', 'Fruit', 'Soup', 'Rice bowl'],
     })
   }
 
-  // Calorie consistently low
-  if (avgCal > 0 && avgCal < calorieGoal * 0.6) {
+  // Sugary drinks / desserts
+  if (sweetPct >= 0.25) {
     insights.push({
-      key: 'low_cal',
-      message: `這幾天每天平均只有 ${avgCal} kcal，感覺吃得有點少`,
-      suggestion: '身體需要足夠的能量才能好好運作，記得把三餐都記下來，不要漏掉小食',
-      foods: ['豆漿', '堅果', '香蕉', '燕麥'],
+      key: 'sweet',
+      observation: `${prefix} there were a few sweet drinks or desserts in the mix 🧋`,
+      suggestion: 'Swapping one for unsweetened tea or water is a simple win:',
+      foods: ['Green tea', 'Plain water', 'Unsweetened soy milk'],
     })
   }
 
-  // Good consistency — positive
-  if (n >= 10) {
+  // Low fiber / veggies
+  if (avgFiber < 3 && veggiePct < 0.2) {
     insights.push({
-      key: 'good_consistency',
-      message: `最近兩週你記錄了 ${n} 天，這個節奏真的很穩 🐱✨`,
-      suggestion: '繼續保持！每次記錄都是在幫自己更了解自己的身體，你已經做得很好了',
+      key: 'low_veggies',
+      observation: `${prefix} vegetables seem a bit scarce in the mix 🥦`,
+      suggestion: 'Adding one vegetable side per day makes a real difference:',
+      foods: ['Steamed greens', 'Sweet potato', 'Corn', 'Fruit'],
+    })
+  }
+
+  // Positive: good consistency
+  if (daysLogged >= 8) {
+    insights.push({
+      key: 'consistent',
+      observation: `You've been logging meals consistently lately 🌟`,
+      suggestion: `Your meal balance is improving. Keep going 🐱`,
       foods: [],
     })
   }
 
-  // Good protein — positive
-  if (avgProtein >= proteinGoal * 0.9) {
+  // Positive: solid balance
+  if (avgProtein >= 18 && avgFiber >= 4 && !insights.find(i => i.key === 'consistent')) {
     insights.push({
-      key: 'good_protein',
-      message: `蛋白質攝取很不錯！最近平均每天 ${avgProtein}g，幾乎達標 💪`,
-      suggestion: '維持這個習慣，配合足夠的纖維質，整體飲食品質就會很均衡',
+      key: 'good_balance',
+      observation: `Based on your logged meals, your nutrient balance is looking pretty solid 🌿`,
+      suggestion: `Keep building on this — small consistent habits add up.`,
       foods: [],
     })
   }
@@ -335,8 +335,14 @@ function generateInsights(meals, profile) {
 
 // ── Cat Coach card ────────────────────────────────────────────────────────────
 function CatCoach({ allMeals, profile }) {
-  const [idx,       setIdx]       = useState(0)
-  const [dismissed, setDismissed] = useState({})
+  const [feedbackMap, setFeedbackMap] = useState({})
+  const [thanked,     setThanked]     = useState(false)
+
+  useEffect(() => {
+    if (!thanked) return
+    const t = setTimeout(() => setThanked(false), 1600)
+    return () => clearTimeout(t)
+  }, [thanked])
 
   const days14Start = useMemo(() => {
     const d = new Date(); d.setDate(d.getDate() - 13); return toLocalDateStr(d)
@@ -352,56 +358,64 @@ function CatCoach({ allMeals, profile }) {
     [recentMeals, profile]
   )
 
-  const active = insights.filter(i => !dismissed[i.key])
+  const pending = insights.filter(i => !feedbackMap[i.key])
+  const insight = pending[0]
+  const reviewed = insights.length - pending.length
 
-  const dismiss = (key) => {
-    setDismissed(prev => ({ ...prev, [key]: true }))
-    setIdx(0)
+  const giveFeedback = (type) => {
+    if (!insight) return
+    setFeedbackMap(prev => ({ ...prev, [insight.key]: type }))
+    setThanked(true)
   }
-
-  if (active.length === 0) {
-    return (
-      <div className="section">
-        <h3 className="section-title">Cat Coach 🐱</h3>
-        <div className="cat-coach-card">
-          <p className="cc-observation">你的飲食資料看起來都不錯，目前沒有特別需要調整的地方 🎉</p>
-          <p className="cc-suggestion">💡 繼續保持這樣的記錄習慣吧！</p>
-        </div>
-      </div>
-    )
-  }
-
-  const insight = active[idx % active.length]
 
   return (
     <div className="section">
       <h3 className="section-title">Cat Coach 🐱</h3>
-      <div className="cat-coach-card">
-        <p className="cc-observation">{insight.message}</p>
-        <p className="cc-suggestion">💡 {insight.suggestion}</p>
-        {insight.foods.length > 0 && (
-          <div className="cc-foods">
-            {insight.foods.map(f => <span key={f} className="cc-food-chip">{f}</span>)}
-          </div>
-        )}
-        <div className="cc-actions">
-          <button className="cc-btn cc-btn-primary" onClick={() => dismiss(insight.key)}>
-            好，我會試試 🐱
-          </button>
-          {active.length > 1 && (
-            <button className="cc-btn cc-btn-secondary"
-              onClick={() => setIdx(i => (i + 1) % active.length)}>
-              換個建議 🔄
-            </button>
-          )}
-          <button className="cc-btn cc-btn-ghost" onClick={() => dismiss(insight.key)}>
-            這個我知道 👍
-          </button>
+
+      {insights.length === 0 ? (
+        <div className="cat-coach-card cc-empty">
+          <span className="cc-cat">🐱</span>
+          <p className="cc-observation">Start logging meals to unlock personalized insights.</p>
+          <p className="cc-hint">Your coach will check in when there's something useful to share 🌿</p>
         </div>
-        {active.length > 1 && (
-          <p className="cc-counter">{(idx % active.length) + 1} / {active.length}</p>
-        )}
-      </div>
+
+      ) : !insight ? (
+        <div className="cat-coach-card cc-done">
+          <span className="cc-cat">🐱</span>
+          <p className="cc-observation">You're all caught up! 🎉</p>
+          <p className="cc-hint">Keep logging meals — your coach will check back when there's something new.</p>
+        </div>
+
+      ) : (
+        <div className="cat-coach-card">
+          <span className="cc-cat">🐱</span>
+          <p className="cc-observation">{insight.observation}</p>
+          {insight.foods.length > 0 ? (
+            <>
+              <p className="cc-sugg-label">{insight.suggestion}</p>
+              <div className="cc-foods">
+                {insight.foods.map(f => <span key={f} className="cc-food-chip">{f}</span>)}
+              </div>
+            </>
+          ) : (
+            <p className="cc-sugg-label">{insight.suggestion}</p>
+          )}
+
+          {thanked ? (
+            <p className="cc-thanks">Thanks for the feedback 🐱</p>
+          ) : (
+            <div className="cc-actions">
+              <button className="cc-btn cc-btn-primary"   onClick={() => giveFeedback('try')}>I'll Try This</button>
+              <button className="cc-btn cc-btn-secondary" onClick={() => giveFeedback('helpful')}>Helpful 🐱</button>
+              <button className="cc-btn cc-btn-ghost"     onClick={() => giveFeedback('skip')}>Not Relevant</button>
+            </div>
+          )}
+
+          {insights.length > 1 && (
+            <p className="cc-counter">Insight {reviewed + 1} of {insights.length}</p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
