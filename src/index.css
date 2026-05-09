@@ -503,10 +503,11 @@ body {
   border: 1.5px solid #daeee8;
   border-radius: 20px;
   padding: 22px 18px 20px;
+  font-family: 'Nunito', sans-serif;
 }
 .cc-message {
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   color: var(--dark);
   line-height: 1.75;
   margin-bottom: 0;
@@ -515,7 +516,7 @@ body {
   font-size: 13px;
   color: #4a6862;
   line-height: 1.65;
-  font-weight: 500;
+  font-weight: 700;
   margin-top: 14px;
   margin-bottom: 0;
 }
@@ -524,13 +525,13 @@ body {
   color: var(--muted);
   margin-top: 10px;
   margin-bottom: 0;
-  font-weight: 500;
+  font-weight: 700;
 }
 .cc-sub {
   font-size: 13px;
   color: var(--muted);
   line-height: 1.6;
-  font-weight: 500;
+  font-weight: 700;
   margin-top: 8px;
   margin-bottom: 0;
 }
@@ -547,18 +548,18 @@ body {
   background: #e2f4ef;
   color: #2a9a8c;
   border: 1px solid #c4e5de;
-  font-weight: 700;
+  font-weight: 800;
 }
 .cc-btn {
   display: inline-block;
   margin-top: 20px;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
   padding: 10px 20px;
   border-radius: 22px;
   border: none;
   cursor: pointer;
-  font-family: inherit;
+  font-family: 'Nunito', sans-serif;
   background: var(--primary);
   color: white;
   transition: opacity 0.15s;
