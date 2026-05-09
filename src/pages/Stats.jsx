@@ -31,15 +31,12 @@ function formatTime(ts) {
 
 // ── Macro bar ─────────────────────────────────────────────────────────────────
 function MacroBar({ label, value, goal, unit, color }) {
-  const hasData = value > 0
-  const pct = hasData ? Math.min(Math.round((value / goal) * 100), 100) : 0
+  const pct = Math.min(Math.round((value / goal) * 100), 100)
   return (
     <div className="macro-bar">
       <div className="macro-bar-header">
         <span className="macro-label">{label}</span>
-        <span className="macro-value">
-          {hasData ? `${Math.round(value)}${unit} / ${goal}${unit}` : '—'}
-        </span>
+        <span className="macro-value">{Math.round(value)}{unit} / {goal}{unit}</span>
       </div>
       <div className="macro-track">
         <div className="macro-fill" style={{ width: `${pct}%`, background: color }}/>

@@ -27,7 +27,7 @@ const VISION_PROMPT = `你是台灣 AI 營養師，分析食物照片。
       "packaged": false,
       "brand": "",
       "components": [
-        { "name": "食材或品項名稱", "grams": 150, "cal_est": 200, "hint": "1碗" }
+        { "name": "食材或品項名稱", "grams": 150, "cal_est": 200, "pro_est": 12, "carb_est": 25, "fat_est": 8, "hint": "1碗" }
       ]
     }
   ]
@@ -38,7 +38,7 @@ const VISION_PROMPT = `你是台灣 AI 營養師，分析食物照片。
 2. confidence：0-100 整數
 3. 多個食物（便當/托盤/套餐）→ components 分列每個品項
 4. 包裝食品 → packaged:true，brand 填品牌名
-5. cal_est = 該份量的估計熱量（kcal），不是每 100g
+5. cal_est / pro_est / carb_est / fat_est = 該份量的估計值（kcal 或 g），不是每 100g
 6. 就算不確定也要給最佳猜測，不可以回傳空 candidates
 7. 使用台灣常用中文食物名稱`
 
@@ -51,6 +51,9 @@ function enrichComp(ai, dbReady) {
   const base = {
     aiName: ai.name, grams: ai.grams || 100, baseGrams: ai.grams || 100,
     portionMult: 1, calEst: ai.cal_est || 0, hint: ai.hint || '',
+    proEst:  ai.pro_est  ?? null,
+    carbEst: ai.carb_est ?? null,
+    fatEst:  ai.fat_est  ?? null,
   }
 
   // 1. NYCU campus DB
@@ -95,8 +98,14 @@ function calcCompNut(comp) {
       fiber: 0,
     }
   }
-  // AI estimate — calories only
-  return { calories: Math.round((comp.calEst || 0) * m), protein: null, carbs: null, fat: null, fiber: 0 }
+  // AI estimate — use AI macro estimates when available
+  return {
+    calories: Math.round((comp.calEst  || 0) * m),
+    protein:  comp.proEst  != null ? +(comp.proEst  * m).toFixed(1) : null,
+    carbs:    comp.carbEst != null ? +(comp.carbEst * m).toFixed(1) : null,
+    fat:      comp.fatEst  != null ? +(comp.fatEst  * m).toFixed(1) : null,
+    fiber: 0,
+  }
 }
 
 // ── Sum all components ────────────────────────────────────────────────────────
