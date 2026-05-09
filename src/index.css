@@ -466,12 +466,55 @@ body {
   font-weight: 800;
 }
 
+/* Score insight tags (below ring) */
+.score-tags {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px;
+}
+.score-tag {
+  font-size: 13px; font-weight: 800; color: var(--dark);
+  background: white; border: 1.5px solid var(--border);
+  border-radius: 20px; padding: 6px 13px;
+  font-family: 'Nunito', sans-serif;
+}
+.score-empty-hint {
+  font-size: 13px; font-weight: 700; color: var(--muted);
+  margin-top: 6px; font-family: 'Nunito', sans-serif;
+}
+
+/* Plate Breakdown cards */
+.breakdown-card {
+  background: white; border-radius: 14px; padding: 12px 14px; margin-bottom: 8px;
+}
+.breakdown-top {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;
+}
+.breakdown-meta {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  font-family: 'Nunito', sans-serif;
+}
+.breakdown-score {
+  font-size: 12px; font-weight: 800; padding: 3px 9px;
+  border-radius: 8px; font-family: 'Nunito', sans-serif;
+}
+.breakdown-name {
+  font-size: 15px; font-weight: 800; color: var(--dark);
+  margin-bottom: 8px; font-family: 'Nunito', sans-serif;
+}
+.breakdown-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.breakdown-tag {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  background: var(--bg); border-radius: 12px; padding: 3px 10px;
+  font-family: 'Nunito', sans-serif;
+}
+
+/* Macros — secondary, lighter visual weight */
 .macro-section { margin-bottom: 24px; }
-.macro-bar { margin-bottom: 16px; }
-.macro-bar-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
-.macro-label { font-size: 13px; font-weight: 800; color: var(--dark); }
-.macro-value { font-size: 12px; font-weight: 700; color: var(--muted); }
-.macro-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+.nutrition-title { font-size: 13px !important; color: var(--muted) !important; }
+.macro-bar { margin-bottom: 12px; }
+.macro-bar-header { display: flex; justify-content: space-between; margin-bottom: 5px; }
+.macro-label { font-size: 12px; font-weight: 700; color: var(--dark); }
+.macro-value { font-size: 11px; font-weight: 700; color: var(--muted); }
+.macro-track { height: 6px; background: var(--border); border-radius: 4px; overflow: hidden; }
 .macro-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
 
 /* Stats tabs */

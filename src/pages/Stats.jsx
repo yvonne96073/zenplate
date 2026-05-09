@@ -388,6 +388,41 @@ function CatCoach({ allMeals, profile }) {
   )
 }
 
+// ── Plate breakdown helpers ───────────────────────────────────────────────────
+function getMealTags(meal) {
+  const { protein_g = 0, fat_g = 0, fiber_g = 0, carbs_g = 0, name = '' } = meal
+  const tags = []
+  if (FRIED_PAT.test(name))                              tags.push('🍟 Fried food')
+  else if (fat_g > 25)                                   tags.push('🧈 High fat')
+  if (protein_g >= 20)                                   tags.push('🍗 Good protein')
+  else if (protein_g < 8)                                tags.push('🍗 Low protein')
+  if (fiber_g >= 3 || VEGGIE_PAT.test(name))            tags.push('🥗 Vegetables included')
+  else if (fiber_g < 1 && !VEGGIE_PAT.test(name))       tags.push('🥬 No vegetables')
+  if (carbs_g > 60 && protein_g < 15)                   tags.push('🍜 Carb-heavy')
+  return tags.slice(0, 2)
+}
+
+function getDailyInsights(meals) {
+  if (meals.length === 0) return []
+  const totalProtein = meals.reduce((s, m) => s + (m.protein_g || 0), 0)
+  const totalFiber   = meals.reduce((s, m) => s + (m.fiber_g   || 0), 0)
+  const totalCarbs   = meals.reduce((s, m) => s + (m.carbs_g   || 0), 0)
+  const avgScore     = meals.reduce((s, m) => s + calcPlateScore(m), 0) / meals.length
+  const hasFried     = meals.some(m => FRIED_PAT.test(m.name || ''))
+  const hasVeggies   = meals.some(m => VEGGIE_PAT.test(m.name || ''))
+  const tags = []
+  if (avgScore >= 80)                                             tags.push('🥗 Well balanced')
+  else if (avgScore >= 65)                                        tags.push('😊 Pretty good')
+  if (totalProtein >= 40)                                         tags.push('🍗 Good protein')
+  else if (totalProtein < 20)                                     tags.push('🍗 Low protein')
+  if (hasVeggies || totalFiber >= 6)                             tags.push('🥬 Vegetables included')
+  else if (!hasVeggies && meals.length > 1)                      tags.push('🥬 No vegetables')
+  if (hasFried)                                                   tags.push('🍟 Fried food included')
+  if (totalCarbs > 0 && totalProtein > 0 && totalCarbs / totalProtein > 5)
+                                                                  tags.push('🍜 Mostly carbs')
+  return tags.slice(0, 3)
+}
+
 // ── Main Stats ────────────────────────────────────────────────────────────────
 export default function Stats({ session, profile }) {
   const [tab,        setTab]        = useState('today')
@@ -438,8 +473,6 @@ export default function Stats({ session, profile }) {
     ? Math.round(todayMeals.reduce((s, m) => s + calcPlateScore(m), 0) / todayMeals.length) : 0
   const scoreRingBg = `conic-gradient(var(--primary) ${todayAvgScore * 3.6}deg, #e4eeec 0)`
   const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
-  const scoreSi      = todayAvgScore > 0 ? scoreInfo(todayAvgScore) : null
-  const scoreBadgeEmoji = todayAvgScore >= 90 ? '✨' : todayAvgScore >= 75 ? '🌟' : todayAvgScore >= 60 ? '😊' : '💪'
 
   // ── Week summary ──────────────────────────────────────────────────────────
   const days7     = getLast7Days()
@@ -484,55 +517,56 @@ export default function Stats({ session, profile }) {
                 <p className="score-ring-label">/ 100 today</p>
               </div>
             </div>
-            {scoreSi && (
-              <div className="score-badge" style={{ background: scoreSi.bg, color: scoreSi.color }}>
-                {scoreBadgeEmoji} {scoreSi.label}!
-              </div>
-            )}
-            {!scoreSi && (
-              <div className="score-badge" style={{ background: '#f5f5f5', color: 'var(--muted)' }}>
-                🍽️ Log a meal to get your score
+            {todayMeals.length === 0 ? (
+              <p className="score-empty-hint">Log a meal to see your score 🍽️</p>
+            ) : (
+              <div className="score-tags">
+                {getDailyInsights(todayMeals).map(tag => (
+                  <span key={tag} className="score-tag">{tag}</span>
+                ))}
               </div>
             )}
           </div>
 
+          {/* Plate Breakdown */}
+          <div className="section">
+            <h3 className="section-title">Plate Breakdown 🍜</h3>
+            {todayMeals.length === 0
+              ? <p className="empty-text">No meals logged today yet 🌱</p>
+              : todayMeals.map(meal => {
+                  const score = calcPlateScore(meal)
+                  const si    = scoreInfo(score)
+                  const tags  = getMealTags(meal)
+                  return (
+                    <div key={meal.id} className="breakdown-card">
+                      <div className="breakdown-top">
+                        <span className="breakdown-meta">
+                          {MEAL_TYPE_EMOJI[meal.meal_type]}&nbsp;
+                          {MEAL_TYPE_ZH[meal.meal_type] || meal.meal_type}
+                          &nbsp;·&nbsp;{formatTime(meal.logged_at)}
+                        </span>
+                        <span className="breakdown-score" style={{ background: si.bg, color: si.color }}>{score}</span>
+                      </div>
+                      <p className="breakdown-name">{meal.name}</p>
+                      {tags.length > 0 && (
+                        <div className="breakdown-tags">
+                          {tags.map(tag => <span key={tag} className="breakdown-tag">{tag}</span>)}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })
+            }
+          </div>
+
+          {/* Nutrition details — secondary info */}
           <div className="macro-section">
-            <h3 className="section-title">Macronutrients</h3>
+            <h3 className="section-title nutrition-title">Nutrition Details</h3>
             <MacroBar label="🔥 Calories" value={total.calories} goal={calorieGoal}       unit=" kcal" color="#E65100"/>
             <MacroBar label="💪 Protein"  value={total.protein}  goal={proteinGoal}        unit="g"    color="#2BB5A0"/>
             <MacroBar label="🌾 Carbs"    value={total.carbs}    goal={MACRO_GOALS.carbs}  unit="g"    color="#6C8EBD"/>
             <MacroBar label="🧈 Fat"      value={total.fat}      goal={MACRO_GOALS.fat}    unit="g"    color="#F5A623"/>
             <MacroBar label="🌿 Fiber"    value={total.fiber}    goal={MACRO_GOALS.fiber}  unit="g"    color="#8BC34A"/>
-          </div>
-
-          <div className="section">
-            <h3 className="section-title">Meals</h3>
-            {todayMeals.length === 0
-              ? <p className="empty-text">No meals logged today yet</p>
-              : todayMeals.map(meal => {
-                  const score = calcPlateScore(meal)
-                  const si    = scoreInfo(score)
-                  return (
-                    <div key={meal.id} className="stats-meal-row">
-                      <div>
-                        <p className="stats-meal-name">{meal.name}</p>
-                        <p className="stats-meal-meta">
-                          {MEAL_TYPE_EMOJI[meal.meal_type]}&nbsp;
-                          {MEAL_TYPE_ZH[meal.meal_type] || meal.meal_type}
-                          &nbsp;·&nbsp;{formatTime(meal.logged_at)}
-                        </p>
-                      </div>
-                      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                        <div className="meal-score"
-                          style={{ background: si.bg, color: si.color, marginBottom: 3 }}>
-                          {score}
-                        </div>
-                        <span className="stats-meal-cal">{meal.calories} kcal</span>
-                      </div>
-                    </div>
-                  )
-                })
-            }
           </div>
         </>
       )}

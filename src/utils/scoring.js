@@ -29,11 +29,11 @@ export function calcPlateScore(meal) {
 }
 
 export function scoreInfo(score) {
-  if (score >= 90) return { label: 'Excellent', color: '#2BB5A0', bg: '#D0EEE8' }
-  if (score >= 75) return { label: 'Great', color: '#4CAF50', bg: '#E8F5E9' }
-  if (score >= 60) return { label: 'Good', color: '#8BC34A', bg: '#F1F8E9' }
-  if (score >= 45) return { label: 'Fair', color: '#F5A623', bg: '#FFF8E7' }
-  return { label: 'Needs Work', color: '#E74C3C', bg: '#FEECEB' }
+  if (score >= 90) return { label: 'Well Balanced',      color: '#2BB5A0', bg: '#D0EEE8' }
+  if (score >= 75) return { label: 'Great Balance',       color: '#4CAF50', bg: '#E8F5E9' }
+  if (score >= 60) return { label: 'Pretty Good',         color: '#8BC34A', bg: '#F1F8E9' }
+  if (score >= 45) return { label: 'More Balance Needed', color: '#F5A623', bg: '#FFF8E7' }
+  return              { label: 'A Bit Unbalanced',    color: '#E57C47', bg: '#FEF0E8' }
 }
 
 export function getAchievements(profile, mealCount) {
