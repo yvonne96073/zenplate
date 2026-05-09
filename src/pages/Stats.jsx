@@ -434,11 +434,12 @@ export default function Stats({ session, profile }) {
     fat:      todayMeals.reduce((s, m) => s + (m.fat_g     || 0), 0),
     fiber:    todayMeals.reduce((s, m) => s + (m.fiber_g   || 0), 0),
   }
-  const calPct = Math.min(Math.round((total.calories / calorieGoal) * 100), 100)
-  const ringBg = `conic-gradient(var(--primary) ${calPct * 3.6}deg, var(--border) 0)`
-  const status = calPct >= 90 ? '🎯 On Target!' : calPct >= 50 ? '💪 Keep Going!' : '🌱 Just Starting'
   const todayAvgScore = todayMeals.length > 0
     ? Math.round(todayMeals.reduce((s, m) => s + calcPlateScore(m), 0) / todayMeals.length) : 0
+  const scoreRingBg = `conic-gradient(var(--primary) ${todayAvgScore * 3.6}deg, #e4eeec 0)`
+  const todayDateStr = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+  const scoreSi      = todayAvgScore > 0 ? scoreInfo(todayAvgScore) : null
+  const scoreBadgeEmoji = todayAvgScore >= 90 ? '✨' : todayAvgScore >= 75 ? '🌟' : todayAvgScore >= 60 ? '😊' : '💪'
 
   // ── Week summary ──────────────────────────────────────────────────────────
   const days7     = getLast7Days()
@@ -463,8 +464,6 @@ export default function Stats({ session, profile }) {
 
   return (
     <>
-      <h2 className="page-title">Stats</h2>
-
       <div className="stats-tabs">
         <button className={`stats-tab ${tab === 'today' ? 'active' : ''}`} onClick={() => setTab('today')}>Today</button>
         <button className={`stats-tab ${tab === 'week'  ? 'active' : ''}`} onClick={() => setTab('week')}>This Week</button>
@@ -473,18 +472,26 @@ export default function Stats({ session, profile }) {
       {/* ── Today ── */}
       {tab === 'today' && (
         <>
-          <div className="calorie-ring-wrap">
-            <div className="calorie-ring" style={{ background: ringBg }}>
-              <div className="calorie-ring-inner">
-                <p className="ring-value">{total.calories}</p>
-                <p className="ring-label">/ {calorieGoal} kcal</p>
+          {/* Score hero */}
+          <div className="score-hero">
+            <h2 className="score-hero-title">Today's Score</h2>
+            <p className="score-hero-sub">
+              {todayDateStr} · {todayMeals.length} meal{todayMeals.length !== 1 ? 's' : ''} logged
+            </p>
+            <div className="score-ring" style={{ background: todayAvgScore > 0 ? scoreRingBg : 'conic-gradient(#e4eeec 360deg, #e4eeec 0)' }}>
+              <div className="score-ring-inner">
+                <p className="score-ring-value">{todayAvgScore > 0 ? todayAvgScore : '—'}</p>
+                <p className="score-ring-label">/ 100 today</p>
               </div>
             </div>
-            <p className="ring-status">{status}</p>
-            {todayAvgScore > 0 && (
-              <div className="plate-score-badge"
-                style={{ background: scoreInfo(todayAvgScore).bg, color: scoreInfo(todayAvgScore).color }}>
-                Avg Plate Score: <strong>{todayAvgScore}</strong> · {scoreInfo(todayAvgScore).label}
+            {scoreSi && (
+              <div className="score-badge" style={{ background: scoreSi.bg, color: scoreSi.color }}>
+                {scoreBadgeEmoji} {scoreSi.label}!
+              </div>
+            )}
+            {!scoreSi && (
+              <div className="score-badge" style={{ background: '#f5f5f5', color: 'var(--muted)' }}>
+                🍽️ Log a meal to get your score
               </div>
             )}
           </div>
@@ -533,6 +540,7 @@ export default function Stats({ session, profile }) {
       {/* ── This Week ── */}
       {tab === 'week' && (
         <>
+          <h2 className="page-title" style={{ marginTop: 4 }}>This Week</h2>
           <div className="week-summary-cards">
             <div className="week-summary-card">
               <p className="week-card-value">{daysLogged}</p>

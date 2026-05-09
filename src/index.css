@@ -406,19 +406,65 @@ body {
 /* Stats */
 .page-title { font-size: 22px; font-weight: 900; color: var(--dark); margin-bottom: 20px; }
 
-.calorie-ring-wrap { display: flex; flex-direction: column; align-items: center; margin-bottom: 28px; }
-.calorie-ring {
-  width: 160px; height: 160px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center; margin-bottom: 12px;
+/* Score hero (Today tab) */
+.score-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 28px;
 }
-.calorie-ring-inner {
-  width: 120px; height: 120px; border-radius: 50%;
-  background: var(--bg);
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
+.score-hero-title {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--dark);
+  margin-bottom: 6px;
+  letter-spacing: -0.3px;
 }
-.ring-value { font-size: 26px; font-weight: 900; color: var(--dark); }
-.ring-label { font-size: 12px; color: var(--muted); font-weight: 600; }
-.ring-status { font-size: 14px; font-weight: 800; color: var(--primary); }
+.score-hero-sub {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 24px;
+}
+.score-ring {
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+.score-ring-inner {
+  width: 138px;
+  height: 138px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.score-ring-value {
+  font-size: 48px;
+  font-weight: 900;
+  color: var(--dark);
+  line-height: 1;
+  margin-bottom: 5px;
+  letter-spacing: -1px;
+}
+.score-ring-label {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.score-badge {
+  display: inline-block;
+  padding: 9px 22px;
+  border-radius: 26px;
+  font-size: 14px;
+  font-weight: 800;
+}
 
 .macro-section { margin-bottom: 24px; }
 .macro-bar { margin-bottom: 16px; }
@@ -638,11 +684,6 @@ body {
   padding: 2px 8px; border-radius: 20px; margin-bottom: 4px;
 }
 
-/* Plate score badge (Stats) */
-.plate-score-badge {
-  display: inline-block; font-size: 13px; font-weight: 700;
-  padding: 6px 14px; border-radius: 20px; margin-top: 8px;
-}
 
 /* Achievements */
 .achievements-grid {
