@@ -89,16 +89,15 @@ function DayDetail({ meals }) {
 
   return (
     <div className="stats-day-detail">
-      {/* Summary chips */}
+      {/* Summary chips — score first, no calories */}
       <div className="dd-summary-row">
-        <span className="dd-chip">🔥 <strong>{totalCal}</strong> kcal</span>
-        <span className="dd-chip">💪 蛋白 <strong>{Math.round(totalPro)}g</strong></span>
-        <span className="dd-chip">🌾 碳水 <strong>{Math.round(totalCarb)}g</strong></span>
         {si && (
           <span className="dd-chip" style={{ background: si.bg, color: si.color, borderColor: 'transparent' }}>
-            Score <strong>{avgScore}</strong>
+            🏅 Plate Score <strong>{avgScore}</strong>
           </span>
         )}
+        <span className="dd-chip">💪 蛋白 <strong>{Math.round(totalPro)}g</strong></span>
+        <span className="dd-chip">🌾 碳水 <strong>{Math.round(totalCarb)}g</strong></span>
       </div>
 
       {/* Meal cards */}
@@ -113,7 +112,7 @@ function DayDetail({ meals }) {
               </span>
               <span className="dd-meal-time">{formatTime(meal.logged_at)}</span>
               <span className="dd-meal-score" style={{ background: msi.bg, color: msi.color }}>
-                {score} pts
+                {score}
               </span>
             </div>
             <p className="dd-meal-name">{meal.name}</p>
@@ -352,7 +351,7 @@ export default function Stats({ session, profile }) {
                       <div style={{ textAlign: 'right', flexShrink: 0 }}>
                         <div className="meal-score"
                           style={{ background: si.bg, color: si.color, marginBottom: 3 }}>
-                          {score} pts
+                          {score}
                         </div>
                         <span className="stats-meal-cal">{meal.calories} kcal</span>
                       </div>

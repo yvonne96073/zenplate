@@ -250,7 +250,7 @@ export default function Home({ session, profile, onLogMeal }) {
                     <p className="meal-meta">{formatTime(meal.logged_at)} · {MEAL_TYPE_ZH[meal.meal_type] || meal.meal_type}</p>
                   </div>
                   <div style={{ textAlign: 'right', marginRight: 4 }}>
-                    <div className="meal-score" style={{ background: info.bg, color: info.color }}>{score} pts</div>
+                    <div className="meal-score" style={{ background: info.bg, color: info.color }}>{score}</div>
                     <span className="meal-calories">{meal.calories} kcal</span>
                   </div>
                   <button className="meal-delete-btn" onClick={e => { e.stopPropagation(); handleDeleteMeal(meal.id) }}>✕</button>
