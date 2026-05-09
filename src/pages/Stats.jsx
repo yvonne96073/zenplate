@@ -230,22 +230,15 @@ function generateInsights(meals) {
   if (meals.length === 0) return []
 
   const n = meals.length
-  const lowData = n < 5
 
-  // Per-meal averages — only what was actually logged
   const avgProtein = meals.reduce((s, m) => s + (m.protein_g || 0), 0) / n
   const avgCarbs   = meals.reduce((s, m) => s + (m.carbs_g   || 0), 0) / n
   const avgFiber   = meals.reduce((s, m) => s + (m.fiber_g   || 0), 0) / n
 
-  const friedCount  = meals.filter(m => FRIED_PAT.test(m.name  || '')).length
-  const sweetCount  = meals.filter(m => SWEET_PAT.test(m.name  || '')).length
-  const veggieCount = meals.filter(m => VEGGIE_PAT.test(m.name || '')).length
+  const friedPct  = meals.filter(m => FRIED_PAT.test(m.name  || '')).length / n
+  const sweetPct  = meals.filter(m => SWEET_PAT.test(m.name  || '')).length / n
+  const veggiePct = meals.filter(m => VEGGIE_PAT.test(m.name || '')).length / n
 
-  const friedPct  = friedCount  / n
-  const sweetPct  = sweetCount  / n
-  const veggiePct = veggieCount / n
-
-  // Days with any meal logged in last 14
   const days14 = Array.from({ length: 14 }, (_, i) => {
     const d = new Date(); d.setDate(d.getDate() - (13 - i)); return toLocalDateStr(d)
   })
@@ -253,80 +246,82 @@ function generateInsights(meals) {
     meals.some(m => mealLocalDate(m.logged_at) === date)
   ).length
 
-  // Framing prefix — honest about data scope
-  const prefix = lowData
-    ? `Based on the ${n} meal${n > 1 ? 's' : ''} you've logged recently,`
-    : `Based on your logged meals recently,`
-
   const insights = []
 
-  // Low protein in logged meals
   if (avgProtein < 15) {
     insights.push({
       key: 'low_protein',
-      observation: `${prefix} protein sources seem a bit limited.`,
-      suggestion: 'Try adding one protein source tomorrow:',
+      message: "Looks like we haven't had much protein lately 👀",
+      nudge: 'Maybe try adding a little tomorrow:',
       foods: ['Tea egg', 'Soy milk', 'Tofu', 'Grilled chicken'],
+      close: 'Small steps are enough 🐱',
+      btn: "I'll try tomorrow 🌙",
     })
   }
 
-  // Carb-heavy pattern
   if (avgCarbs > 50 && avgProtein < 20 && avgCarbs / Math.max(avgProtein, 1) > 3) {
     insights.push({
       key: 'carb_heavy',
-      observation: `${prefix} your meals seem a bit carb-heavy 🍜`,
-      suggestion: 'Pairing carbs with a protein source helps balance things out:',
+      message: "You've been eating a lot of comforting carbs lately 🍜",
+      nudge: 'Maybe tomorrow, add a little protein alongside:',
       foods: ['Tea egg', 'Soy milk', 'Tofu', 'Boiled egg'],
+      close: '',
+      btn: "I'll try tomorrow 🌙",
     })
   }
 
-  // Fried food frequency
   if (friedPct >= 0.3) {
     insights.push({
       key: 'fried_food',
-      observation: `${prefix} your meals included more fried foods 🍤`,
-      suggestion: 'Maybe try a lighter option for one meal tomorrow:',
-      foods: ['Steamed greens', 'Fruit', 'Soup', 'Rice bowl'],
+      message: "Looks like there's been quite a bit of fried food lately 🍤",
+      nudge: 'Maybe try something a little lighter tomorrow:',
+      foods: ['Steamed greens', 'Fruit', 'Soup'],
+      close: '',
+      btn: "I'll try tomorrow 🌙",
     })
   }
 
-  // Sugary drinks / desserts
   if (sweetPct >= 0.25) {
     insights.push({
       key: 'sweet',
-      observation: `${prefix} there were a few sweet drinks or desserts in the mix 🧋`,
-      suggestion: 'Swapping one for unsweetened tea or water is a simple win:',
-      foods: ['Green tea', 'Plain water', 'Unsweetened soy milk'],
+      message: "There's been a few sweet drinks in the mix lately 🧋",
+      nudge: 'Maybe swap one for something plain tomorrow:',
+      foods: ['Green tea', 'Plain water', 'Soy milk'],
+      close: '',
+      btn: "I'll try tomorrow 🌙",
     })
   }
 
-  // Low fiber / veggies
   if (avgFiber < 3 && veggiePct < 0.2) {
     insights.push({
       key: 'low_veggies',
-      observation: `${prefix} vegetables seem a bit scarce in the mix 🥦`,
-      suggestion: 'Adding one vegetable side per day makes a real difference:',
+      message: "Hmm, vegetables have been a little quiet lately 🥦",
+      nudge: 'Even one small side helps a lot:',
       foods: ['Steamed greens', 'Sweet potato', 'Corn', 'Fruit'],
+      close: '',
+      btn: "I'll try tomorrow 🌙",
     })
   }
 
-  // Positive: good consistency
   if (daysLogged >= 8) {
     insights.push({
       key: 'consistent',
-      observation: `You've been logging meals consistently lately 🌟`,
-      suggestion: `Your meal balance is improving. Keep going 🐱`,
+      message: "You've been doing a good job logging meals lately 🌟",
+      nudge: 'Your balance is slowly improving 🐱',
       foods: [],
+      close: '',
+      btn: 'Got it 🐱',
     })
   }
 
-  // Positive: solid balance
   if (avgProtein >= 18 && avgFiber >= 4 && !insights.find(i => i.key === 'consistent')) {
     insights.push({
       key: 'good_balance',
-      observation: `Based on your logged meals, your nutrient balance is looking pretty solid 🌿`,
-      suggestion: `Keep building on this — small consistent habits add up.`,
+      message: "Everything's looking pretty balanced lately 🌿",
+      nudge: 'Keep it up 🐱',
       foods: [],
+      close: '',
+      btn: 'Got it 🐱',
     })
   }
 
@@ -335,14 +330,7 @@ function generateInsights(meals) {
 
 // ── Cat Coach card ────────────────────────────────────────────────────────────
 function CatCoach({ allMeals, profile }) {
-  const [feedbackMap, setFeedbackMap] = useState({})
-  const [thanked,     setThanked]     = useState(false)
-
-  useEffect(() => {
-    if (!thanked) return
-    const t = setTimeout(() => setThanked(false), 1600)
-    return () => clearTimeout(t)
-  }, [thanked])
+  const [seen, setSeen] = useState([])
 
   const days14Start = useMemo(() => {
     const d = new Date(); d.setDate(d.getDate() - 13); return toLocalDateStr(d)
@@ -358,14 +346,10 @@ function CatCoach({ allMeals, profile }) {
     [recentMeals, profile]
   )
 
-  const pending = insights.filter(i => !feedbackMap[i.key])
-  const insight = pending[0]
-  const reviewed = insights.length - pending.length
+  const insight = insights.find(i => !seen.includes(i.key))
 
-  const giveFeedback = (type) => {
-    if (!insight) return
-    setFeedbackMap(prev => ({ ...prev, [insight.key]: type }))
-    setThanked(true)
+  const dismiss = () => {
+    if (insight) setSeen(prev => [...prev, insight.key])
   }
 
   return (
@@ -373,47 +357,31 @@ function CatCoach({ allMeals, profile }) {
       <h3 className="section-title">Cat Coach 🐱</h3>
 
       {insights.length === 0 ? (
-        <div className="cat-coach-card cc-empty">
-          <span className="cc-cat">🐱</span>
-          <p className="cc-observation">Start logging meals to unlock personalized insights.</p>
-          <p className="cc-hint">Your coach will check in when there's something useful to share 🌿</p>
+        <div className="cat-coach-card">
+          <p className="cc-message">Log a few meals and your companion will gently check in 🌿</p>
         </div>
 
       ) : !insight ? (
-        <div className="cat-coach-card cc-done">
-          <span className="cc-cat">🐱</span>
-          <p className="cc-observation">You're all caught up! 🎉</p>
-          <p className="cc-hint">Keep logging meals — your coach will check back when there's something new.</p>
+        <div className="cat-coach-card">
+          <p className="cc-message">All caught up for now 🎉</p>
+          <p className="cc-sub">Keep logging and your companion will check back soon 🐱</p>
         </div>
 
       ) : (
         <div className="cat-coach-card">
-          <span className="cc-cat">🐱</span>
-          <p className="cc-observation">{insight.observation}</p>
+          <p className="cc-message">{insight.message}</p>
           {insight.foods.length > 0 ? (
             <>
-              <p className="cc-sugg-label">{insight.suggestion}</p>
+              <p className="cc-nudge">{insight.nudge}</p>
               <div className="cc-foods">
                 {insight.foods.map(f => <span key={f} className="cc-food-chip">{f}</span>)}
               </div>
+              {insight.close && <p className="cc-close">{insight.close}</p>}
             </>
           ) : (
-            <p className="cc-sugg-label">{insight.suggestion}</p>
+            <p className="cc-nudge">{insight.nudge}</p>
           )}
-
-          {thanked ? (
-            <p className="cc-thanks">Thanks for the feedback 🐱</p>
-          ) : (
-            <div className="cc-actions">
-              <button className="cc-btn cc-btn-primary"   onClick={() => giveFeedback('try')}>I'll Try This</button>
-              <button className="cc-btn cc-btn-secondary" onClick={() => giveFeedback('helpful')}>Helpful 🐱</button>
-              <button className="cc-btn cc-btn-ghost"     onClick={() => giveFeedback('skip')}>Not Relevant</button>
-            </div>
-          )}
-
-          {insights.length > 1 && (
-            <p className="cc-counter">Insight {reviewed + 1} of {insights.length}</p>
-          )}
+          <button className="cc-btn" onClick={dismiss}>{insight.btn}</button>
         </div>
       )}
     </div>
