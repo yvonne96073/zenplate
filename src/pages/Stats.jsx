@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { calcPlateScore, scoreInfo } from '../utils/scoring'
 
@@ -221,6 +221,191 @@ function MonthCalendar({ allMeals }) {
   )
 }
 
+// ── Cat Coach insight engine ──────────────────────────────────────────────────
+function generateInsights(meals, profile) {
+  const proteinGoal = profile?.protein_goal || 60
+  const calorieGoal = profile?.calorie_goal || 2000
+
+  const days14 = Array.from({ length: 14 }, (_, i) => {
+    const d = new Date()
+    d.setDate(d.getDate() - (13 - i))
+    return toLocalDateStr(d)
+  })
+
+  const loggedDays = days14.filter(date =>
+    meals.some(m => mealLocalDate(m.logged_at) === date)
+  )
+
+  if (loggedDays.length === 0) return []
+
+  const dayStats = loggedDays.map(date => {
+    const dm = meals.filter(m => mealLocalDate(m.logged_at) === date)
+    return {
+      date,
+      protein:    dm.reduce((s, m) => s + (m.protein_g || 0), 0),
+      fiber:      dm.reduce((s, m) => s + (m.fiber_g   || 0), 0),
+      calories:   dm.reduce((s, m) => s + (m.calories  || 0), 0),
+      fat:        dm.reduce((s, m) => s + (m.fat_g     || 0), 0),
+      hasBrkfst:  dm.some(m => m.meal_type === 'breakfast'),
+    }
+  })
+
+  const n = dayStats.length
+  const avgProtein  = Math.round(dayStats.reduce((s, d) => s + d.protein,  0) / n)
+  const avgFiber    = Math.round(dayStats.reduce((s, d) => s + d.fiber,    0) / n)
+  const avgCal      = Math.round(dayStats.reduce((s, d) => s + d.calories, 0) / n)
+  const brkfstDays  = dayStats.filter(d => d.hasBrkfst).length
+  const brkfstPct   = Math.round((brkfstDays / n) * 100)
+
+  const insights = []
+
+  // Just started — not enough data yet
+  if (n < 3) {
+    insights.push({
+      key: 'just_started',
+      message: `目前還在建立紀錄的初期，只有 ${n} 天的資料，但開始了就是好事 🌱`,
+      suggestion: '試著連續記錄三天，就能看到有趣的飲食模式了',
+      foods: [],
+    })
+    return insights
+  }
+
+  // Low protein
+  if (avgProtein < proteinGoal * 0.7) {
+    insights.push({
+      key: 'low_protein',
+      message: `最近 ${n} 天每天平均蛋白質 ${avgProtein}g，距離目標 ${proteinGoal}g 還有點差距`,
+      suggestion: '早餐加顆茶葉蛋，或下午來杯豆漿，蛋白質就能悄悄補上來，不用特別費力',
+      foods: ['茶葉蛋', '豆漿', '雞胸便當', '蒸蛋'],
+    })
+  }
+
+  // Low fiber
+  if (avgFiber < 8) {
+    insights.push({
+      key: 'low_fiber',
+      message: `這幾天纖維質平均每天 ${avgFiber}g，蔬菜可能稍微少了一點點`,
+      suggestion: '點便當時多選一份燙青菜，或晚餐換地瓜代替白飯，腸胃會謝謝你',
+      foods: ['燙青菜', '地瓜', '玉米', '水果'],
+    })
+  }
+
+  // Skipped breakfast often
+  if (brkfstPct < 35 && n >= 5) {
+    insights.push({
+      key: 'skip_brkfst',
+      message: `你有 ${100 - brkfstPct}% 的天都沒有記錄早餐，可能真的很忙，或者本來就不習慣吃`,
+      suggestion: '光復門口的茶葉蛋 + 豆漿，兩樣加起來不到 50 元，卻能撐到午餐 ☀️',
+      foods: ['茶葉蛋', '豆漿', '全麥吐司', '香蕉'],
+    })
+  }
+
+  // Calorie consistently low
+  if (avgCal > 0 && avgCal < calorieGoal * 0.6) {
+    insights.push({
+      key: 'low_cal',
+      message: `這幾天每天平均只有 ${avgCal} kcal，感覺吃得有點少`,
+      suggestion: '身體需要足夠的能量才能好好運作，記得把三餐都記下來，不要漏掉小食',
+      foods: ['豆漿', '堅果', '香蕉', '燕麥'],
+    })
+  }
+
+  // Good consistency — positive
+  if (n >= 10) {
+    insights.push({
+      key: 'good_consistency',
+      message: `最近兩週你記錄了 ${n} 天，這個節奏真的很穩 🐱✨`,
+      suggestion: '繼續保持！每次記錄都是在幫自己更了解自己的身體，你已經做得很好了',
+      foods: [],
+    })
+  }
+
+  // Good protein — positive
+  if (avgProtein >= proteinGoal * 0.9) {
+    insights.push({
+      key: 'good_protein',
+      message: `蛋白質攝取很不錯！最近平均每天 ${avgProtein}g，幾乎達標 💪`,
+      suggestion: '維持這個習慣，配合足夠的纖維質，整體飲食品質就會很均衡',
+      foods: [],
+    })
+  }
+
+  return insights
+}
+
+// ── Cat Coach card ────────────────────────────────────────────────────────────
+function CatCoach({ allMeals, profile }) {
+  const [idx,       setIdx]       = useState(0)
+  const [dismissed, setDismissed] = useState({})
+
+  const days14Start = useMemo(() => {
+    const d = new Date(); d.setDate(d.getDate() - 13); return toLocalDateStr(d)
+  }, [])
+
+  const recentMeals = useMemo(
+    () => allMeals.filter(m => mealLocalDate(m.logged_at) >= days14Start),
+    [allMeals, days14Start]
+  )
+
+  const insights = useMemo(
+    () => generateInsights(recentMeals, profile),
+    [recentMeals, profile]
+  )
+
+  const active = insights.filter(i => !dismissed[i.key])
+
+  const dismiss = (key) => {
+    setDismissed(prev => ({ ...prev, [key]: true }))
+    setIdx(0)
+  }
+
+  if (active.length === 0) {
+    return (
+      <div className="section">
+        <h3 className="section-title">Cat Coach 🐱</h3>
+        <div className="cat-coach-card">
+          <p className="cc-observation">你的飲食資料看起來都不錯，目前沒有特別需要調整的地方 🎉</p>
+          <p className="cc-suggestion">💡 繼續保持這樣的記錄習慣吧！</p>
+        </div>
+      </div>
+    )
+  }
+
+  const insight = active[idx % active.length]
+
+  return (
+    <div className="section">
+      <h3 className="section-title">Cat Coach 🐱</h3>
+      <div className="cat-coach-card">
+        <p className="cc-observation">{insight.message}</p>
+        <p className="cc-suggestion">💡 {insight.suggestion}</p>
+        {insight.foods.length > 0 && (
+          <div className="cc-foods">
+            {insight.foods.map(f => <span key={f} className="cc-food-chip">{f}</span>)}
+          </div>
+        )}
+        <div className="cc-actions">
+          <button className="cc-btn cc-btn-primary" onClick={() => dismiss(insight.key)}>
+            好，我會試試 🐱
+          </button>
+          {active.length > 1 && (
+            <button className="cc-btn cc-btn-secondary"
+              onClick={() => setIdx(i => (i + 1) % active.length)}>
+              換個建議 🔄
+            </button>
+          )}
+          <button className="cc-btn cc-btn-ghost" onClick={() => dismiss(insight.key)}>
+            這個我知道 👍
+          </button>
+        </div>
+        {active.length > 1 && (
+          <p className="cc-counter">{(idx % active.length) + 1} / {active.length}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main Stats ────────────────────────────────────────────────────────────────
 export default function Stats({ session, profile }) {
   const [tab,        setTab]        = useState('today')
@@ -394,11 +579,8 @@ export default function Stats({ session, profile }) {
             <MonthCalendar allMeals={allMeals} />
           </div>
 
-          {/* Week bar chart */}
-          <div className="section">
-            <h3 className="section-title">Calories This Week</h3>
-            <WeekChart weekData={weekData} calorieGoal={calorieGoal} />
-          </div>
+          {/* Cat Coach */}
+          <CatCoach allMeals={allMeals} profile={profile} />
         </>
       )}
     </>
