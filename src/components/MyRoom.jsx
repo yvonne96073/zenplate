@@ -930,6 +930,51 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
             <p className="rm-quote-text">✨ "{getDailyQuote()}"</p>
           </div>
 
+          {/* ── DEV PANEL — only in development build ─────────────────── */}
+          {import.meta.env.DEV && (
+            <div style={{
+              margin: '12px 0 4px', padding: '10px 12px', borderRadius: 10,
+              background: '#1a1a2e', color: '#e0e0ff', fontSize: 12,
+            }}>
+              <div style={{ fontWeight: 700, marginBottom: 8, color: '#a0a0ff' }}>🛠 Dev: force stats</div>
+              {[
+                { label: '🍚 Fullness', val: fullness, set: v => { setFullness(v); fullnessRef.current = v } },
+                { label: '⚡ Energy',   val: energy,   set: v => { setEnergy(v);   energyRef.current   = v } },
+                { label: '💕 Mood',     val: mood,     set: v => { setMood(v);     moodRef.current     = v } },
+              ].map(({ label, val, set }) => (
+                <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ width: 90 }}>{label}</span>
+                  <input type="range" min={0} max={100} value={val}
+                    onChange={e => set(Number(e.target.value))}
+                    style={{ flex: 1 }}
+                  />
+                  <span style={{ width: 26, textAlign: 'right' }}>{val}</span>
+                </div>
+              ))}
+              <div style={{ marginTop: 8, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { label: 'T1: critical', fl: 8,  e: 60, m: 60 },
+                  { label: 'T2: sleep',    fl: 50, e: 15, m: 60 },
+                  { label: 'T3: hungry',   fl: 25, e: 60, m: 60 },
+                  { label: 'T4: lowMood',  fl: 60, e: 60, m: 15 },
+                  { label: 'T5: happy',    fl: 70, e: 70, m: 70 },
+                ].map(({ label, fl, e, m }) => (
+                  <button key={label}
+                    onClick={() => {
+                      setFullness(fl); fullnessRef.current = fl
+                      setEnergy(e);   energyRef.current   = e
+                      setMood(m);     moodRef.current     = m
+                    }}
+                    style={{
+                      padding: '3px 8px', borderRadius: 6, border: 'none',
+                      background: '#3a3a6e', color: '#e0e0ff', cursor: 'pointer', fontSize: 11,
+                    }}
+                  >{label}</button>
+                ))}
+              </div>
+            </div>
+          )}
+
         </div>{/* end rm-body */}
       </div>
     </div>,
