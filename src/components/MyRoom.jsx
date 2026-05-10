@@ -6,12 +6,12 @@ import { calcStars } from '../utils/scoring'
 // CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
 const PET_KEY    = 'zp_pet_v3'
-const PROG_KEY   = 'zp_prog_v2'          // new key → old data ignored
-const CE_KEY     = 'zp_care_energy'      // Care Energy — earned from logging meals
-const FEED_COST  = 20                     // 20 CE per feed
-const PLAY_COST  = 15                     // 15 CE per play
-const CAT_W      = 160                    // sprite display width per frame
-const CAT_H      = 133                    // sprite approx display height
+const PROG_KEY   = 'zp_prog_v2'
+const CE_KEY     = 'zp_care_energy'
+const FEED_COST  = 20
+const PLAY_COST  = 15
+const CAT_W      = 160
+const CAT_H      = 133
 
 function loadCE() { return Math.max(0, parseInt(localStorage.getItem(CE_KEY) || '0')) }
 function saveCE(n) { localStorage.setItem(CE_KEY, String(Math.max(0, n))) }
@@ -22,7 +22,6 @@ const STATE_DURATION = {
   lookingOutside: 12000, playingIdle: 8000, watching: 6000,
 }
 
-// Floor object positions (left %, bottom % of scene)
 const OBJ = {
   bowl:    { x: 35, y: 8  },
   toy:     { x: 62, y: 8  },
@@ -32,9 +31,7 @@ const OBJ = {
   window:  { x: 70, y: 8  },
 }
 
-
-// ── Room themes — shared with Wardrobe in Profile.jsx ────────────────────────
-// unlock(ctx) where ctx = { streak, stars, mealCount, purchased[] }
+// ── Room themes ──────────────────────────────────────────────────────────────
 export const THEMES = [
   { id: 'japandi', name: 'Cozy',   emoji: '🪨', req: null,              unlock: () => true },
   { id: 'cafe',    name: 'Cafe',   emoji: '☕', req: '3-day streak',    unlock: (c) => c.streak >= 3 },
@@ -43,7 +40,7 @@ export const THEMES = [
   { id: 'night',   name: 'Night',  emoji: '🌙', req: '10 ⭐',           unlock: (c) => c.purchased.includes('night') },
 ]
 
-// ── Cat accessories — shared with Wardrobe in Profile.jsx ────────────────────
+// ── Cat accessories ──────────────────────────────────────────────────────────
 export const ACCESSORIES = [
   { id: 'none',         name: 'None',         emoji: '—',  dispEmoji: null, req: null,             unlock: () => true },
   { id: 'green_collar', name: 'Green Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',         unlock: () => true },
@@ -81,7 +78,7 @@ function getDailyQuote() {
 // PERSISTENCE
 // ─────────────────────────────────────────────────────────────────────────────
 function defaultPet() {
-  return { petState: 'idle', pos: { x: 47, y: 8 }, hunger: 20, mood: 70, energy: 80, flipX: false, lastUpdatedAt: Date.now() }
+  return { catState: 'idle', pos: { x: 47, y: 8 }, hunger: 20, mood: 70, energy: 80, catFacing: false, lastUpdatedAt: Date.now() }
 }
 
 function loadPet() {
@@ -91,21 +88,23 @@ function loadPet() {
     const s = JSON.parse(raw)
     const elapsed = Date.now() - (s.lastUpdatedAt || Date.now())
     const ticks   = Math.min(Math.floor(elapsed / 5000), 720)
-    let { petState, hunger, mood, energy } = s
+    // backward compat: old saves used petState
+    let catState = s.catState || s.petState || 'idle'
+    let { hunger, mood, energy } = s
     for (let i = 0; i < ticks; i++) {
-      if (petState !== 'eating')   hunger  = Math.min(hunger + 2, 100)
-      if (petState === 'sleeping') energy  = Math.min(energy + 3, 100)
+      if (catState !== 'eating')   hunger  = Math.min(hunger + 2, 100)
+      if (catState === 'sleeping') energy  = Math.min(energy + 3, 100)
       else                         energy  = Math.max(energy - 0.2, 0)
     }
     hunger = Math.round(Math.min(100, Math.max(0, hunger)))
     energy = Math.round(Math.min(100, Math.max(0, energy)))
     mood   = Math.round(Math.min(100, Math.max(0, mood)))
-    if (hunger >= 90 && petState !== 'sleeping') petState = 'veryHungry'
-    else if (hunger >= 70 && petState !== 'sleeping') petState = 'hungry'
+    if (hunger >= 90 && catState !== 'sleeping') catState = 'veryHungry'
+    else if (hunger >= 70 && catState !== 'sleeping') catState = 'hungry'
     // Reset any transient action states — timers don't survive page reload
     else if (['walking','eating','playing','scratching','sleeping',
-              'stretching','lying','grooming','lookingOutside','playingIdle','watching'].includes(petState)) petState = 'idle'
-    return { ...s, petState, hunger, mood, energy, lastUpdatedAt: Date.now() }
+              'stretching','lying','grooming','lookingOutside','playingIdle','watching'].includes(catState)) catState = 'idle'
+    return { ...s, catState, hunger, mood, energy, lastUpdatedAt: Date.now() }
   } catch { return defaultPet() }
 }
 
@@ -116,26 +115,26 @@ function savePet(data) {
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE-CONSISTENT MESSAGES
 // ─────────────────────────────────────────────────────────────────────────────
-function pickMessage(petState, hunger, mood, energy) {
-  if (petState === 'veryHungry')     return ["I'm starving... 😿", "Please feed me!! 🍜", "So weak... 😢"]
-  if (petState === 'hungry')         return ["I'm hungry... 😿", "Feed me please! 🍜", "My tummy hurts..."]
-  if (petState === 'sleeping')       return ["zzz... 😴", "*snores softly* 💤"]
-  if (petState === 'eating')         return ["Yum! Thank you! 💕", "Nom nom nom~ 😋", "So delicious! ✨"]
-  if (petState === 'playing')        return ["Wheee!! 😸", "So fun! ✨", "Again! Again! 🧶"]
-  if (petState === 'scratching')     return ["Ahh~ that's the spot! 😼", "*scratch scratch* 🪵"]
-  if (petState === 'stretching')     return ["*stretches lazily* 🐾", "Mmm, that feels good~", "Good morning~ ☀️"]
-  if (petState === 'lying')          return ["Comfy here... 😌", "*relaxing* 💕", "So peaceful~", "Don't disturb me 😸"]
-  if (petState === 'grooming')       return ["*lick lick lick* 🐱", "Gotta stay clean~ 😺", "Almost done~"]
-  if (petState === 'lookingOutside') return ["What's out there? 🪟", "Ooh, a bird! 😸", "*stares intently* 👀"]
-  if (petState === 'playingIdle')    return ["*batting at toy* 🐭", "This is fun~ ✨", "Hehe~ 😸"]
-  if (petState === 'watching')       return ["*curious stare* 👀", "What was that? 😸", "*ears perked* 🐱"]
+function pickMessage(catState, hunger, mood, energy) {
+  if (catState === 'veryHungry')     return ["I'm starving... 😿", "Please feed me!! 🍜", "So weak... 😢"]
+  if (catState === 'hungry')         return ["I'm hungry... 😿", "Feed me please! 🍜", "My tummy hurts..."]
+  if (catState === 'sleeping')       return ["zzz... 😴", "*snores softly* 💤"]
+  if (catState === 'eating')         return ["Yum! Thank you! 💕", "Nom nom nom~ 😋", "So delicious! ✨"]
+  if (catState === 'playing')        return ["Wheee!! 😸", "So fun! ✨", "Again! Again! 🧶"]
+  if (catState === 'scratching')     return ["Ahh~ that's the spot! 😼", "*scratch scratch* 🪵"]
+  if (catState === 'stretching')     return ["*stretches lazily* 🐾", "Mmm, that feels good~", "Good morning~ ☀️"]
+  if (catState === 'lying')          return ["Comfy here... 😌", "*relaxing* 💕", "So peaceful~", "Don't disturb me 😸"]
+  if (catState === 'grooming')       return ["*lick lick lick* 🐱", "Gotta stay clean~ 😺", "Almost done~"]
+  if (catState === 'lookingOutside') return ["What's out there? 🪟", "Ooh, a bird! 😸", "*stares intently* 👀"]
+  if (catState === 'playingIdle')    return ["*batting at toy* 🐭", "This is fun~ ✨", "Hehe~ 😸"]
+  if (catState === 'watching')       return ["*curious stare* 👀", "What was that? 😸", "*ears perked* 🐱"]
   if (energy < 20)   return ["So sleepy... 😴", "I need a nap..."]
   if (mood < 30)     return ["I'm bored... 😐", "Can we play? 🧶"]
   return ["Purr~ 💕", "I love you! 😊", "*stretches lazily* 😺", "Meow~ 🐱", "Head bumps! 💕"]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SPRITE CAT — image-based, state-aware, animated
+// SPRITE — image-based, state-aware, animated
 // ─────────────────────────────────────────────────────────────────────────────
 const SPRITE_CFG = {
   walking:        { src: '/sprites/walk.png',    frames: 5, origH: 185 },
@@ -155,11 +154,11 @@ const SPRITE_CFG = {
 }
 
 // States where sprite shows as still (first frame only)
-const STILL_STATES = new Set(['idle', 'hungry', 'veryHungry', 'lookingOutside', 'watching'])
+const STILL_STATES = new Set(['idle', 'hungry', 'veryHungry', 'lookingOutside', 'watching', 'eating'])
 const ORIG_STRIP_W = 1408
 
-function CatSprite({ state, isWalking }) {
-  const key = isWalking ? 'walking' : (SPRITE_CFG[state] ? state : 'idle')
+function CatSprite({ state }) {
+  const key = SPRITE_CFG[state] ? state : 'idle'
   const cfg = SPRITE_CFG[key]
   const origFrameW = ORIG_STRIP_W / cfg.frames
   const scale = CAT_W / origFrameW
@@ -181,162 +180,50 @@ function CatSprite({ state, isWalking }) {
   )
 }
 
-// Legacy — kept to avoid parse errors but unused
-function CatSVG({ state }) {
-  const isSleep    = state === 'sleeping'
-  const isHungry   = state === 'hungry' || state === 'veryHungry'
-  const isVeryHung = state === 'veryHungry'
-  const isEating   = state === 'eating'
-  const isPlaying  = state === 'playing'
-  const isHappy    = isEating || isPlaying
-
-  // eye style
-  let eyes
-  if (isSleep) {
-    eyes = (
-      <>
-        <path d="M41,43 Q45,40 49,43" stroke="#4A3020" strokeWidth="2" fill="none" strokeLinecap="round"/>
-        <path d="M59,43 Q63,40 67,43" stroke="#4A3020" strokeWidth="2" fill="none" strokeLinecap="round"/>
-      </>
-    )
-  } else if (isHappy) {
-    eyes = (
-      <>
-        <path d="M41,44 Q45,40 49,44" stroke="#4A3020" strokeWidth="2" fill="none" strokeLinecap="round"/>
-        <path d="M59,44 Q63,40 67,44" stroke="#4A3020" strokeWidth="2" fill="none" strokeLinecap="round"/>
-      </>
-    )
-  } else if (isVeryHung) {
-    eyes = (
-      <>
-        {/* sad drooping eyes */}
-        <ellipse cx="45" cy="44" rx="5" ry="4" fill="#3A2810"/>
-        <ellipse cx="63" cy="44" rx="5" ry="4" fill="#3A2810"/>
-        <ellipse cx="43" cy="42" rx="1.5" ry="1" fill="white"/>
-        <ellipse cx="61" cy="42" rx="1.5" ry="1" fill="white"/>
-        {/* worried brows */}
-        <path d="M40,38 Q45,36 50,38" stroke="#8B6A4A" strokeWidth="1.5" fill="none"/>
-        <path d="M58,38 Q63,36 68,38" stroke="#8B6A4A" strokeWidth="1.5" fill="none"/>
-      </>
-    )
-  } else if (isHungry) {
-    eyes = (
-      <>
-        <ellipse cx="45" cy="43" rx="5" ry="5" fill="#3A2810"/>
-        <ellipse cx="63" cy="43" rx="5" ry="5" fill="#3A2810"/>
-        <ellipse cx="43" cy="41" rx="1.8" ry="1.8" fill="white"/>
-        <ellipse cx="61" cy="41" rx="1.8" ry="1.8" fill="white"/>
-        {/* slight brow furrow */}
-        <path d="M41,37 Q45,35 49,37" stroke="#8B6A4A" strokeWidth="1.2" fill="none"/>
-        <path d="M59,37 Q63,35 67,37" stroke="#8B6A4A" strokeWidth="1.2" fill="none"/>
-      </>
-    )
-  } else {
-    eyes = (
-      <>
-        <ellipse cx="45" cy="43" rx="5.5" ry="5.5" fill="#3A2810"/>
-        <ellipse cx="63" cy="43" rx="5.5" ry="5.5" fill="#3A2810"/>
-        <ellipse cx="43" cy="41" rx="1.8" ry="1.8" fill="white"/>
-        <ellipse cx="61" cy="41" rx="1.8" ry="1.8" fill="white"/>
-      </>
-    )
-  }
-
-  if (isSleep) {
-    return (
-      <svg viewBox="0 0 100 90" width={CAT_W} height={CAT_H} xmlns="http://www.w3.org/2000/svg"
-        style={{ display: 'block', overflow: 'visible', background: 'transparent' }}>
-        {/* Curled sleeping cat */}
-        <ellipse cx="50" cy="65" rx="38" ry="22" fill="#C4A880" stroke="#8B6A4A" strokeWidth="1"/>
-        <ellipse cx="50" cy="62" rx="26" ry="14" fill="#E0C8A0"/>
-        {/* Head tucked */}
-        <circle  cx="72" cy="60" r="18" fill="#C4A880" stroke="#8B6A4A" strokeWidth="1"/>
-        {/* Ears */}
-        <polygon points="62,46 57,36 68,44" fill="#B89060" stroke="#8B6A4A" strokeWidth="0.8"/>
-        <polygon points="82,44 87,34 78,42" fill="#B89060" stroke="#8B6A4A" strokeWidth="0.8"/>
-        {/* Eyes closed */}
-        <path d="M65,58 Q68,55 71,58" stroke="#4A3020" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
-        <path d="M73,58 Q76,55 79,58" stroke="#4A3020" strokeWidth="1.8" fill="none" strokeLinecap="round"/>
-        {/* Nose */}
-        <ellipse cx="72" cy="64" rx="2.5" ry="1.8" fill="#E08080"/>
-        {/* Tail */}
-        <path d="M15,68 Q5,55 12,45 Q18,38 25,46" stroke="#B89060" strokeWidth="9" fill="none" strokeLinecap="round"/>
-        <path d="M15,68 Q5,55 12,45 Q18,38 25,46" stroke="#D4B880" strokeWidth="6" fill="none" strokeLinecap="round"/>
-      </svg>
-    )
-  }
+// ─────────────────────────────────────────────────────────────────────────────
+// CAT ACTOR — single component, single catState, one cat on screen at a time
+// ─────────────────────────────────────────────────────────────────────────────
+function CatActor({ catState, position, facing, hearts, onCatClick, accEmoji }) {
+  const showZzz = catState === 'sleeping'
+  const eatAnim = catState === 'eating'
+  const showAcc = accEmoji && !['sleeping', 'lying'].includes(catState)
 
   return (
-    <svg viewBox="0 0 100 120" width={CAT_W} height={CAT_H} xmlns="http://www.w3.org/2000/svg"
-      style={{ display: 'block', overflow: 'visible', background: 'transparent' }}>
-      {/* Body */}
-      <ellipse cx="50" cy={isVeryHung ? 84 : 80} rx="28" ry={isVeryHung ? 24 : 26} fill="#C4A880" stroke="#8B6A4A" strokeWidth="1.2"/>
-      {/* Belly */}
-      <ellipse cx="50" cy={isVeryHung ? 87 : 84} rx="16" ry={isVeryHung ? 14 : 16} fill="#E0C8A0"/>
-
-      {/* Head */}
-      <circle cx="50" cy="42" r="22" fill="#C4A880" stroke="#8B6A4A" strokeWidth="1.2"/>
-
-      {/* Ears */}
-      <polygon points="32,26 25,12 40,22" fill="#B89060" stroke="#8B6A4A" strokeWidth="1"/>
-      <polygon points="34,26 29,14 40,22" fill="#F0A0A0"/>
-      <polygon points="68,26 75,12 60,22" fill="#B89060" stroke="#8B6A4A" strokeWidth="1"/>
-      <polygon points="66,26 71,14 60,22" fill="#F0A0A0"/>
-
-      {/* Eyes */}
-      {eyes}
-
-      {/* Nose */}
-      <ellipse cx="50" cy="51" rx="3" ry="2" fill={isHungry ? "#C06060" : "#E08080"}/>
-
-      {/* Mouth */}
-      {isVeryHung
-        ? <path d="M46,55 Q50,58 54,55" stroke="#8B5050" strokeWidth="1.2" fill="none" strokeLinecap="round"/>
-        : isHungry
-        ? <path d="M47,54 Q50,57 53,54" stroke="#8B6A4A" strokeWidth="1" fill="none" strokeLinecap="round"/>
-        : <path d="M47,53 Q50,55 53,53" stroke="#8B6A4A" strokeWidth="1" fill="none" strokeLinecap="round"/>
-      }
-
-      {/* Whiskers */}
-      <line x1="24" y1="50" x2="42" y2="52" stroke="#8B6A4A" strokeWidth="0.8" opacity="0.7"/>
-      <line x1="24" y1="54" x2="42" y2="54" stroke="#8B6A4A" strokeWidth="0.8" opacity="0.7"/>
-      <line x1="76" y1="50" x2="58" y2="52" stroke="#8B6A4A" strokeWidth="0.8" opacity="0.7"/>
-      <line x1="76" y1="54" x2="58" y2="54" stroke="#8B6A4A" strokeWidth="0.8" opacity="0.7"/>
-
-      {/* Collar (hide when very hungry for sadder look) */}
-      {!isVeryHung && (
-        <>
-          <rect x="36" y="61" width="28" height="7" rx="3.5" fill="#D44A4A" stroke="#A03030" strokeWidth="0.8"/>
-          <circle cx="50" cy="64.5" r="3.5" fill="#F0C030" stroke="#B08000" strokeWidth="0.8"/>
-        </>
+    <div
+      className="rm-cat"
+      style={{
+        left:            `${position.x}%`,
+        bottom:          `${position.y}%`,
+        transform:       `translateX(-50%) scaleX(${facing ? -1 : 1})`,
+        transformOrigin: 'bottom center',
+      }}
+      onClick={onCatClick}
+    >
+      {/* Zzz — only when sleeping */}
+      {showZzz && (
+        <div className="rm-zzz-wrap">
+          <span className="rm-zzz z1">z</span>
+          <span className="rm-zzz z2">z</span>
+          <span className="rm-zzz z3">Z</span>
+        </div>
       )}
 
-      {/* Stripes */}
-      <path d="M38,32 Q40,27 42,32" stroke="#A88A6A" strokeWidth="1" fill="none"/>
-      <path d="M49,28 Q51,23 53,28" stroke="#A88A6A" strokeWidth="1" fill="none"/>
-      <path d="M60,32 Q62,27 64,32" stroke="#A88A6A" strokeWidth="1" fill="none"/>
+      {/* Hearts */}
+      {hearts.map(h => (
+        <div key={h.id} className="rm-heart" style={{ left: `calc(50% + ${h.offsetX}px)` }}>💕</div>
+      ))}
 
-      {/* Tail */}
-      <path d="M24,88 Q8,76 10,60 Q14,48 22,55"
-        stroke="#A8896A" strokeWidth="8" fill="none" strokeLinecap="round"/>
-      <path d="M24,88 Q8,76 10,60 Q14,48 22,55"
-        stroke="#C4A880" strokeWidth="5" fill="none" strokeLinecap="round"/>
+      {/* Sprite — single source of truth for cat visual */}
+      <div className={`rm-cat-body${eatAnim ? ' rm-cat-eating' : ''}`}>
+        <CatSprite state={catState} />
+      </div>
 
-      {/* Paws */}
-      <ellipse cx="38" cy="104" rx="9" ry="6"   fill="#B89870" stroke="#8B6A4A" strokeWidth="1"/>
-      <ellipse cx="62" cy="104" rx="9" ry="6"   fill="#B89870" stroke="#8B6A4A" strokeWidth="1"/>
-      <ellipse cx="38" cy="102" rx="7" ry="4.5" fill="#C4A880"/>
-      <ellipse cx="62" cy="102" rx="7" ry="4.5" fill="#C4A880"/>
+      {/* Accessory */}
+      {showAcc && <div className="rm-cat-acc">{accEmoji}</div>}
 
-      {/* Tummy spots (very hungry — visible ribs suggestion) */}
-      {isVeryHung && (
-        <>
-          <line x1="42" y1="76" x2="42" y2="85" stroke="#B89060" strokeWidth="0.8" opacity="0.4"/>
-          <line x1="50" y1="74" x2="50" y2="86" stroke="#B89060" strokeWidth="0.8" opacity="0.4"/>
-          <line x1="58" y1="76" x2="58" y2="85" stroke="#B89060" strokeWidth="0.8" opacity="0.4"/>
-        </>
-      )}
-    </svg>
+      {/* Floor shadow */}
+      <div className="rm-cat-shadow" />
+    </div>
   )
 }
 
@@ -380,23 +267,22 @@ function getRecommendation(fullness, energy, mood, ce) {
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }) {
-  // ── Pet state ──────────────────────────────────────────────────────────────
-  const [inited,     setInited]     = useState(false)
-  const [petState,   setPetState]   = useState('idle')
-  const [catPos,     setCatPos]     = useState({ x: 47, y: 8 })
-  const [hunger,     setHunger]     = useState(20)
-  const [mood,       setMood]       = useState(70)
-  const [energy,     setEnergy]     = useState(80)
-  const [isWalking,  setIsWalking]  = useState(false)
-  const [flipX,      setFlipX]      = useState(false)
+  // ── Pet state — ONE variable controls which cat visual is shown ───────────
+  const [inited,      setInited]      = useState(false)
+  const [catState,    setCatState]    = useState('idle')      // single source of truth
+  const [catPosition, setCatPosition] = useState({ x: 47, y: 8 })
+  const [catFacing,   setCatFacing]   = useState(false)       // false = right, true = left
+  const [hunger,      setHunger]      = useState(20)
+  const [mood,        setMood]        = useState(70)
+  const [energy,      setEnergy]      = useState(80)
 
   // ── UI state ───────────────────────────────────────────────────────────────
   const [message,     setMessage]     = useState(null)
   const [showMsg,     setShowMsg]     = useState(false)
   const [xpFlash,     setXpFlash]     = useState(null)
   const [wakeDialog,  setWakeDialog]  = useState(false)
-  const [careEnergy,  setCareEnergy]  = useState(loadCE)   // Care Energy — local only
-  const [hearts,      setHearts]      = useState([])       // [{id,offsetX}]
+  const [careEnergy,  setCareEnergy]  = useState(loadCE)
+  const [hearts,      setHearts]      = useState([])
   const [equippedTheme, setEquippedTheme] = useState(() => {
     try { return localStorage.getItem('zp_theme') || 'japandi' } catch { return 'japandi' }
   })
@@ -404,7 +290,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     try { return localStorage.getItem('zp_acc') || 'green_collar' } catch { return 'green_collar' }
   })
 
-  // ── Purchased supplies (from Star shop) ───────────────────────────────────
+  // ── Purchased supplies ─────────────────────────────────────────────────────
   const purchased = useMemo(() => {
     try { return JSON.parse(localStorage.getItem('zp_purchased') || '[]') } catch { return [] }
   }, [])
@@ -414,42 +300,40 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   // ── Load on mount ──────────────────────────────────────────────────────────
   useEffect(() => {
     const p = loadPet()
-    setPetState(p.petState)
-    setCatPos(p.pos || { x: 47, y: 8 })
+    setCatState(p.catState || 'idle')
+    setCatPosition(p.pos || { x: 47, y: 8 })
     setHunger(p.hunger)
     setMood(p.mood)
     setEnergy(p.energy)
-    setFlipX(p.flipX || false)
+    setCatFacing(p.catFacing || p.flipX || false)
     setInited(true)
   }, [])
 
   // ── Refs (avoid stale closures) ───────────────────────────────────────────
-  const stateRef   = useRef('idle')
-  const hungerRef  = useRef(20)
-  const energyRef  = useRef(80)
-  const isWalkRef  = useRef(false)
-  const catPosRef  = useRef({ x: 47, y: 8 })
+  const stateRef    = useRef('idle')
+  const hungerRef   = useRef(20)
+  const energyRef   = useRef(80)
+  const catPosRef   = useRef({ x: 47, y: 8 })
 
-  const msgTimer    = useRef(null)
-  const stateTimer  = useRef(null)
-  const walkTimer   = useRef(null)
-  const scratchTimer= useRef(null)
-  const wanderTimer = useRef(null)
+  const msgTimer     = useRef(null)
+  const stateTimer   = useRef(null)
+  const walkTimer    = useRef(null)
+  const scratchTimer = useRef(null)
+  const wanderTimer  = useRef(null)
   const stateStarted = useRef(Date.now())
   const stateDurRef  = useRef(null)
 
-  useEffect(() => { stateRef.current  = petState  }, [petState])
-  useEffect(() => { hungerRef.current = hunger    }, [hunger])
-  useEffect(() => { energyRef.current = energy    }, [energy])
-  useEffect(() => { isWalkRef.current = isWalking }, [isWalking])
-  useEffect(() => { catPosRef.current = catPos    }, [catPos])
+  useEffect(() => { stateRef.current   = catState    }, [catState])
+  useEffect(() => { hungerRef.current  = hunger      }, [hunger])
+  useEffect(() => { energyRef.current  = energy      }, [energy])
+  useEffect(() => { catPosRef.current  = catPosition }, [catPosition])
 
   // ── Auto-save ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!inited) return
-    savePet({ petState, pos: catPos, hunger, mood, energy, flipX,
+    savePet({ catState, pos: catPosition, hunger, mood, energy, catFacing,
       stateStartedAt: stateStarted.current, stateDuration: stateDurRef.current })
-  }, [petState, hunger, mood, energy, catPos, flipX, inited])
+  }, [catState, hunger, mood, energy, catPosition, catFacing, inited])
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const bubble = useCallback((msg, ms = 2800) => {
@@ -464,22 +348,26 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     stateStarted.current = Date.now()
     stateDurRef.current  = ms
     stateTimer.current = setTimeout(() => {
-      setPetState('idle'); stateDurRef.current = null
+      setCatState('idle'); stateDurRef.current = null
     }, ms)
   }, [])
 
+  // walkTo: sets catState='walking', then on arrival sets 'idle' as default
+  // and fires cb() which may override to a different state
   const walkTo = useCallback((dest, cb) => {
     clearTimeout(walkTimer.current)
     const cur  = catPosRef.current
     const dx   = dest.x - cur.x
     const dist = Math.sqrt(dx * dx + (dest.y - cur.y) ** 2)
     catPosRef.current = dest
-    setCatPos(dest)
+    setCatPosition(dest)
     if (dist < 4) { cb?.(); return }
-    setFlipX(dx < 0); setIsWalking(true)
-    // Timer must be ≥ CSS transition (1.3s). dist*60 adds extra time for longer walks.
+    setCatFacing(dx < 0)
+    setCatState('walking')
     walkTimer.current = setTimeout(() => {
-      setIsWalking(false); setFlipX(false); cb?.()
+      setCatFacing(false)
+      setCatState('idle')   // fallback; cb() may override
+      cb?.()
     }, Math.max(1300, dist * 60))
   }, [])
 
@@ -502,94 +390,83 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     setTimeout(() => setHearts(h => h.filter(x => !batch.find(b => b.id === x.id))), 1400)
   }, [])
 
-  // ── Behavior loop — simple setInterval, fires every 3.5s ─────────────────
-  // If cat is busy, skip. Otherwise pick a behavior.
-  // Using setInterval (not self-scheduling timeout) to avoid timer conflicts.
+  // ── Behavior loop ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!inited) return
 
-    const BUSY = ['eating','playing','scratching','stretching','lying',
-                  'grooming','lookingOutside','playingIdle','watching','sleeping']
+    const BUSY = ['walking', 'eating', 'playing', 'scratching', 'stretching', 'lying',
+                  'grooming', 'lookingOutside', 'playingIdle', 'watching', 'sleeping']
 
-    // Helper: walk to the OTHER side of the room from current position
-    // Guarantees dist > 20 so the walking animation always plays
     const wanderFar = (cb) => {
       const cx = catPosRef.current.x
       const destX = cx < 45
-        ? 58 + Math.random() * 20   // currently left → go right
-        : 10 + Math.random() * 22   // currently right → go left
+        ? 58 + Math.random() * 20
+        : 10 + Math.random() * 22
       walkTo({ x: destX, y: 8 }, cb)
     }
 
     const id = setInterval(() => {
       const s  = stateRef.current
       const hp = purchasedRef.current
-      if (BUSY.includes(s) || isWalkRef.current) return
+      if (BUSY.includes(s)) return
 
       const r = Math.random()
 
       if (r < 0.35) {
-        // Walk to opposite side — always a visible walk
         wanderFar(() => {})
 
       } else if (r < 0.50) {
-        // Lie down for 8–14s
         const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 18 + Math.random() * 55, y: 8 }
         walkTo(dest, () => {
-          setPetState('lying')
+          setCatState('lying')
           bubble('Comfy here... 😌', 2000)
-          stateTimer.current = setTimeout(() => setPetState('idle'), 8000 + Math.random() * 6000)
+          stateTimer.current = setTimeout(() => setCatState('idle'), 8000 + Math.random() * 6000)
         })
 
       } else if (r < 0.60) {
-        // Nap (sleep) for 12–18s — walks to bed if owned
         const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 18 + Math.random() * 55, y: 8 }
         walkTo(dest, () => {
-          setPetState('sleeping')
+          setCatState('sleeping')
           stateDurRef.current = null
           bubble('😴 Taking a nap...', 2500)
           stateTimer.current = setTimeout(() => {
-            setPetState('idle')
+            setCatState('idle')
             bubble('😺 Up again~ ☀️', 1500)
           }, 12000 + Math.random() * 6000)
         })
 
       } else if (r < 0.72) {
-        // Groom in place
-        setPetState('grooming')
+        setCatState('grooming')
         bubble('*lick lick lick* 🐱', 2500)
-        stateTimer.current = setTimeout(() => setPetState('idle'), 5000 + Math.random() * 3000)
+        stateTimer.current = setTimeout(() => setCatState('idle'), 5000 + Math.random() * 3000)
 
       } else if (r < 0.82) {
-        // Look outside — walks to window side
         walkTo({ x: 60 + Math.random() * 14, y: 8 }, () => {
-          setPetState('lookingOutside')
+          setCatState('lookingOutside')
           bubble("What's out there? 🪟", 3000)
-          stateTimer.current = setTimeout(() => setPetState('idle'), 7000 + Math.random() * 4000)
+          stateTimer.current = setTimeout(() => setCatState('idle'), 7000 + Math.random() * 4000)
         })
 
       } else if (r < 0.90) {
-        // Stretch
         wanderFar(() => {
-          setPetState('stretching')
+          setCatState('stretching')
           bubble('*stretches lazily* 🐾', 2000)
-          stateTimer.current = setTimeout(() => setPetState('idle'), 3000 + Math.random() * 2000)
+          stateTimer.current = setTimeout(() => setCatState('idle'), 3000 + Math.random() * 2000)
         })
 
       } else if (hp.includes('scratching_board')) {
         walkTo(OBJ.scratch, () => {
-          setPetState('scratching')
+          setCatState('scratching')
           setMood(m => Math.min(m + 6, 100))
           bubble("😼 Ahh~ that's the spot!", 2800)
-          stateTimer.current = setTimeout(() => setPetState('idle'), 5000)
+          stateTimer.current = setTimeout(() => setCatState('idle'), 5000)
         })
 
       } else {
-        // Watch curiously
         wanderFar(() => {
-          setPetState('watching')
+          setCatState('watching')
           bubble('*curious stare* 👀', 2000)
-          stateTimer.current = setTimeout(() => setPetState('idle'), 5000 + Math.random() * 2000)
+          stateTimer.current = setTimeout(() => setCatState('idle'), 5000 + Math.random() * 2000)
         })
       }
     }, 3500)
@@ -597,7 +474,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     return () => clearInterval(id)
   }, [inited, walkTo, bubble])
 
-  // ── Game tick — stats only, no behavior interruption ─────────────────────
+  // ── Game tick ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!inited) return
     const tick = setInterval(() => {
@@ -606,7 +483,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
       const hasBlanket = purchasedRef.current.includes('blanket')
       const hasBed     = purchasedRef.current.includes('cat_bed')
 
-      // Update stats
       if (s !== 'eating')   setHunger(h => Math.min(h + (hasBowl ? 1.5 : 2), 100))
       if (s === 'sleeping') setEnergy(e => Math.min(e + (hasBlanket || hasBed ? 4 : 3), 100))
       else                  setEnergy(e => Math.max(e - 0.5, 0))
@@ -614,30 +490,28 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
       const h = hungerRef.current
       const e = energyRef.current
 
-      // Hunger label — only updates label, never interrupts a natural behavior
-      const BUSY = ['eating','playing','scratching','stretching','lying',
-                    'grooming','lookingOutside','playingIdle','watching','sleeping']
-      if (!BUSY.includes(s) && !isWalkRef.current) {
+      const BUSY = ['walking', 'eating', 'playing', 'scratching', 'stretching', 'lying',
+                    'grooming', 'lookingOutside', 'playingIdle', 'watching', 'sleeping']
+      if (!BUSY.includes(s)) {
         if (h >= 90 && s !== 'veryHungry') {
-          setPetState('veryHungry')
+          setCatState('veryHungry')
           bubble("I'm starving... 😿 Please feed me!!", 4500)
         } else if (h >= 70 && s !== 'hungry' && s !== 'veryHungry') {
-          setPetState('hungry')
+          setCatState('hungry')
           bubble("I'm hungry... 😿", 3500)
         } else if (h < 35 && (s === 'hungry' || s === 'veryHungry')) {
-          setPetState('idle')
+          setCatState('idle')
         }
       }
 
-      // Auto-sleep — only when energy is critically low AND cat is free
-      if (e <= 8 && !BUSY.includes(s) && !isWalkRef.current && s !== 'sleeping') {
+      if (e <= 8 && !BUSY.includes(s) && s !== 'sleeping') {
         if (hasBed) {
           walkTo(OBJ.bed, () => {
-            setPetState('sleeping'); stateDurRef.current = null
+            setCatState('sleeping'); stateDurRef.current = null
             bubble('😴 Crawling into bed... zzz', 3000)
           })
         } else {
-          setPetState('sleeping'); stateDurRef.current = null
+          setCatState('sleeping'); stateDurRef.current = null
           bubble('😴 So sleepy... zzz', 2500)
         }
       }
@@ -653,9 +527,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
 
   // ── FEED ──────────────────────────────────────────────────────────────────
   const handleFeed = () => {
-    if (isWalking) return
-    if (petState === 'sleeping') {
-      clearTimeout(stateTimer.current); setPetState('idle')
+    if (catState === 'walking') return
+    if (catState === 'sleeping') {
+      clearTimeout(stateTimer.current); setCatState('idle')
       bubble('😴 Mmm... food?', 1400)
       setTimeout(doFeed, 1500); return
     }
@@ -665,10 +539,10 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const doFeed = () => {
     if (!spendCE(FEED_COST)) return
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
-    const hasCan    = purchasedRef.current.includes('premium_can')
-    const feedAmt   = hasCan ? 60 : 45
+    const hasCan  = purchasedRef.current.includes('premium_can')
+    const feedAmt = hasCan ? 60 : 45
     walkTo(OBJ.bowl, () => {
-      setPetState('eating')
+      setCatState('eating')
       setHunger(h => Math.max(0, h - feedAmt))
       setMood(m   => Math.min(m + 10, 100))
       bubble(`😋 Yum! Fullness +${feedAmt} 💕`, 3500)
@@ -679,13 +553,13 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
 
   // ── PLAY ──────────────────────────────────────────────────────────────────
   const handlePlay = () => {
-    if (isWalking) return
-    if (petState === 'sleeping') { setWakeDialog(true); return }
+    if (catState === 'walking') return
+    if (catState === 'sleeping') { setWakeDialog(true); return }
     if (energyRef.current < 20) { bubble('😴 Too tired... let me rest.', 3000); return }
-    if (petState === 'hungry' || petState === 'veryHungry') {
+    if (catState === 'hungry' || catState === 'veryHungry') {
       bubble("😿 Too hungry to play! Feed me first!", 2800); return
     }
-    if (petState === 'playing') { bubble('😸 Already playing!', 1500); return }
+    if (catState === 'playing') { bubble('😸 Already playing!', 1500); return }
     doPlay()
   }
 
@@ -694,7 +568,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
     const dest = purchasedRef.current.includes('toy_mouse') ? OBJ.toy : OBJ.center
     walkTo(dest, () => {
-      setPetState('playing')
+      setCatState('playing')
       setMood(m   => Math.min(m + 20, 100))
       setEnergy(e => Math.max(e - 18, 0))
       bubble('😸 Wheee!! So fun! ✨', 3000)
@@ -703,47 +577,46 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   }
 
   const confirmWake = () => {
-    setWakeDialog(false); clearTimeout(stateTimer.current); setPetState('idle')
+    setWakeDialog(false); clearTimeout(stateTimer.current); setCatState('idle')
     bubble("😺 Okay okay, I'm up!", 1400)
     setTimeout(doPlay, 1500)
   }
 
-  // ── REST (free, no CE cost) ────────────────────────────────────────────────
+  // ── REST ──────────────────────────────────────────────────────────────────
   const handleRest = () => {
-    if (petState === 'sleeping') { bubble('Already sleeping~ zzz 😴', 1500); return }
+    if (catState === 'sleeping') { bubble('Already sleeping~ zzz 😴', 1500); return }
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
     if (purchasedRef.current.includes('cat_bed')) {
       walkTo(OBJ.bed, () => {
-        setPetState('sleeping'); stateDurRef.current = null
+        setCatState('sleeping'); stateDurRef.current = null
         bubble('😴 Taking a nap in bed...', 2500)
       })
     } else {
-      setPetState('sleeping'); stateDurRef.current = null
+      setCatState('sleeping'); stateDurRef.current = null
       bubble('😴 Taking a little rest...', 2500)
     }
   }
 
   // ── Cat click ─────────────────────────────────────────────────────────────
   const handleCatClick = () => {
-    if (isWalking) return
-    if (petState === 'sleeping') { clearTimeout(stateTimer.current); setPetState('idle'); bubble('😺 Good morning! ☀️', 2000); return }
-    if (petState === 'eating')     { bubble('😋 Eating, give me a sec~', 1500); return }
-    if (petState === 'playing')    { bubble('😸 Busy playing!', 1500); return }
-    if (petState === 'scratching') { bubble('😼 Scratching, ahh~', 1500); return }
-    const msgs = pickMessage(petState, hunger, mood, energy)
+    if (catState === 'walking') return
+    if (catState === 'sleeping')  { clearTimeout(stateTimer.current); setCatState('idle'); bubble('😺 Good morning! ☀️', 2000); return }
+    if (catState === 'eating')    { bubble('😋 Eating, give me a sec~', 1500); return }
+    if (catState === 'playing')   { bubble('😸 Busy playing!', 1500); return }
+    if (catState === 'scratching'){ bubble('😼 Scratching, ahh~', 1500); return }
+    const msgs = pickMessage(catState, hunger, mood, energy)
     bubble(msgs[Math.floor(Math.random() * msgs.length)])
-    if (petState !== 'hungry' && petState !== 'veryHungry') {
+    if (catState !== 'hungry' && catState !== 'veryHungry') {
       const hasBrush = purchasedRef.current.includes('brush')
       setMood(m => Math.min(m + (hasBrush ? 10 : 5), 100))
     }
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const displayState  = isWalking ? 'walking' : petState
-  const label         = STATE_LABEL[displayState] || STATE_LABEL.idle
+  const label         = STATE_LABEL[catState] || STATE_LABEL.idle
   const canFeed       = careEnergy >= FEED_COST
   const canPlay       = careEnergy >= PLAY_COST && energy >= 20
-  const fullness      = 100 - hunger   // flip: higher = fuller (intuitive)
+  const fullness      = 100 - hunger
   const fullnessColor = fullness >= 70 ? '#43A047' : fullness >= 30 ? '#FB8C00' : '#E53935'
   const moodColor     = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
   const energyColor   = energy >= 60 ? '#2196F3' : energy >= 30 ? '#FF9800' : '#9E9E9E'
@@ -751,14 +624,10 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
 
   if (!inited) return null
 
-  // Bubble Y position: clamp so it never gets clipped by scene top
-  // Scene = 300px tall. Cat is at bottom: catPos.y%, height ~CAT_H px
-  // Bubble is ~60px tall. Keep bubble bottom >= 60px from scene top = within scene.
-  const scenePx = 300
-  const catBottomPx  = catPos.y / 100 * scenePx          // px from scene bottom
-  const catTopPx     = catBottomPx + CAT_H + 30           // px from scene bottom (above cat)
-  const maxBubbleBottom = scenePx - 70                    // bubble must stay ≤ this from bottom
-  const bubbleBottom = Math.min(catTopPx, maxBubbleBottom) // clamp
+  const scenePx      = 300
+  const catBottomPx  = catPosition.y / 100 * scenePx
+  const catTopPx     = catBottomPx + CAT_H + 30
+  const bubbleBottom = Math.min(catTopPx, scenePx - 70)
 
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
@@ -783,21 +652,20 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         {/* ── SCENE ──────────────────────────────────────────────────────── */}
         <div className={`rm-scene rm-theme-${equippedTheme}`}>
 
-          {/* Room layers */}
           <div className="rm-ceiling"/>
           <div className="rm-wall"/>
           <div className="rm-baseboard"/>
           <div className="rm-floor"/>
 
-          {/* Purchased cat supplies — appear in room */}
+          {/* Purchased cat supplies */}
           {purchased.includes('toy_mouse') && (
             <div className="rm-floor-obj" style={{ left:`${OBJ.toy.x}%`, bottom:`${OBJ.toy.y}%` }}>
-              <div className={`rm-obj-icon ${petState === 'playing' ? 'rm-ball-active' : ''}`}>🐭</div>
+              <div className={`rm-obj-icon ${catState === 'playing' ? 'rm-ball-active' : ''}`}>🐭</div>
             </div>
           )}
           {purchased.includes('scratching_board') && (
             <div className="rm-floor-obj" style={{ left:`${OBJ.scratch.x}%`, bottom:`${OBJ.scratch.y}%` }}>
-              <div className={`rm-obj-icon ${petState === 'scratching' ? 'rm-ball-active' : ''}`}>🪵</div>
+              <div className={`rm-obj-icon ${catState === 'scratching' ? 'rm-ball-active' : ''}`}>🪵</div>
             </div>
           )}
           {purchased.includes('cat_bed') && (
@@ -821,63 +689,31 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
             </div>
           )}
 
-          {/* ── SPEECH BUBBLE (clamped, never clipped) ── */}
+          {/* Speech bubble */}
           {showMsg && (
             <div
               className="rm-bubble"
-              style={{
-                left:   `${catPos.x}%`,
-                bottom: `${bubbleBottom}px`,
-              }}
+              style={{ left: `${catPosition.x}%`, bottom: `${bubbleBottom}px` }}
             >
               {message}
               <span className="rm-bubble-tail"/>
             </div>
           )}
 
-          {/* ── CAT ── */}
-          <div
-            className="rm-cat"
-            style={{
-              left:             `${catPos.x}%`,
-              bottom:           `${catPos.y}%`,
-              transform:        `translateX(-50%) scaleX(${flipX ? -1 : 1})`,
-              transformOrigin:  'bottom center',
-            }}
-            onClick={handleCatClick}
-          >
-            {/* Zzz */}
-            {petState === 'sleeping' && !isWalking && (
-              <div className="rm-zzz-wrap">
-                <span className="rm-zzz z1">z</span>
-                <span className="rm-zzz z2">z</span>
-                <span className="rm-zzz z3">Z</span>
-              </div>
-            )}
-
-            {/* Hearts */}
-            {hearts.map(h => (
-              <div key={h.id} className="rm-heart" style={{ left: `calc(50% + ${h.offsetX}px)` }}>💕</div>
-            ))}
-
-            {/* Sprite cat — image-based animation */}
-            <div className="rm-cat-body">
-              <CatSprite state={petState} isWalking={isWalking}/>
-            </div>
-
-            {/* Accessory — hide when cat is lying/sleeping (collar invisible anyway) */}
-            {activeAcc?.dispEmoji && !['sleeping','lying'].includes(petState) && (
-              <div className="rm-cat-acc">{activeAcc.dispEmoji}</div>
-            )}
-
-            {/* Floor shadow */}
-            <div className="rm-cat-shadow"/>
-          </div>
+          {/* ── THE ONE CAT ── */}
+          <CatActor
+            catState={catState}
+            position={catPosition}
+            facing={catFacing}
+            hearts={hearts}
+            onCatClick={handleCatClick}
+            accEmoji={activeAcc?.dispEmoji}
+          />
 
           {/* XP flash */}
           {xpFlash && <div className="rm-xp-flash">{xpFlash}</div>}
 
-          {/* ── Wake dialog (inside scene so position:absolute anchors correctly) */}
+          {/* Wake dialog */}
           {wakeDialog && (
             <div className="rm-wake-dialog">
               <p>😴 The cat is sleeping...<br/>Wake up and play?</p>
@@ -893,7 +729,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         {/* ── SCROLLABLE BOTTOM ──────────────────────────────────────────── */}
         <div className="rm-body">
 
-          {/* Cat status — compact bars */}
           <div className="rm-stats">
             {[
               { icon: '🍚', label: 'Fullness', val: fullness, color: fullnessColor },
@@ -910,7 +745,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
             ))}
           </div>
 
-          {/* Smart recommendation banner */}
           {(() => {
             const rec = getRecommendation(fullness, energy, mood, careEnergy)
             if (!rec.msg) return null
@@ -924,15 +758,13 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
             )
           })()}
 
-          {/* Care actions */}
           {(() => {
             const rec = getRecommendation(fullness, energy, mood, careEnergy)
             const feedAmt = purchased.includes('premium_can') ? 60 : 45
-            const restDisabled = energy >= 100 || petState === 'sleeping'
+            const restDisabled = energy >= 100 || catState === 'sleeping'
             return (
               <div className="rm-actions">
 
-                {/* Feed */}
                 <button
                   className={`rm-action-btn ${rec.action === 'feed' ? 'rm-action-primary' : ''}`}
                   onClick={handleFeed}
@@ -952,7 +784,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                   </span>
                 </button>
 
-                {/* Play */}
                 <button
                   className={`rm-action-btn ${rec.action === 'play' ? 'rm-action-primary' : ''}`}
                   onClick={handlePlay}
@@ -976,7 +807,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                   </span>
                 </button>
 
-                {/* Rest */}
                 <button
                   className={`rm-action-btn ${rec.action === 'rest' ? 'rm-action-primary' : ''}`}
                   onClick={handleRest}
@@ -990,7 +820,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                     <span className="rm-action-sub">
                       {energy >= 100
                         ? 'Energy is already full'
-                        : petState === 'sleeping'
+                        : catState === 'sleeping'
                           ? 'Your cat is sleeping'
                           : 'Let your cat rest to recover Energy'}
                     </span>
@@ -1002,7 +832,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
             )
           })()}
 
-          {/* Daily quote */}
           <div className="rm-quote">
             <p className="rm-quote-text">✨ "{getDailyQuote()}"</p>
           </div>
