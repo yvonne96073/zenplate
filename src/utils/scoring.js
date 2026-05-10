@@ -55,6 +55,34 @@ export function getAchievements(profile, mealCount) {
   ]
 }
 
+// Plate Score breakdown — returns { good: string[], bad: string[] }
+export function getScoreBreakdown(meal) {
+  const { calories = 0, protein_g = 0, fat_g = 0, fiber_g = 0, carbs_g = 0 } = meal
+  const good = [], bad = []
+
+  if (protein_g >= 30) good.push(`蛋白質充足 (${protein_g}g)`)
+  else if (protein_g >= 20) good.push(`蛋白質不錯 (${protein_g}g)`)
+  else if (protein_g >= 10) good.push(`蛋白質尚可 (${protein_g}g)`)
+  else if (protein_g < 5 && protein_g > 0) bad.push(`蛋白質偏低 (${protein_g}g)`)
+
+  if (fiber_g >= 5) good.push(`纖維豐富 (${fiber_g}g)`)
+  else if (fiber_g >= 3) good.push(`有膳食纖維 (${fiber_g}g)`)
+  else if (fiber_g >= 1) good.push(`纖維尚可 (${fiber_g}g)`)
+  else if (fiber_g === 0) bad.push('缺乏膳食纖維')
+
+  if (calories >= 200 && calories <= 700) good.push(`熱量合理 (${calories} kcal)`)
+  else if (calories > 900) bad.push(`熱量偏高 (${calories} kcal)`)
+  else if (calories < 80 && calories > 0) bad.push(`熱量偏低 (${calories} kcal)`)
+
+  if (fat_g > 30) bad.push(`脂肪過多 (${fat_g}g)`)
+  else if (fat_g > 20) bad.push(`脂肪偏高 (${fat_g}g)`)
+
+  if (carbs_g > 0 && carbs_g <= 60) good.push(`碳水適量 (${carbs_g}g)`)
+  else if (carbs_g > 80) bad.push(`碳水偏多 (${carbs_g}g)`)
+
+  return { good, bad }
+}
+
 // Stars ⭐ — earned from streak milestones (cumulative)
 export function calcStars(streak = 0) {
   let stars = 0

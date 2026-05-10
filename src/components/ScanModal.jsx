@@ -6,6 +6,8 @@ import { loadFdaDb, lookupByName, searchFda, calcNutrition, CATEGORY_EMOJI } fro
 import { matchNycuDish } from '../utils/nycuDb'
 import { lookupPackagedFood } from '../data/packagedFoods'
 import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByCategory } from '../utils/subwayDb'
+import { lookupComponent, compNutrition, COMPONENT_ID_LIST } from '../utils/portionDb'
+import { calcPlateScore, scoreInfo, getScoreBreakdown } from '../utils/scoring'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
@@ -24,6 +26,9 @@ const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須同時完�
 - 參考物（筷子/手/湯匙）→ 用比例推算
 - 台灣常見份量習慣（白飯1碗≈200g、雞腿≈120g、豬排≈100g、青菜1份≈80g、醬汁≈15g）
 
+已知 component_id（食材 name 欄位盡量用以下英文 ID）：
+${COMPONENT_ID_LIST}
+
 只回傳 JSON（不加任何說明或 markdown）：
 {
   "candidates": [
@@ -35,7 +40,7 @@ const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須同時完�
       "brand": "",
       "components": [
         {
-          "name": "食材名稱",
+          "name": "white_rice",
           "grams": 220,
           "portion_confidence": 75,
           "cal_est": 286,
@@ -61,12 +66,12 @@ const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須同時完�
 6. 多個食物 → components 分列每個品項，每個都要估算 grams 和 portion_confidence
 7. 包裝食品 → packaged:true，brand 填品牌名
 8. 就算不確定也要給最佳猜測，不可回傳空 candidates
-9. 使用台灣常用中文食物名稱
+9. component name 欄位：優先用上方清單的英文 ID，找不到才用中文
 10. 看到 Subway 店面/包裝/logo → brand 填 "Subway"，name 填菜單品項中文名稱`
 
 // ── Source metadata ───────────────────────────────────────────────────────────
-const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方' }
-const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D' }
+const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫' }
+const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED' }
 
 // ── Default Subway config ─────────────────────────────────────────────────────
 const DEFAULT_SUBWAY = { sandwichId: null, breadId: 'bread_white', sauceIds: [], sizeMult: 1 }
@@ -85,17 +90,25 @@ function enrichComp(ai, dbReady) {
   // 1. NYCU campus DB — high threshold to avoid hijacking generic ingredients
   const nycu = matchNycuDish(ai.name)
   if (nycu && nycu.score >= 70) {
-    return { ...base, name: nycu.dish.dishZh, source: 'nycu', nycuDish: nycu.dish, fdaItem: null }
+    return { ...base, name: nycu.dish.dishZh, source: 'nycu', nycuDish: nycu.dish, fdaItem: null, portionItem: null }
   }
 
-  // 2. FDA DB
+  // 2. Portion DB — curated Taiwan food components with S/M/L priors
+  const portionItem = lookupComponent(ai.name)
+  if (portionItem) {
+    // Use AI gram estimate; derive S/M/L from portionItem.portions
+    const aiG = ai.grams || portionItem.default_g || portionItem.portions.medium
+    return { ...base, name: portionItem.name_zh, source: 'portion', portionItem, fdaItem: null, nycuDish: null, grams: aiG, baseGrams: aiG }
+  }
+
+  // 3. FDA DB
   if (dbReady) {
     const fda = lookupByName(ai.name) || (searchFda(ai.name, 1)[0] || null)
-    if (fda) return { ...base, name: fda.n, source: 'fda', fdaItem: fda, nycuDish: null }
+    if (fda) return { ...base, name: fda.n, source: 'fda', fdaItem: fda, nycuDish: null, portionItem: null }
   }
 
-  // 3. AI estimate fallback — always succeeds
-  return { ...base, name: ai.name, source: 'ai', fdaItem: null, nycuDish: null }
+  // 4. AI estimate fallback — always succeeds
+  return { ...base, name: ai.name, source: 'ai', fdaItem: null, nycuDish: null, portionItem: null }
 }
 
 // ── Nutrition for one component ───────────────────────────────────────────────
@@ -103,6 +116,10 @@ function calcCompNut(comp) {
   const m = comp.portionMult ?? 1
   if (comp.source === 'fda' && comp.fdaItem)
     return calcNutrition(comp.fdaItem, comp.grams)
+  if (comp.source === 'portion' && comp.portionItem) {
+    const nut = compNutrition(comp.portionItem, comp.grams)
+    return { calories: nut.calories, protein: nut.protein, carbs: nut.carbs, fat: nut.fat, fiber: 0 }
+  }
   if (comp.source === 'nycu' && comp.nycuDish) {
     const d = comp.nycuDish
     return {
@@ -178,22 +195,32 @@ function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
 
 // ── Component row — gram-first design ────────────────────────────────────────
 const GRAM_OPTS = [50, 100, 150, 200, 300]
+const SLM_LABELS = { small: 'S', medium: 'M', large: 'L' }
 
 function ComponentRow({ comp, onChange, onRemove, dbReady }) {
   const nut = calcCompNut(comp)
 
-  const isFdaBased  = comp.source === 'fda' || comp.source === 'packaged'
+  const isFdaBased     = comp.source === 'fda' || comp.source === 'packaged'
+  const isPortionBased = comp.source === 'portion' && comp.portionItem
+  const isCountBased   = isPortionBased && comp.portionItem.count_based
+
   const actualGrams = isFdaBased
     ? comp.grams
-    : Math.round((comp.baseGrams || 100) * (comp.portionMult || 1))
+    : isPortionBased
+      ? comp.grams
+      : Math.round((comp.baseGrams || 100) * (comp.portionMult || 1))
 
   // For AI/NYCU: gram buttons derived from baseGrams × multiples
   const aiGramOpts = [0.5, 1, 1.5, 2].map(m => ({
-    mult: m,
-    grams: Math.round((comp.baseGrams || 100) * m),
+    mult: m, grams: Math.round((comp.baseGrams || 100) * m),
   }))
 
   const portionLow = (comp.portionConf ?? 55) < 55
+
+  // Count-based quantity helper
+  const pieceG    = comp.portionItem?.per_piece_g || 1
+  const quantity  = isCountBased ? Math.max(1, Math.round(comp.grams / pieceG)) : 1
+  const setQty    = (q) => onChange({ ...comp, grams: Math.max(pieceG, q * pieceG) })
 
   return (
     <div className="comp-row">
@@ -212,35 +239,68 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
         <p className="comp-portion-warn">⚠️ 份量估算不確定，請依實際情況調整</p>
       )}
 
-      {/* Portion controls — always gram-based */}
+      {/* Portion controls */}
       <p className="comp-portion-label">調整份量</p>
-      <div className="comp-portion-row">
-        {isFdaBased
-          ? <>
-              {GRAM_OPTS.map(g => (
-                <button key={g}
-                  className={`portion-btn ${comp.grams === g ? 'active' : ''}`}
-                  onClick={() => onChange({ ...comp, grams: g })}>{g}g</button>
-              ))}
-              <input className="portion-input" type="number" min="1" max="2000"
-                value={comp.grams}
-                onChange={e => onChange({ ...comp, grams: parseInt(e.target.value) || comp.grams })}/>
-            </>
-          : <>
-              {aiGramOpts.map(({ mult, grams }) => (
-                <button key={mult}
-                  className={`portion-btn ${comp.portionMult == mult ? 'active' : ''}`}
-                  onClick={() => onChange({ ...comp, portionMult: mult })}>{grams}g</button>
-              ))}
-              <input className="portion-input" type="number" min="1" max="2000"
-                value={actualGrams}
-                onChange={e => {
-                  const g = Math.max(1, parseInt(e.target.value) || comp.baseGrams)
-                  onChange({ ...comp, portionMult: g / (comp.baseGrams || 100) })
-                }}/>
-            </>
-        }
-      </div>
+
+      {/* Portion DB — S/M/L buttons */}
+      {isPortionBased && !isCountBased && (
+        <div className="slm-row">
+          {['small','medium','large'].map(sz => {
+            const g = comp.portionItem.portions[sz]
+            return (
+              <button key={sz}
+                className={`slm-btn ${comp.grams === g ? 'active' : ''}`}
+                onClick={() => onChange({ ...comp, grams: g })}>
+                <span className="slm-size">{SLM_LABELS[sz]}</span>
+                <span className="slm-g">{g}g</span>
+              </button>
+            )
+          })}
+          <input className="portion-input" type="number" min="1" max="2000"
+            value={comp.grams}
+            onChange={e => onChange({ ...comp, grams: Math.max(1, parseInt(e.target.value) || comp.grams) })}/>
+        </div>
+      )}
+
+      {/* Portion DB count-based — quantity +/- */}
+      {isCountBased && (
+        <div className="count-row">
+          <button className="count-btn" onClick={() => setQty(Math.max(1, quantity - 1))}>−</button>
+          <span className="count-val">{quantity} 份 ({actualGrams}g)</span>
+          <button className="count-btn" onClick={() => setQty(quantity + 1)}>＋</button>
+        </div>
+      )}
+
+      {/* FDA grams */}
+      {isFdaBased && (
+        <div className="comp-portion-row">
+          {GRAM_OPTS.map(g => (
+            <button key={g}
+              className={`portion-btn ${comp.grams === g ? 'active' : ''}`}
+              onClick={() => onChange({ ...comp, grams: g })}>{g}g</button>
+          ))}
+          <input className="portion-input" type="number" min="1" max="2000"
+            value={comp.grams}
+            onChange={e => onChange({ ...comp, grams: parseInt(e.target.value) || comp.grams })}/>
+        </div>
+      )}
+
+      {/* AI/NYCU — gram multiples */}
+      {!isFdaBased && !isPortionBased && (
+        <div className="comp-portion-row">
+          {aiGramOpts.map(({ mult, grams }) => (
+            <button key={mult}
+              className={`portion-btn ${comp.portionMult == mult ? 'active' : ''}`}
+              onClick={() => onChange({ ...comp, portionMult: mult })}>{grams}g</button>
+          ))}
+          <input className="portion-input" type="number" min="1" max="2000"
+            value={actualGrams}
+            onChange={e => {
+              const g = Math.max(1, parseInt(e.target.value) || comp.baseGrams)
+              onChange({ ...comp, portionMult: g / (comp.baseGrams || 100) })
+            }}/>
+        </div>
+      )}
 
       {/* Nutrition result */}
       <div className="comp-nut-row">
@@ -250,11 +310,11 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
         {nut.fat     != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">脂肪 {nut.fat}g</span></>}
       </div>
 
-      {/* FDA override search — carry over AI gram estimate */}
+      {/* FDA override search */}
       {comp.source !== 'fda' && dbReady && (
-        <FdaSearch compact initialQuery={comp.aiName}
+        <FdaSearch compact initialQuery={comp.aiName || comp.name}
           onSelect={item => onChange({ ...comp, name: item.n, source: 'fda',
-            fdaItem: item, grams: actualGrams })}/>
+            fdaItem: item, portionItem: null, grams: actualGrams })}/>
       )}
     </div>
   )
@@ -492,8 +552,17 @@ export default function ScanModal({ session, onClose, onSaved }) {
   }
 
   // Derived totals for result step
-  const total        = sumComps(components)
+  const total         = sumComps(components)
   const hasAiEstimate = components.some(c => c.source === 'ai')
+  const plateScore    = total.calories > 0 ? calcPlateScore({
+    calories: total.calories, protein_g: total.protein ?? 0,
+    fat_g: total.fat ?? 0, fiber_g: 0, carbs_g: total.carbs ?? 0
+  }) : null
+  const plateInfo      = plateScore != null ? scoreInfo(plateScore) : null
+  const breakdown      = plateScore != null ? getScoreBreakdown({
+    calories: total.calories, protein_g: total.protein ?? 0,
+    fat_g: total.fat ?? 0, fiber_g: 0, carbs_g: total.carbs ?? 0
+  }) : null
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (
@@ -661,6 +730,26 @@ export default function ScanModal({ session, onClose, onSaved }) {
                   <p className="result-total-warn">⚠ 含 AI 估算，實際數值可能略有差異</p>
                 )}
               </div>
+
+              {/* Plate Score breakdown */}
+              {plateScore != null && (
+                <div className="plate-score-card">
+                  <div className="plate-score-header">
+                    <span className="plate-score-label">Plate Score</span>
+                    <span className="plate-score-badge" style={{ background: plateInfo.bg, color: plateInfo.color }}>
+                      {plateScore} · {plateInfo.label}
+                    </span>
+                  </div>
+                  <div className="plate-score-reasons">
+                    {breakdown.good.map((r, i) => (
+                      <span key={i} className="plate-reason good">✓ {r}</span>
+                    ))}
+                    {breakdown.bad.map((r, i) => (
+                      <span key={i} className="plate-reason bad">✗ {r}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="form-group" style={{ marginTop: 12 }}>
                 <label>餐別</label>

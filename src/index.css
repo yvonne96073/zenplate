@@ -2817,3 +2817,135 @@ body {
 
 /* Today tab meal meta line */
 .stats-meal-meta   { font-size: 11px; color: var(--muted); margin-top: 2px; font-weight: 600; }
+
+/* ══════════════════════════════════════════════════════════
+   PORTION SCIENCE v1 — S/M/L + Count controls + Plate Score
+   ══════════════════════════════════════════════════════════ */
+
+/* S / M / L size buttons */
+.slm-row {
+  display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 8px;
+}
+.slm-btn {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 10px;
+  background: white; cursor: pointer; transition: all 0.12s; gap: 1px;
+}
+.slm-btn.active { border-color: #7C3AED; background: rgba(124,58,237,0.08); }
+.slm-size { font-size: 13px; font-weight: 900; color: var(--dark); }
+.slm-btn.active .slm-size { color: #7C3AED; }
+.slm-g    { font-size: 10px; font-weight: 600; color: var(--muted); }
+.slm-btn.active .slm-g { color: #7C3AED; }
+
+/* Quantity +/- for count-based items */
+.count-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+}
+.count-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1.5px solid var(--border); background: white;
+  font-size: 18px; font-weight: 800; color: var(--primary);
+  cursor: pointer; line-height: 1; display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.count-btn:hover { background: var(--primary-light); border-color: var(--primary); }
+.count-val {
+  font-size: 13px; font-weight: 700; color: var(--dark); min-width: 80px; text-align: center;
+}
+
+/* Plate Score card in result step */
+.plate-score-card {
+  background: white; border: 1.5px solid var(--border);
+  border-radius: 12px; padding: 10px 12px; margin-bottom: 4px;
+}
+.plate-score-header {
+  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+}
+.plate-score-label { font-size: 11px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.plate-score-badge { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: 20px; }
+.plate-score-reasons { display: flex; flex-wrap: wrap; gap: 5px; }
+.plate-reason {
+  font-size: 11px; font-weight: 600; padding: 3px 9px;
+  border-radius: 10px;
+}
+.plate-reason.good { background: #E8F5E9; color: #2E7D32; }
+.plate-reason.bad  { background: #FEF0E8; color: #B85C00; }
+
+/* ══════════════════════════════════════════════════════════
+   SUBWAY CUSTOMIZER
+   ══════════════════════════════════════════════════════════ */
+
+.subway-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.subway-logo-badge {
+  font-size: 13px; font-weight: 900; color: #00833D;
+  background: #E8F5E9; border: 1.5px solid #81C784;
+  padding: 5px 12px; border-radius: 20px;
+}
+.subway-source-tag {
+  font-size: 10px; font-weight: 700; color: #666; background: #F5F5F5;
+  padding: 3px 8px; border-radius: 10px;
+}
+.subway-section-label {
+  font-size: 12px; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin: 12px 0 6px;
+}
+.subway-section-sub { font-size: 10px; font-weight: 600; text-transform: none; letter-spacing: 0; }
+
+/* Top AI-matched sandwiches */
+.subway-matches-row {
+  display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px;
+  scrollbar-width: none; margin-bottom: 8px;
+}
+.subway-matches-row::-webkit-scrollbar { display: none; }
+.subway-match-card {
+  flex-shrink: 0; display: flex; flex-direction: column; align-items: flex-start;
+  padding: 8px 12px; border: 2px solid var(--border); border-radius: 12px;
+  background: white; cursor: pointer; transition: all 0.15s;
+  min-width: 100px; max-width: 140px;
+}
+.subway-match-card.active { border-color: #00833D; background: #E8F5E9; }
+.subway-match-name { font-size: 12px; font-weight: 700; color: var(--dark); }
+.subway-match-cal  { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+
+.subway-all-label {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+}
+
+/* Scrollable full sandwich list */
+.subway-item-scroll {
+  max-height: 160px; overflow-y: auto; border: 1.5px solid var(--border);
+  border-radius: 12px; margin-bottom: 6px; scrollbar-width: thin;
+}
+.subway-item-row {
+  width: 100%; display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border: none; background: white;
+  cursor: pointer; text-align: left; font-family: 'Nunito', sans-serif;
+  border-bottom: 1px solid #F0F4F8; transition: background 0.1s;
+}
+.subway-item-row:last-child { border-bottom: none; }
+.subway-item-row:hover  { background: #F0F9F6; }
+.subway-item-row.active { background: #E8F5E9; }
+.subway-item-zh  { flex: 1; font-size: 13px; font-weight: 700; color: var(--dark); }
+.subway-item-en  { font-size: 10px; color: var(--muted); }
+.subway-item-cal { font-size: 11px; font-weight: 700; color: var(--primary); white-space: nowrap; }
+
+/* Bread/sauce/size chips */
+.subway-chip-row {
+  display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px;
+}
+.subway-chip {
+  padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 20px;
+  background: white; font-size: 12px; font-weight: 600; color: var(--dark);
+  cursor: pointer; transition: all 0.15s;
+}
+.subway-chip.active { border-color: #00833D; background: #00833D; color: white; }
+.subway-chip-cal { font-size: 10px; opacity: 0.8; }
+
+.subway-disclaimer {
+  font-size: 10px; color: var(--muted); text-align: center;
+  margin: 8px 0 4px; line-height: 1.5;
+}
