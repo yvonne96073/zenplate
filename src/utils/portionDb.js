@@ -74,16 +74,16 @@ export const COMPONENTS = {
   fried_chicken: {
     id: 'fried_chicken', name_zh: '炸雞', name_en: 'Fried Chicken',
     keywords: ['炸雞', '雞排', '雞腿排', '鹽酥雞', '唐揚', 'fried chicken', 'crispy chicken'],
-    portions: { small: 80, medium: 130, large: 200 }, default_g: 130,
-    per100g: { cal: 267, pro: 18, carb: 12, fat: 16 },
-    count_based: true, per_piece_g: 130, tags: ['protein', 'fried'],
+    portions: { small: 100, medium: 150, large: 220 }, default_g: 150,
+    per100g: { cal: 280, pro: 18, carb: 12, fat: 18 },
+    count_based: true, per_piece_g: 150, tags: ['protein', 'fried'],
   },
   chicken_leg: {
     id: 'chicken_leg', name_zh: '雞腿', name_en: 'Chicken Leg',
     keywords: ['雞腿', '棒棒腿', '腿排', 'chicken leg', 'drumstick'],
-    portions: { small: 100, medium: 150, large: 220 }, default_g: 150,
-    per100g: { cal: 215, pro: 20, carb: 0, fat: 14 },
-    count_based: true, per_piece_g: 150, tags: ['protein', 'fried'],
+    portions: { small: 110, medium: 160, large: 230 }, default_g: 160,
+    per100g: { cal: 240, pro: 20, carb: 5, fat: 15 },
+    count_based: true, per_piece_g: 160, tags: ['protein', 'fried'],
   },
   grilled_chicken: {
     id: 'grilled_chicken', name_zh: '烤雞胸', name_en: 'Grilled Chicken',
@@ -123,8 +123,8 @@ export const COMPONENTS = {
   shrimp_tempura: {
     id: 'shrimp_tempura', name_zh: '炸蝦', name_en: 'Shrimp Tempura',
     keywords: ['炸蝦', '天婦羅蝦', '蝦天婦羅', 'shrimp tempura', 'prawn tempura'],
-    portions: { small: 40, medium: 80, large: 120 }, default_g: 80,
-    per100g: { cal: 200, pro: 13, carb: 14, fat: 10 },
+    portions: { small: 60, medium: 120, large: 180 }, default_g: 120,
+    per100g: { cal: 250, pro: 6, carb: 22, fat: 15 },
     count_based: true, per_piece_g: 40, tags: ['protein', 'fried'],
   },
   egg: {
@@ -161,7 +161,7 @@ export const COMPONENTS = {
     id: 'vegetables', name_zh: '青菜', name_en: 'Vegetables',
     keywords: ['青菜', '蔬菜', '燙青菜', '炒青菜', '花椰菜', '菠菜', '高麗菜', '空心菜', '地瓜葉', 'vegetable', 'veggies', 'greens'],
     portions: { small: 40, medium: 80, large: 130 }, default_g: 80,
-    per100g: { cal: 25, pro: 2.5, carb: 3.5, fat: 0.3 },
+    per100g: { cal: 35, pro: 2, carb: 6, fat: 0.5 },
     count_based: false, tags: ['veggie'],
   },
   salad: {
@@ -206,7 +206,7 @@ export const COMPONENTS = {
   bubble_tea: {
     id: 'bubble_tea', name_zh: '珍珠奶茶', name_en: 'Bubble Tea',
     keywords: ['珍奶', '珍珠奶茶', '珍珠', '波霸', 'bubble tea', 'boba'],
-    portions: { small: 500, medium: 700, large: 750 }, default_g: 700,
+    portions: { small: 500, medium: 700, large: 1000 }, default_g: 700,
     per100g: { cal: 68, pro: 1, carb: 14, fat: 1.5 },
     count_based: false, tags: ['sweet', 'drink'],
   },
@@ -243,7 +243,7 @@ export const COMPONENTS = {
   potato_fries: {
     id: 'potato_fries', name_zh: '薯條', name_en: 'Potato Fries',
     keywords: ['薯條', '炸薯條', '薯餅', 'fries', 'french fries', 'potato fries'],
-    portions: { small: 80, medium: 115, large: 170 }, default_g: 115,
+    portions: { small: 60, medium: 110, large: 180 }, default_g: 110,
     per100g: { cal: 312, pro: 3.4, carb: 41, fat: 15 },
     count_based: false, tags: ['fried', 'carb'],
   },
