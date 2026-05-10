@@ -500,128 +500,112 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     setTimeout(() => setHearts(h => h.filter(x => !batch.find(b => b.id === x.id))), 1400)
   }, [])
 
-  // ── Natural idle behavior (Animal Crossing–style) ────────────────────────
-  // Always picks something to do — cat is never just "idle" for long.
-  const doNaturalBehavior = useCallback(() => {
-    const s = stateRef.current
-    const ACTIVE = ['eating','playing','scratching','stretching','lying',
-                    'grooming','lookingOutside','playingIdle','watching','sleeping']
-    if (ACTIVE.includes(s) || isWalkRef.current) return
-    // NOTE: No hunger check — cat behaves naturally regardless of fullness.
-    // (Hunger state is shown visually; blocking behavior made the cat look dead.)
+  // ── Behavior loop — self-rescheduling, independent of React state ────────
+  // Uses refs only (stateRef, isWalkRef, purchasedRef) so it never has stale
+  // closure issues. Does NOT depend on petState changes to fire.
+  useEffect(() => {
+    if (!inited) return
+    let t = null
 
-    const hp  = purchasedRef.current
-    const opts = []
+    const BUSY = ['eating','playing','scratching','stretching','lying',
+                  'grooming','lookingOutside','playingIdle','watching','sleeping']
 
-    // Wander to random spot (weight 3 — most common)
-    opts.push({ w: 3, fn: () => {
-      const x = 20 + Math.random() * 55
-      walkTo({ x, y: 8 }, () => {})
-    }})
-    // Stretch somewhere
-    opts.push({ w: 2, fn: () => {
-      const x = 25 + Math.random() * 50
-      walkTo({ x, y: 8 }, () => {
-        setPetState('stretching')
-        bubble('*stretches lazily* 🐾', 2500)
-        scheduleIdle('stretching')
-      })
-    }})
-    // Lie down — near bed if owned, else on rug (weight 3 — prominent rest)
-    opts.push({ w: 3, fn: () => {
-      const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 30 + Math.random() * 35, y: 8 }
-      walkTo(dest, () => {
-        setPetState('lying')
-        bubble('Comfy here... 😌', 2000)
-        scheduleIdle('lying')
-      })
-    }})
-    // Take a proper nap (weight 2)
-    opts.push({ w: 2, fn: () => {
-      const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 30 + Math.random() * 35, y: 8 }
-      walkTo(dest, () => {
-        setPetState('sleeping')
-        stateDurRef.current = null
-        bubble('😴 Taking a little nap...', 2500)
-        // Wake up naturally after 12–20 s
-        stateTimer.current = setTimeout(() => {
-          setPetState('idle')
+    const schedule = (ms) => {
+      clearTimeout(t)
+      t = setTimeout(run, ms ?? (1500 + Math.random() * 3000))
+    }
+
+    const run = () => {
+      const s   = stateRef.current
+      const hp  = purchasedRef.current
+
+      // Cat is in the middle of something — try again shortly
+      if (BUSY.includes(s) || isWalkRef.current) { schedule(1200); return }
+
+      const r = Math.random()
+
+      if (r < 0.22) {
+        // Wander to a random spot, then schedule next behavior after arriving
+        walkTo({ x: 15 + Math.random() * 62, y: 8 }, () => schedule())
+
+      } else if (r < 0.38) {
+        // Lie down (most visible "alive" behavior)
+        const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 25 + Math.random() * 42, y: 8 }
+        walkTo(dest, () => {
+          setPetState('lying')
+          bubble('Comfy here... 😌', 2000)
+          setTimeout(() => { setPetState('idle'); schedule() }, 10000 + Math.random() * 8000)
+        })
+
+      } else if (r < 0.50) {
+        // Natural nap — walks to bed, sleeps, wakes on its own
+        const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 25 + Math.random() * 42, y: 8 }
+        walkTo(dest, () => {
+          setPetState('sleeping')
           stateDurRef.current = null
-          bubble('😺 Good morning~ ☀️', 1800)
-        }, 12000 + Math.random() * 8000)
-      })
-    }})
-    // Groom in place
-    opts.push({ w: 2, fn: () => {
-      setPetState('grooming')
-      bubble('*lick lick lick* 🐱', 2500)
-      scheduleIdle('grooming')
-    }})
-    // Look outside — walk to window side
-    opts.push({ w: 2, fn: () => {
-      walkTo({ x: 62 + Math.random() * 12, y: 8 }, () => {
-        setPetState('lookingOutside')
-        bubble("What's out there? 🪟", 3000)
-        scheduleIdle('lookingOutside')
-      })
-    }})
-    // Watch something (curious)
-    opts.push({ w: 2, fn: () => {
-      const x = 25 + Math.random() * 50
-      walkTo({ x, y: 8 }, () => {
-        setPetState('watching')
-        bubble('*curious stare* 👀', 2000)
-        scheduleIdle('watching')
-      })
-    }})
-    // Scratch post (only if owned)
-    if (hp.includes('scratching_board')) {
-      opts.push({ w: 2, fn: () => {
+          bubble('😴 Taking a nap...', 2500)
+          setTimeout(() => {
+            setPetState('idle')
+            bubble('😺 Good morning~ ☀️', 1800)
+            schedule()
+          }, 13000 + Math.random() * 9000)
+        })
+
+      } else if (r < 0.62) {
+        // Groom in place
+        setPetState('grooming')
+        bubble('*lick lick lick* 🐱', 2500)
+        setTimeout(() => { setPetState('idle'); schedule() }, 5000 + Math.random() * 3000)
+
+      } else if (r < 0.73) {
+        // Look outside window
+        walkTo({ x: 60 + Math.random() * 14, y: 8 }, () => {
+          setPetState('lookingOutside')
+          bubble("What's out there? 🪟", 3000)
+          setTimeout(() => { setPetState('idle'); schedule() }, 8000 + Math.random() * 4000)
+        })
+
+      } else if (r < 0.82) {
+        // Stretch
+        walkTo({ x: 22 + Math.random() * 52, y: 8 }, () => {
+          setPetState('stretching')
+          bubble('*stretches lazily* 🐾', 2500)
+          setTimeout(() => { setPetState('idle'); schedule() }, 3500 + Math.random() * 2000)
+        })
+
+      } else if (r < 0.90) {
+        // Curious watching
+        walkTo({ x: 22 + Math.random() * 52, y: 8 }, () => {
+          setPetState('watching')
+          bubble('*curious stare* 👀', 2000)
+          setTimeout(() => { setPetState('idle'); schedule() }, 5000 + Math.random() * 3000)
+        })
+
+      } else if (hp.includes('scratching_board')) {
         walkTo(OBJ.scratch, () => {
           setPetState('scratching')
           setMood(m => Math.min(m + 6, 100))
           bubble("😼 Ahh~ that's the spot!", 2800)
-          scheduleIdle('scratching')
+          setTimeout(() => { setPetState('idle'); schedule() }, 5000)
         })
-      }})
-    }
-    // Play with toy mouse (only if owned)
-    if (hp.includes('toy_mouse')) {
-      opts.push({ w: 2, fn: () => {
+
+      } else if (hp.includes('toy_mouse')) {
         walkTo(OBJ.toy, () => {
           setPetState('playingIdle')
           bubble('*batting at toy* 🐭', 2500)
-          scheduleIdle('playingIdle')
+          setTimeout(() => { setPetState('idle'); schedule() }, 6000)
         })
-      }})
+
+      } else {
+        walkTo({ x: 15 + Math.random() * 62, y: 8 }, () => schedule())
+      }
     }
 
-    // Weighted random pick
-    const total = opts.reduce((s, o) => s + o.w, 0)
-    let r = Math.random() * total
-    for (const o of opts) {
-      r -= o.w
-      if (r <= 0) { o.fn(); return }
-    }
-    opts[opts.length - 1].fn()
-  }, [walkTo, bubble, scheduleIdle])
+    schedule(2000) // first behavior fires 2s after mount
+    return () => clearTimeout(t)
+  }, [inited, walkTo, bubble]) // walkTo & bubble are stable useCallbacks
 
-  // Trigger natural behavior whenever cat becomes free
-  useEffect(() => {
-    if (!inited) return
-    const ACTIVE = ['eating','playing','scratching','stretching','lying',
-                    'grooming','lookingOutside','playingIdle','watching','sleeping']
-    if (ACTIVE.includes(petState) || isWalking) return
-    clearTimeout(wanderTimer.current)
-    clearTimeout(scratchTimer.current)
-    const delay = 800 + Math.random() * 2500
-    wanderTimer.current = setTimeout(() => {
-      if (!ACTIVE.includes(stateRef.current) && !isWalkRef.current) doNaturalBehavior()
-    }, delay)
-    return () => { clearTimeout(wanderTimer.current); clearTimeout(scratchTimer.current) }
-  }, [petState, isWalking, inited, doNaturalBehavior])
-
-  // ── Game tick ─────────────────────────────────────────────────────────────
+  // ── Game tick — stats only, no behavior interruption ─────────────────────
   useEffect(() => {
     if (!inited) return
     const tick = setInterval(() => {
@@ -630,15 +614,31 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
       const hasBlanket = purchasedRef.current.includes('blanket')
       const hasBed     = purchasedRef.current.includes('cat_bed')
 
-      if (s !== 'eating')    setHunger(h => Math.min(h + (hasBowl ? 1.5 : 2), 100))
-      if (s === 'sleeping')  setEnergy(e => Math.min(e + (hasBlanket || hasBed ? 4 : 3), 100))
-      else if (s !== 'idle') setEnergy(e => Math.max(e - 1, 0))
+      // Update stats
+      if (s !== 'eating')   setHunger(h => Math.min(h + (hasBowl ? 1.5 : 2), 100))
+      if (s === 'sleeping') setEnergy(e => Math.min(e + (hasBlanket || hasBed ? 4 : 3), 100))
+      else                  setEnergy(e => Math.max(e - 0.5, 0))
 
       const h = hungerRef.current
       const e = energyRef.current
 
-      // Auto-sleep (goes to bed if owned, otherwise sleeps in place)
-      if (e <= 10 && s === 'idle') {
+      // Hunger label — only updates label, never interrupts a natural behavior
+      const BUSY = ['eating','playing','scratching','stretching','lying',
+                    'grooming','lookingOutside','playingIdle','watching','sleeping']
+      if (!BUSY.includes(s) && !isWalkRef.current) {
+        if (h >= 90 && s !== 'veryHungry') {
+          setPetState('veryHungry')
+          bubble("I'm starving... 😿 Please feed me!!", 4500)
+        } else if (h >= 70 && s !== 'hungry' && s !== 'veryHungry') {
+          setPetState('hungry')
+          bubble("I'm hungry... 😿", 3500)
+        } else if (h < 35 && (s === 'hungry' || s === 'veryHungry')) {
+          setPetState('idle')
+        }
+      }
+
+      // Auto-sleep — only when energy is critically low AND cat is free
+      if (e <= 8 && !BUSY.includes(s) && !isWalkRef.current && s !== 'sleeping') {
         if (hasBed) {
           walkTo(OBJ.bed, () => {
             setPetState('sleeping'); stateDurRef.current = null
@@ -648,25 +648,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
           setPetState('sleeping'); stateDurRef.current = null
           bubble('😴 So sleepy... zzz', 2500)
         }
-        return
-      }
-
-      // Hunger state transitions.
-      // Only interrupt when cat is idle/hungry — never cut off a natural behavior mid-action.
-      const NATURAL = ['stretching','lying','grooming','lookingOutside','playingIdle','watching']
-      const isBusy  = NATURAL.includes(s) || isWalkRef.current
-      if (h >= 90 && s !== 'eating' && s !== 'sleeping' && !isBusy) {
-        if (s !== 'veryHungry') {
-          setPetState('veryHungry')
-          walkTo(OBJ.bowl, () => {})
-          bubble("I'm starving... 😿 Please feed me!!", 4500)
-        }
-      } else if (h >= 70 && s !== 'eating' && s !== 'sleeping' && s !== 'veryHungry' && s !== 'hungry' && !isBusy) {
-        setPetState('hungry')
-        walkTo(OBJ.bowl, () => {})
-        bubble("I'm hungry... 😿", 3500)
-      } else if (h < 35 && (s === 'hungry' || s === 'veryHungry')) {
-        setPetState('idle')
       }
     }, 5000)
 
