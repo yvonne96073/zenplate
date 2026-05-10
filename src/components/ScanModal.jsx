@@ -9,6 +9,7 @@ import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByC
 import { isMcdonaldsContext, matchMcdonaldsItem } from '../utils/mcdonaldsDb'
 import { lookupComponent, compNutrition, COMPONENT_ID_LIST } from '../utils/portionDb'
 import { calcPlateScore, scoreInfo, getScoreBreakdown } from '../utils/scoring'
+import { loadPortionAdjustments, savePortionCorrections, hasPersonalization } from '../utils/portionLearning'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
@@ -16,10 +17,11 @@ const MEAL_TYPES   = ['早餐', '午餐', '晚餐', '點心']
 const MEAL_TYPE_V  = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
 
-// ── Vision prompt — identity + portion estimate are both required ─────────────
-const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須同時完成兩件事：
-1. 辨識食物身份
-2. 從畫面視覺估算實際份量（g）
+// ── Vision prompt — Portion Science v2 ───────────────────────────────────────
+const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須完成：
+1. 判斷食物類型（packaged_food / chain_restaurant / general_meal）
+2. 辨識食物身份與品項
+3. 從畫面視覺估算實際份量（g）
 
 份量估算方法（依優先順序）：
 - 密封包裝 → 讀包裝上的克數
@@ -34,9 +36,12 @@ ${COMPONENT_ID_LIST}
 {
   "candidates": [
     {
+      "food_type": "general_meal",
       "name": "餐點名稱（中文）",
       "confidence": 80,
-      "clues": ["食物辨識依據", "份量判斷依據"],
+      "container_clue": "便當盒，七分滿",
+      "needs_confirmation": false,
+      "clues": ["食物辨識依據"],
       "packaged": false,
       "brand": "",
       "components": [
@@ -44,11 +49,11 @@ ${COMPONENT_ID_LIST}
           "name": "white_rice",
           "grams": 220,
           "portion_confidence": 75,
-          "cal_est": 286,
-          "pro_est": 5.3,
-          "carb_est": 63,
-          "fat_est": 0.5,
-          "hint": "約1碗"
+          "portion_reason": "標準碗，八分滿，約220g",
+          "cal_est": null,
+          "pro_est": null,
+          "carb_est": null,
+          "fat_est": null
         }
       ]
     }
@@ -57,19 +62,51 @@ ${COMPONENT_ID_LIST}
 
 規則：
 1. 永遠回傳 3 個 candidates，由高到低信心度排序
-2. confidence / portion_confidence：0-100 整數
-3. portion_confidence 判斷基準：
+2. food_type 必須是：packaged_food / chain_restaurant / general_meal 三選一
+3. confidence / portion_confidence：0-100 整數
+4. portion_confidence 判斷基準：
    80+ = 密封包裝、完整餐盒、份量明確
    55-79 = 大致可判斷（家常菜、標準碗盤）
    30-54 = 不確定（混合料理、醬汁、看不清的配料）
-4. grams = 畫面中實際份量的視覺估算，不是資料庫標準份量
-5. cal_est / pro_est / carb_est / fat_est = 該 grams 份量的總估計值，不是每100g
-6. 多個食物 → components 分列每個品項，每個都要估算 grams 和 portion_confidence
-7. 包裝食品 → packaged:true，brand 填品牌名
-8. 就算不確定也要給最佳猜測，不可回傳空 candidates
-9. component name 欄位：優先用上方清單的英文 ID，找不到才用中文
-10. 看到 Subway 店面/包裝/logo → brand 填 "Subway"，name 填菜單品項中文名稱
-11. 看到 McDonald's/麥當勞 店面/包裝/logo → brand 填 "McDonald's"，name 填菜單品項中文名稱（如：大麥克、麥克鷄塊、薯條）`
+5. needs_confirmation = true 當：portion_confidence 平均 < 60 或 confidence < 65
+6. grams = 畫面中實際份量的視覺估算，不是資料庫標準份量
+7. portion_reason = 簡短說明份量估算依據（例：「標準碗，八分滿，約220g」）
+8. 不要在 components 裡計算卡路里或巨量營養素，只給份量
+9. 多個食物 → components 分列每個品項，每個都要估算 grams 和 portion_confidence
+10. packaged_food → packaged:true，brand 填品牌名
+11. 就算不確定也要給最佳猜測，不可回傳空 candidates
+12. component name 欄位：優先用上方清單的英文 ID，找不到才用中文
+13. 看到 Subway 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "Subway"，name 填菜單品項中文名稱
+14. 看到 McDonald's/麥當勞 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "McDonald's"，name 填菜單品項中文名稱（如：大麥克、麥克鷄塊、薯條）
+15. cal_est/pro_est/carb_est/fat_est：只在 name 為中文且完全找不到對應 component_id 時填入（該 grams 份量的總估計值，不是每100g）；有 component_id 匹配就填 null`
+
+// ── Food type badges ──────────────────────────────────────────────────────────
+const FOOD_TYPE_LABEL = {
+  packaged_food:    '📦 包裝食品',
+  chain_restaurant: '🍔 連鎖餐廳',
+  general_meal:     '🍽️ 一般餐點',
+}
+
+// ── Portion level system ──────────────────────────────────────────────────────
+const LEVEL_FACTORS = { light: 0.65, standard: 1.0, extra: 1.5 }
+
+// Compute grams for a given level relative to a component's baseGrams
+function getPortionGramsForLevel(comp, level) {
+  const factor = LEVEL_FACTORS[level]
+  if (comp.source === 'portion' && comp.portionItem?.portions) {
+    const sz = level === 'light' ? 'small' : level === 'extra' ? 'large' : 'medium'
+    return comp.portionItem.portions[sz] ?? Math.round((comp.baseGrams || 100) * factor)
+  }
+  return Math.round((comp.baseGrams || 100) * factor)
+}
+
+// Apply a level tap — updates grams, portionMult, portionLevel, correctionDir
+function applyLevel(comp, level) {
+  const grams      = getPortionGramsForLevel(comp, level)
+  const portionMult = LEVEL_FACTORS[level]
+  const correctionDir = level === 'light' ? 'smaller' : level === 'extra' ? 'larger' : null
+  return { ...comp, portionLevel: level, grams, portionMult, correctionDir }
+}
 
 // ── Source metadata ───────────────────────────────────────────────────────────
 const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方' }
@@ -79,28 +116,54 @@ const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#
 const DEFAULT_SUBWAY = { sandwichId: null, breadId: 'bread_white', sauceIds: [], sizeMult: 1 }
 
 // ── Enrich one AI component with DB data ─────────────────────────────────────
-function enrichComp(ai, dbReady) {
+function enrichComp(ai, dbReady, adjustments = {}) {
+  const rawGrams  = ai.grams || 100
+  const adjKey    = (ai.name || '').toLowerCase()
+  const adjFactor = adjustments[adjKey] ?? adjustments[ai.name] ?? 1
+
+  // Personalization: bias initial level based on user's correction history
+  const initLevel = adjFactor < 0.825 ? 'light' : adjFactor > 1.25 ? 'extra' : 'standard'
+
   const base = {
-    aiName: ai.name, grams: ai.grams || 100, baseGrams: ai.grams || 100,
-    portionMult: 1, calEst: ai.cal_est || 0, hint: ai.hint || '',
-    portionConf: ai.portion_confidence ?? 55,   // 0-100, drives warning UI
+    aiName: ai.name,
+    baseGrams:    rawGrams,
+    grams:        Math.round(rawGrams * LEVEL_FACTORS[initLevel]),
+    portionLevel: initLevel,
+    portionMult:  LEVEL_FACTORS[initLevel],
+    correctionDir: null,                          // only set by explicit user tap
+    calEst:   ai.cal_est   || 0,
+    hint:     ai.hint      || '',
+    portionConf:   ai.portion_confidence ?? 55,
+    portionReason: ai.portion_reason     || '',
     proEst:  ai.pro_est  ?? null,
     carbEst: ai.carb_est ?? null,
     fatEst:  ai.fat_est  ?? null,
   }
 
-  // 1. NYCU campus DB — high threshold to avoid hijacking generic ingredients
+  // 1. NYCU campus DB
   const nycu = matchNycuDish(ai.name)
   if (nycu && nycu.score >= 70) {
     return { ...base, name: nycu.dish.dishZh, source: 'nycu', nycuDish: nycu.dish, fdaItem: null, portionItem: null }
   }
 
-  // 2. Portion DB — curated Taiwan food components with S/M/L priors
+  // 2. Portion DB — snap to closest S/M/L after personalization
   const portionItem = lookupComponent(ai.name)
   if (portionItem) {
-    // Use AI gram estimate; derive S/M/L from portionItem.portions
-    const aiG = ai.grams || portionItem.default_g || portionItem.portions.medium
-    return { ...base, name: portionItem.name_zh, source: 'portion', portionItem, fdaItem: null, nycuDish: null, grams: aiG, baseGrams: aiG }
+    const rawAiG     = ai.grams || portionItem.default_g || portionItem.portions.medium
+    const adjustedAiG = Math.round(rawAiG * adjFactor)
+    const opts = [
+      { level: 'light',    g: portionItem.portions.small  },
+      { level: 'standard', g: portionItem.portions.medium },
+      { level: 'extra',    g: portionItem.portions.large  },
+    ]
+    const best = opts.reduce((a, b) => Math.abs(a.g - adjustedAiG) < Math.abs(b.g - adjustedAiG) ? a : b)
+    return {
+      ...base,
+      name: portionItem.name_zh, source: 'portion', portionItem,
+      grams: best.g, baseGrams: rawAiG,
+      portionLevel: best.level, portionMult: LEVEL_FACTORS[best.level],
+      fdaItem: null, nycuDish: null,
+    }
   }
 
   // 3. FDA DB
@@ -109,7 +172,7 @@ function enrichComp(ai, dbReady) {
     if (fda) return { ...base, name: fda.n, source: 'fda', fdaItem: fda, nycuDish: null, portionItem: null }
   }
 
-  // 4. AI estimate fallback — always succeeds
+  // 4. AI estimate fallback
   return { ...base, name: ai.name, source: 'ai', fdaItem: null, nycuDish: null, portionItem: null }
 }
 
@@ -206,126 +269,65 @@ function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
   )
 }
 
-// ── Component row — gram-first design ────────────────────────────────────────
-const GRAM_OPTS = [50, 100, 150, 200, 300]
-const SLM_LABELS = { small: 'S', medium: 'M', large: 'L' }
-
+// ── Component row — Portion Science level UX ──────────────────────────────────
 function ComponentRow({ comp, onChange, onRemove, dbReady }) {
-  const nut = calcCompNut(comp)
+  const nut          = calcCompNut(comp)
+  const isMcdBased   = comp.source === 'mcd' && comp.mcdItem
+  const portionLow   = (comp.portionConf ?? 55) < 55
+  const currentLevel = comp.portionLevel || 'standard'
 
-  const isFdaBased     = comp.source === 'fda' || comp.source === 'packaged'
-  const isPortionBased = comp.source === 'portion' && comp.portionItem
-  const isCountBased   = isPortionBased && comp.portionItem.count_based
-  const isMcdBased     = comp.source === 'mcd' && comp.mcdItem
-
-  const actualGrams = isFdaBased
-    ? comp.grams
-    : isPortionBased
-      ? comp.grams
-      : Math.round((comp.baseGrams || 100) * (comp.portionMult || 1))
-
-  // For AI/NYCU: gram buttons derived from baseGrams × multiples
-  const aiGramOpts = [0.5, 1, 1.5, 2].map(m => ({
-    mult: m, grams: Math.round((comp.baseGrams || 100) * m),
-  }))
-
-  const portionLow = (comp.portionConf ?? 55) < 55
-
-  // Count-based quantity helper
-  const pieceG    = comp.portionItem?.per_piece_g || 1
-  const quantity  = isCountBased ? Math.max(1, Math.round(comp.grams / pieceG)) : 1
-  const setQty    = (q) => onChange({ ...comp, grams: Math.max(pieceG, q * pieceG) })
+  const levelButtons = [
+    { key: 'light',    label: 'Smaller',     g: getPortionGramsForLevel(comp, 'light')    },
+    { key: 'standard', label: 'Looks Right', g: getPortionGramsForLevel(comp, 'standard') },
+    { key: 'extra',    label: 'Larger',      g: getPortionGramsForLevel(comp, 'extra')    },
+  ]
 
   return (
     <div className="comp-row">
-      {/* Header: source + name + gram badge */}
+      {/* Header: source badge + name + current gram + remove */}
       <div className="comp-row-header">
         <span className="comp-src-tag" style={{ background: SRC_COLOR[comp.source] }}>
           {SRC_LABEL[comp.source]}
         </span>
         <span className="comp-name">{comp.name}</span>
-        <span className="comp-gram-badge">{actualGrams}g</span>
+        <span className="comp-gram-badge">~{comp.grams}g</span>
         <button className="comp-rm" onClick={onRemove}>✕</button>
       </div>
 
-      {/* Low portion-confidence warning */}
+      {/* AI's portion reasoning */}
+      {comp.portionReason && (
+        <p className="comp-portion-reason">📐 {comp.portionReason}</p>
+      )}
+
+      {/* Low-confidence nudge */}
       {portionLow && (
-        <p className="comp-portion-warn">⚠️ 份量估算不確定，請依實際情況調整</p>
+        <p className="comp-portion-warn">份量有點難判斷，確認一下看起來對嗎 🤔</p>
       )}
 
-      {/* Portion controls */}
-      <p className="comp-portion-label">調整份量</p>
+      {/* ── Portion controls ── */}
 
-      {/* Portion DB — S/M/L buttons */}
-      {isPortionBased && !isCountBased && (
-        <div className="slm-row">
-          {['small','medium','large'].map(sz => {
-            const g = comp.portionItem.portions[sz]
-            return (
-              <button key={sz}
-                className={`slm-btn ${comp.grams === g ? 'active' : ''}`}
-                onClick={() => onChange({ ...comp, grams: g })}>
-                <span className="slm-size">{SLM_LABELS[sz]}</span>
-                <span className="slm-g">{g}g</span>
-              </button>
-            )
-          })}
-          <input className="portion-input" type="number" min="1" max="2000"
-            value={comp.grams}
-            onChange={e => onChange({ ...comp, grams: Math.max(1, parseInt(e.target.value) || comp.grams) })}/>
-        </div>
-      )}
-
-      {/* Portion DB count-based — quantity +/- */}
-      {isCountBased && (
-        <div className="count-row">
-          <button className="count-btn" onClick={() => setQty(Math.max(1, quantity - 1))}>−</button>
-          <span className="count-val">{quantity} 份 ({actualGrams}g)</span>
-          <button className="count-btn" onClick={() => setQty(quantity + 1)}>＋</button>
-        </div>
-      )}
-
-      {/* McDonald's quantity */}
-      {isMcdBased && (
+      {/* McDonald's: item count +/- */}
+      {isMcdBased ? (
         <div className="count-row">
           <button className="count-btn" onClick={() => onChange({ ...comp, portionMult: Math.max(1, (comp.portionMult || 1) - 1) })}>−</button>
           <span className="count-val">{comp.portionMult || 1} 份</span>
           <button className="count-btn" onClick={() => onChange({ ...comp, portionMult: (comp.portionMult || 1) + 1 })}>＋</button>
         </div>
-      )}
-
-      {/* FDA grams */}
-      {isFdaBased && (
-        <div className="comp-portion-row">
-          {GRAM_OPTS.map(g => (
-            <button key={g}
-              className={`portion-btn ${comp.grams === g ? 'active' : ''}`}
-              onClick={() => onChange({ ...comp, grams: g })}>{g}g</button>
+      ) : (
+        /* Everything else: Smaller / Looks Right / Larger */
+        <div className="level-row">
+          {levelButtons.map(({ key, label, g }) => (
+            <button key={key}
+              className={`level-btn ${currentLevel === key ? 'active' : ''}`}
+              onClick={() => onChange(applyLevel(comp, key))}>
+              <span className="level-btn-label">{label}</span>
+              <span className="level-btn-gram">~{g}g</span>
+            </button>
           ))}
-          <input className="portion-input" type="number" min="1" max="2000"
-            value={comp.grams}
-            onChange={e => onChange({ ...comp, grams: parseInt(e.target.value) || comp.grams })}/>
         </div>
       )}
 
-      {/* AI/NYCU — gram multiples */}
-      {!isFdaBased && !isPortionBased && !isMcdBased && (
-        <div className="comp-portion-row">
-          {aiGramOpts.map(({ mult, grams }) => (
-            <button key={mult}
-              className={`portion-btn ${comp.portionMult == mult ? 'active' : ''}`}
-              onClick={() => onChange({ ...comp, portionMult: mult })}>{grams}g</button>
-          ))}
-          <input className="portion-input" type="number" min="1" max="2000"
-            value={actualGrams}
-            onChange={e => {
-              const g = Math.max(1, parseInt(e.target.value) || comp.baseGrams)
-              onChange({ ...comp, portionMult: g / (comp.baseGrams || 100) })
-            }}/>
-        </div>
-      )}
-
-      {/* Nutrition result */}
+      {/* Nutrition summary */}
       <div className="comp-nut-row">
         <span className="comp-nut-cal">{nut.calories ?? '?'} kcal</span>
         {nut.protein != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">蛋白 {nut.protein}g</span></>}
@@ -333,11 +335,16 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
         {nut.fat     != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">脂肪 {nut.fat}g</span></>}
       </div>
 
-      {/* FDA override search */}
+      {/* FDA override: power-user search (secondary) */}
       {comp.source !== 'fda' && dbReady && (
         <FdaSearch compact initialQuery={comp.aiName || comp.name}
-          onSelect={item => onChange({ ...comp, name: item.n, source: 'fda',
-            fdaItem: item, portionItem: null, grams: actualGrams })}/>
+          onSelect={item => onChange({
+            ...comp, name: item.n, source: 'fda', fdaItem: item,
+            portionItem: null, nycuDish: null,
+            grams: comp.grams, baseGrams: comp.grams,
+            portionLevel: comp.portionLevel || 'standard',
+            correctionDir: null,
+          })}/>
       )}
     </div>
   )
@@ -353,8 +360,12 @@ export default function ScanModal({ session, onClose, onSaved }) {
   const [scanning,  setScanning]  = useState(false)
 
   // AI candidates
-  const [candidates, setCandidates] = useState([])
-  const [chosenIdx,  setChosenIdx]  = useState(0)
+  const [candidates,         setCandidates]         = useState([])
+  const [chosenIdx,          setChosenIdx]          = useState(0)
+  const [confirmedCandidate, setConfirmedCandidate] = useState(null)
+
+  // Personalization — user's historical gram-correction factors per component
+  const [portionAdjustments, setPortionAdjustments] = useState({})
 
   // Processed result
   const [mealName,   setMealName]   = useState('')
@@ -374,6 +385,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
 
   useEffect(() => {
     loadFdaDb().then(() => setDbReady(true)).catch(() => {})
+    loadPortionAdjustments(supabase, session.user.id).then(setPortionAdjustments)
     return () => codeRef.current?.reset()
   }, [])
 
@@ -459,64 +471,70 @@ export default function ScanModal({ session, onClose, onSaved }) {
     }
   }
 
-  // ── User confirms a candidate → build component list ─────────────────────
+  // ── User confirms a candidate → route by food_type ───────────────────────
   const confirmCandidate = (idx) => {
     const cand = candidates[idx]
     setMealName(cand.name)
+    setConfirmedCandidate(cand)
 
-    // ── McDonald's branch ─────────────────────────────────────────────────
-    const mcdCtx = isMcdonaldsContext(cand.brand || '') || isMcdonaldsContext(cand.name || '')
-    if (mcdCtx) {
-      const mcdMatches = (cand.components || [{ name: cand.name }])
-        .map(c => matchMcdonaldsItem(c.name))
-        .filter(Boolean)
+    const ft = cand.food_type || (cand.packaged ? 'packaged_food' : 'general_meal')
 
-      if (mcdMatches.length > 0) {
-        setMealName(cand.name)
-        setComponents(mcdMatches.map(item => ({
-          name: item.name, aiName: item.name,
-          grams: 1, baseGrams: 1, portionMult: 1,
-          calEst: item.cal, source: 'mcd', mcdItem: item,
-          fdaItem: null, nycuDish: null, portionItem: null,
-          portionConf: 90,
-        })))
-        setStep('result')
+    // ── chain_restaurant: McDonald's or Subway ────────────────────────────
+    if (ft === 'chain_restaurant') {
+      // McDonald's
+      const mcdCtx = isMcdonaldsContext(cand.brand || '') || isMcdonaldsContext(cand.name || '')
+      if (mcdCtx) {
+        const mcdMatches = (cand.components || [{ name: cand.name }])
+          .map(c => matchMcdonaldsItem(c.name))
+          .filter(Boolean)
+        if (mcdMatches.length > 0) {
+          setComponents(mcdMatches.map(item => ({
+            name: item.name, aiName: item.name,
+            grams: 1, baseGrams: 1, portionMult: 1,
+            portionLevel: 'standard', correctionDir: null,
+            calEst: item.cal, source: 'mcd', mcdItem: item,
+            fdaItem: null, nycuDish: null, portionItem: null,
+            portionConf: 90, portionReason: '',
+          })))
+          setStep('result')
+          return
+        }
+      }
+
+      // Subway
+      if (isSubwayContext(cand)) {
+        const matches = matchSubwayItems(cand.name, 3)
+        setSubwayMatches(matches)
+        setSubwayConfig({ ...DEFAULT_SUBWAY, sandwichId: matches[0]?.item_id ?? null })
+        setStep('subway')
         return
       }
+      // Unknown chain → fall through to general_meal pipeline
     }
 
-    // ── Subway branch ─────────────────────────────────────────────────────
-    if (isSubwayContext(cand)) {
-      const matches = matchSubwayItems(cand.name, 3)
-      setSubwayMatches(matches)
-      setSubwayConfig({
-        ...DEFAULT_SUBWAY,
-        sandwichId: matches[0]?.item_id ?? null,
-      })
-      setStep('subway')
-      return
-    }
-
-    // Packaged food → try local packaged DB first
-    if (cand.packaged) {
+    // ── packaged_food: local packaged DB → fallback to enrichComp ─────────
+    if (ft === 'packaged_food' || cand.packaged) {
       const pkg = lookupPackagedFood(cand.brand || '', cand.components?.[0]?.name || cand.name)
       if (pkg) {
         setComponents([{
           name: `${pkg.item.brand} ${pkg.item.name}`,
           aiName: cand.name, grams: pkg.item.per, baseGrams: pkg.item.per,
-          portionMult: 1, calEst: 0, hint: `${pkg.item.per}g/份`,
+          portionMult: 1, portionLevel: 'standard', correctionDir: null,
+          calEst: 0, hint: `${pkg.item.per}g/份`,
+          portionReason: '', portionConf: 90,
           source: 'packaged', packagedItem: pkg, fdaItem: null, nycuDish: null,
         }])
-        setStep('result'); return
+        setStep('result')
+        return
       }
     }
 
-    // Build one component per AI component
+    // ── general_meal (or fallback): component breakdown + enrichComp ──────
     const aiComps = cand.components?.length
       ? cand.components
-      : [{ name: cand.name, grams: 200, cal_est: cand.components?.[0]?.cal_est || 300, hint: '1份' }]
+      : [{ name: cand.name, grams: 200, portion_confidence: 50, portion_reason: '', hint: '1份' }]
 
-    setComponents(aiComps.map(ai => enrichComp(ai, dbReady)))
+    setComponents(aiComps.map(ai => enrichComp(ai, dbReady, portionAdjustments)))
     setStep('result')
   }
 
@@ -549,10 +567,12 @@ export default function ScanModal({ session, onClose, onSaved }) {
       }
     }
 
-    const { error: dbErr } = await supabase.from('meals').insert(payload)
+    const { data: saved, error: dbErr } = await supabase.from('meals').insert(payload).select('id').single()
     setSaving(false)
-    if (dbErr) setError(dbErr.message)
-    else onSaved()
+    if (dbErr) { setError(dbErr.message); return }
+    // Persist any portion corrections the user made (non-blocking)
+    savePortionCorrections(supabase, session.user.id, saved?.id, MEAL_TYPE_V[mealType], components).catch(() => {})
+    onSaved()
   }
 
   // ── Subway save ───────────────────────────────────────────────────────────
@@ -593,6 +613,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
     setStep('select'); setError(''); setCandidates([]); setChosenIdx(0)
     setComponents([]); setBarcodeResult(null); setMealName('')
     setSubwayConfig(DEFAULT_SUBWAY); setSubwayMatches([])
+    setConfirmedCandidate(null)
   }
 
   // Derived totals for result step
@@ -712,7 +733,13 @@ export default function ScanModal({ session, onClose, onSaved }) {
                       <div className="candidate-conf-fill" style={{ width: `${c.confidence}%` }}/>
                     </div>
                     <div className="candidate-meta">
-                      {c.clues?.slice(0, 2).map((cl, j) => (
+                      {c.food_type && (
+                        <span className="candidate-food-type">{FOOD_TYPE_LABEL[c.food_type] || c.food_type}</span>
+                      )}
+                      {c.container_clue && (
+                        <span className="candidate-container">🫙 {c.container_clue}</span>
+                      )}
+                      {c.clues?.slice(0, 1).map((cl, j) => (
                         <span key={j} className="candidate-clue">{cl}</span>
                       ))}
                       <span className="candidate-items">{c.components?.length || 1} 個品項</span>
@@ -731,51 +758,9 @@ export default function ScanModal({ session, onClose, onSaved }) {
           {/* ── Result / Edit ── */}
           {step === 'result' && (
             <>
-              <h3 className="modal-title">確認餐點內容 ✅</h3>
+              <h3 className="modal-title">你的餐點 🍽️</h3>
 
-              <div className="form-group" style={{ marginBottom: 10 }}>
-                <label>餐點名稱</label>
-                <input className="form-input" value={mealName}
-                  onChange={e => setMealName(e.target.value)}/>
-              </div>
-
-              <div className="comp-list">
-                {components.map((comp, i) => (
-                  <ComponentRow key={i} comp={comp} dbReady={dbReady}
-                    onChange={updated => setComponents(cs => cs.map((c, j) => j === i ? updated : c))}
-                    onRemove={() => setComponents(cs => cs.filter((_, j) => j !== i))}
-                  />
-                ))}
-                <div className="comp-add-row">
-                  <p className="fda-add-label">＋ 新增食材</p>
-                  <FdaSearch key={components.length}
-                    onSelect={item => setComponents(prev => [
-                      ...prev, enrichComp({ name: item.n, grams: 100, cal_est: 0 }, true)
-                    ])}/>
-                </div>
-              </div>
-
-              {/* Total nutrition */}
-              <div className="result-totals">
-                <div className="result-total-row">
-                  {[
-                    [total.calories ?? 0,   'kcal'],
-                    [total.protein  ?? '?', '蛋白質 g'],
-                    [total.carbs    ?? '?', '碳水 g'],
-                    [total.fat      ?? '?', '脂肪 g'],
-                  ].map(([val, lbl]) => (
-                    <div key={lbl} className="result-total-item">
-                      <span className="result-total-val">{val}</span>
-                      <span className="result-total-lbl">{lbl}</span>
-                    </div>
-                  ))}
-                </div>
-                {hasAiEstimate && (
-                  <p className="result-total-warn">⚠ 含 AI 估算，實際數值可能略有差異</p>
-                )}
-              </div>
-
-              {/* Plate Score breakdown */}
+              {/* 1. Plate Score — shown first so user sees the "why" immediately */}
               {plateScore != null && (
                 <div className="plate-score-card">
                   <div className="plate-score-header">
@@ -795,6 +780,65 @@ export default function ScanModal({ session, onClose, onSaved }) {
                 </div>
               )}
 
+              {/* 2. Needs-confirmation banner */}
+              {confirmedCandidate?.needs_confirmation && (
+                <div className="confirm-banner">
+                  ⚠️ AI 對份量不太確定，請確認每項食材的份量是否正確
+                </div>
+              )}
+
+              {/* 3. Meal name */}
+              <div className="form-group" style={{ marginBottom: 10 }}>
+                <label>餐點名稱</label>
+                <input className="form-input" value={mealName}
+                  onChange={e => setMealName(e.target.value)}/>
+              </div>
+
+              {/* 4. Portion prompt */}
+              <p className="confirm-portion-prompt">
+                {hasPersonalization(portionAdjustments)
+                  ? '✨ 份量已根據你的習慣調整，確認看看對嗎？'
+                  : '這份量看起來對嗎？'}
+              </p>
+
+              {/* 5. Component list with level UX */}
+              <div className="comp-list">
+                {components.map((comp, i) => (
+                  <ComponentRow key={i} comp={comp} dbReady={dbReady}
+                    onChange={updated => setComponents(cs => cs.map((c, j) => j === i ? updated : c))}
+                    onRemove={() => setComponents(cs => cs.filter((_, j) => j !== i))}
+                  />
+                ))}
+                <div className="comp-add-row">
+                  <p className="fda-add-label">＋ 新增食材</p>
+                  <FdaSearch key={components.length}
+                    onSelect={item => setComponents(prev => [
+                      ...prev, enrichComp({ name: item.n, grams: 100, cal_est: 0 }, true)
+                    ])}/>
+                </div>
+              </div>
+
+              {/* 6. Total nutrition summary */}
+              <div className="result-totals">
+                <div className="result-total-row">
+                  {[
+                    [total.calories ?? 0,   'kcal'],
+                    [total.protein  ?? '?', '蛋白質 g'],
+                    [total.carbs    ?? '?', '碳水 g'],
+                    [total.fat      ?? '?', '脂肪 g'],
+                  ].map(([val, lbl]) => (
+                    <div key={lbl} className="result-total-item">
+                      <span className="result-total-val">{val}</span>
+                      <span className="result-total-lbl">{lbl}</span>
+                    </div>
+                  ))}
+                </div>
+                {hasAiEstimate && (
+                  <p className="result-total-warn">⚠ 含 AI 估算，實際數值可能略有差異</p>
+                )}
+              </div>
+
+              {/* 7. Meal type */}
               <div className="form-group" style={{ marginTop: 12 }}>
                 <label>餐別</label>
                 <div className="meal-type-btns">

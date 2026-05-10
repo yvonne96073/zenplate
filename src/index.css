@@ -2605,8 +2605,10 @@ body {
 .candidate-conf-bar  { height: 4px; background: var(--border); border-radius: 2px; margin-bottom: 8px; }
 .candidate-conf-fill { height: 100%; background: var(--primary); border-radius: 2px; transition: width 0.3s; }
 .candidate-meta  { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
-.candidate-clue  { font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); background: var(--bg); }
-.candidate-items { font-size: 10px; color: var(--muted); margin-left: auto; }
+.candidate-clue      { font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: var(--muted); background: var(--bg); }
+.candidate-items     { font-size: 10px; color: var(--muted); margin-left: auto; }
+.candidate-food-type { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; background: var(--primary-light); color: var(--primary); }
+.candidate-container { font-size: 10px; padding: 2px 8px; border-radius: 10px; border: 1px solid var(--border); color: #5C6BC0; background: #EEF0FB; }
 
 /* ── Component list ──────────────────────────────────────── */
 .comp-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
@@ -2617,19 +2619,38 @@ body {
 .comp-name       { flex: 1; font-size: 13.5px; font-weight: 700; color: var(--text); }
 .comp-hint         { font-size: 11px; color: var(--muted); }
 .comp-gram-badge   { font-size: 12px; font-weight: 800; color: var(--primary); background: var(--primary-light); padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
-.comp-portion-warn { font-size: 11px; font-weight: 700; color: #B85C00; background: #FEF0E8; border-radius: 8px; padding: 5px 10px; margin: 4px 0 2px; }
-.comp-portion-label{ font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 6px 0 4px; }
+.comp-portion-warn   { font-size: 11px; font-weight: 700; color: #B85C00; background: #FEF0E8; border-radius: 8px; padding: 5px 10px; margin: 4px 0 2px; }
+.comp-portion-reason { font-size: 11px; color: #5C6BC0; background: #EEF0FB; border-radius: 8px; padding: 4px 10px; margin: 2px 0 4px; }
+.comp-portion-label  { font-size: 10px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 6px 0 4px; }
+.confirm-banner { font-size: 12px; font-weight: 700; color: #B85C00; background: #FEF0E8; border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; }
 .comp-rm         { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 14px; padding: 0 2px; line-height: 1; }
 
-/* Portion quick-buttons */
-.comp-portion-row { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; margin-bottom: 8px; }
-.portion-btn {
-  font-size: 12px; font-weight: 600; padding: 4px 10px;
-  border: 1.5px solid var(--border); border-radius: 8px;
-  background: var(--card-bg); color: var(--text); cursor: pointer;
-  transition: all 0.12s;
+/* ── Portion Science level buttons (Smaller / Looks Right / Larger) ── */
+.level-row {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px; margin: 6px 0 8px;
 }
-.portion-btn.active { border-color: var(--primary); background: rgba(43,181,160,0.12); color: var(--primary); }
+.level-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 8px 4px; border-radius: 10px;
+  border: 1.5px solid var(--border); background: var(--card-bg);
+  cursor: pointer; transition: all 0.15s;
+}
+.level-btn:hover { border-color: var(--primary); background: rgba(43,181,160,0.07); }
+.level-btn.active {
+  border-color: var(--primary); background: rgba(43,181,160,0.14);
+  box-shadow: 0 0 0 2px rgba(43,181,160,0.15);
+}
+.level-btn-label { font-size: 12px; font-weight: 700; color: var(--text); }
+.level-btn.active .level-btn-label { color: var(--primary); }
+.level-btn-gram  { font-size: 10px; color: var(--muted); font-weight: 600; }
+.level-btn.active .level-btn-gram  { color: var(--primary); }
+
+/* Portion prompt above component list */
+.confirm-portion-prompt {
+  font-size: 12px; font-weight: 700; color: var(--muted);
+  margin: 0 0 6px; letter-spacing: 0.1px;
+}
 .portion-input {
   width: 58px; padding: 4px 6px; text-align: center;
   border: 1.5px solid var(--border); border-radius: 8px;
