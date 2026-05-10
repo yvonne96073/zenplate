@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 function isInAppBrowser() {
@@ -14,29 +14,10 @@ export default function Login() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [message, setMessage]   = useState('')
-
-  // When in a webview: pre-fetch the real Google OAuth URL so we can put it
-  // in a real <a> tag — iOS routes user-tapped _blank links to Safari
-  const [googleUrl, setGoogleUrl]     = useState(null)
-  const [urlLoading, setUrlLoading]   = useState(false)
-  const linkRef = useRef(null)
+  const [showSafariGuide, setShowSafariGuide] = useState(false)
 
   const inApp = isInAppBrowser()
 
-  // Pre-fetch OAuth URL when running inside an in-app browser
-  useEffect(() => {
-    if (!inApp) return
-    setUrlLoading(true)
-    supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin, skipBrowserRedirect: true },
-    }).then(({ data }) => {
-      if (data?.url) setGoogleUrl(data.url)
-      setUrlLoading(false)
-    })
-  }, [inApp])
-
-  // Normal OAuth (not in webview)
   const handleGoogleLogin = async () => {
     setError('')
     const { error } = await supabase.auth.signInWithOAuth({
@@ -76,26 +57,27 @@ export default function Login() {
         <h1 className="login-title">ZENPLATE</h1>
         <p className="login-sub">Your mindful nutrition companion</p>
 
-        {/* In-app browser: render a real <a target="_blank"> so iOS opens Safari */}
         {inApp ? (
-          googleUrl ? (
-            <a
-              ref={linkRef}
-              href={googleUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="google-btn"
-              style={{ textDecoration: 'none' }}
-            >
-              {googleIcon}
-              Continue with Google
-            </a>
-          ) : (
-            <button className="google-btn" disabled>
-              {googleIcon}
-              {urlLoading ? 'Loading...' : 'Continue with Google'}
-            </button>
-          )
+          <>
+            {showSafariGuide ? (
+              <div className="safari-guide">
+                <p className="safari-guide-title">如何用 Google 登入</p>
+                <ol className="safari-guide-steps">
+                  <li>點右上角 <strong>···</strong> 選單</li>
+                  <li>選擇「<strong>在 Safari 中開啟</strong>」</li>
+                  <li>在 Safari 裡點 Google 登入</li>
+                </ol>
+                <button className="safari-guide-close" onClick={() => setShowSafariGuide(false)}>
+                  知道了
+                </button>
+              </div>
+            ) : (
+              <button className="google-btn google-btn-inapp" onClick={() => setShowSafariGuide(true)}>
+                {googleIcon}
+                Continue with Google
+              </button>
+            )}
+          </>
         ) : (
           <button className="google-btn" onClick={handleGoogleLogin}>
             {googleIcon}
