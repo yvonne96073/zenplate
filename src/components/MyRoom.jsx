@@ -208,6 +208,170 @@ function CatSprite({ state }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ROOM SUPPLIES — CSS-drawn objects; only renders owned items
+// ─────────────────────────────────────────────────────────────────────────────
+function RoomSupplies({ purchased, catState }) {
+  const has  = (id) => purchased.includes(id)
+  const lit  = (...states) => states.includes(catState) ? 'rm-supply-lit' : ''
+  const bowl = lit('hungry', 'hungryCritical', 'eating')
+  const Sh   = ({ w }) => <div className="rm-supply-shadow" style={{ width: w }} />
+
+  return (
+    <>
+      {/* ── BED AREA — left side ─────────────────────────────── */}
+      {has('cat_bed') && (
+        <div className={`rm-supply ${lit('sleeping')}`} style={{ left: '3%', bottom: '14%' }}>
+          {/* outer rim */}
+          <div style={{
+            width: 72, height: 38, borderRadius: '50%',
+            background: 'linear-gradient(160deg, #c49558, #9a7030)',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.22)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            {/* inner cushion */}
+            <div style={{ width: 56, height: 26, borderRadius: '50%',
+              background: 'linear-gradient(160deg, #f5e8d0, #e8d4b0)' }} />
+          </div>
+          <Sh w={64} />
+        </div>
+      )}
+
+      {has('blanket') && (
+        <div className="rm-supply" style={{ left: '10.5%', bottom: '12.5%', zIndex: 3 }}>
+          <div style={{
+            width: 50, height: 22, transform: 'rotate(-5deg)',
+            borderRadius: '8px 12px 6px 10px / 10px 6px 10px 8px',
+            background: 'linear-gradient(135deg, #8fb5a8, #7a9e95)',
+            boxShadow: '0 3px 7px rgba(0,0,0,0.15)',
+          }} />
+        </div>
+      )}
+
+      {has('brush') && (
+        <div className="rm-supply" style={{ left: '15.5%', bottom: '11.5%', zIndex: 3 }}>
+          <div style={{ transform: 'rotate(-20deg)', position: 'relative', width: 32, height: 14 }}>
+            {/* handle */}
+            <div style={{ width: '100%', height: '100%', borderRadius: 5,
+              background: 'linear-gradient(90deg, #9a6832, #7a5020)',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.2)' }} />
+            {/* bristles */}
+            <div style={{ position: 'absolute', bottom: -4, left: 4, right: 4, height: 5,
+              borderRadius: '0 0 3px 3px',
+              background: 'repeating-linear-gradient(90deg, #e8e0d0 0px, #e8e0d0 2px, #c0b090 2px, #c0b090 4px)' }} />
+          </div>
+        </div>
+      )}
+
+      {/* ── BOWL AREA — center-left floor ────────────────────── */}
+      {has('water_bowl') && (
+        <div className={`rm-supply ${bowl}`} style={{ left: '24%', bottom: '8.5%' }}>
+          {/* ceramic bowl outer */}
+          <div style={{ width: 30, height: 18, borderRadius: '0 0 50% 50%',
+            background: 'linear-gradient(180deg, #e2dbd0, #c8bfb0)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.18)',
+            position: 'relative', overflow: 'hidden' }}>
+            {/* water surface */}
+            <div style={{ position: 'absolute', bottom: 2, left: 3, right: 3, height: 9,
+              borderRadius: '50%',
+              background: 'linear-gradient(180deg, #a8d4e8, #70b4d0)', opacity: .85 }} />
+          </div>
+          <Sh w={24} />
+        </div>
+      )}
+
+      {has('premium_can') && (
+        <div className={`rm-supply ${bowl}`} style={{ left: '30%', bottom: '8.5%' }}>
+          {/* can body */}
+          <div style={{ width: 22, height: 28, borderRadius: '3px 3px 2px 2px',
+            background: 'linear-gradient(180deg, #e07850, #c05830)',
+            boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+            position: 'relative', overflow: 'hidden' }}>
+            {/* lid */}
+            <div style={{ position: 'absolute', top: 0, left: -1, right: -1, height: 5,
+              background: '#b04820', borderRadius: '3px 3px 0 0' }} />
+            {/* label band */}
+            <div style={{ position: 'absolute', top: 9, left: 2, right: 2, height: 11,
+              background: 'rgba(255,255,255,0.28)', borderRadius: 2 }} />
+          </div>
+          <Sh w={18} />
+        </div>
+      )}
+
+      {/* ── SCRATCHING AREA — left wall ──────────────────────── */}
+      {has('scratching_board') && (
+        <div className={`rm-supply ${lit('scratching')}`} style={{ left: '7.5%', bottom: '8%' }}>
+          {/* base */}
+          <div style={{ width: 34, height: 7, borderRadius: 4,
+            background: 'linear-gradient(180deg, #9a7830, #7a5c20)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
+          {/* post */}
+          <div style={{ width: 14, height: 48, margin: '-1px auto 0',
+            borderRadius: '2px 2px 0 0', position: 'relative',
+            background: 'linear-gradient(90deg, #c8a048, #a07830, #c8a048)' }}>
+            {[8, 16, 24, 32, 40].map(t => (
+              <div key={t} style={{ position: 'absolute', left: 1, right: 1, top: t,
+                height: 1, background: 'rgba(0,0,0,0.15)' }} />
+            ))}
+          </div>
+          <Sh w={28} />
+        </div>
+      )}
+
+      {/* ── TOY AREA — right-center floor ────────────────────── */}
+      {has('toy_mouse') && (
+        <div className={`rm-supply ${catState === 'playing' ? 'rm-supply-bounce' : ''}`}
+             style={{ left: '60%', bottom: '8%' }}>
+          <div style={{ position: 'relative', width: 26, height: 18 }}>
+            {/* ears */}
+            <div style={{ position: 'absolute', top: -7, left: 1,
+              width: 11, height: 10, borderRadius: '50%', background: '#b8a8a0' }} />
+            <div style={{ position: 'absolute', top: -7, left: 10,
+              width: 11, height: 10, borderRadius: '50%', background: '#b8a8a0' }} />
+            {/* body */}
+            <div style={{ width: '100%', height: '100%',
+              borderRadius: '50% 50% 45% 45%',
+              background: 'linear-gradient(160deg, #ccc0b8, #a89890)',
+              boxShadow: '0 2px 5px rgba(0,0,0,0.18)' }} />
+            {/* nose */}
+            <div style={{ position: 'absolute', top: 7, left: '50%',
+              transform: 'translateX(-50%)',
+              width: 5, height: 4, borderRadius: '50%', background: '#e8a0b0' }} />
+            {/* tail */}
+            <div style={{ position: 'absolute', top: 8, right: -9,
+              width: 10, height: 4, borderRadius: '0 50% 50% 0',
+              background: '#b8a8a0' }} />
+          </div>
+          <Sh w={20} />
+        </div>
+      )}
+
+      {/* ── WINDOW AREA — elevated on sill ───────────────────── */}
+      {has('window_cushion') && (
+        <div className={`rm-supply ${lit('lookingOutside')}`}
+             style={{ left: '55%', bottom: '37%', zIndex: 2 }}>
+          {/* cushion */}
+          <div style={{ width: 58, height: 16, borderRadius: 8, position: 'relative',
+            background: 'linear-gradient(180deg, #c4b0d8, #a898c0)',
+            boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+            {/* seam */}
+            <div style={{ position: 'absolute', top: '50%', left: 8, right: 8, height: 1,
+              background: 'rgba(255,255,255,0.35)' }} />
+            {/* button */}
+            <div style={{ position: 'absolute', top: '50%', left: '50%',
+              transform: 'translate(-50%,-50%)',
+              width: 5, height: 5, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.4)' }} />
+          </div>
+          {/* sill ledge */}
+          <div style={{ width: 64, height: 5, margin: '0 auto',
+            borderRadius: '0 0 3px 3px', background: '#c8beb2' }} />
+        </div>
+      )}
+    </>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CAT ACTOR — single component, single catState, one cat on screen at a time
 // ─────────────────────────────────────────────────────────────────────────────
 function CatActor({ catState, position, facing, hearts, onCatClick, accEmoji }) {
@@ -751,37 +915,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
           <div className="rm-baseboard"/>
           <div className="rm-floor"/>
 
-          {/* Purchased cat supplies — positioned via ANCHORS */}
-          {purchased.includes('toy_mouse') && (
-            <div className="rm-floor-obj" style={{ left:`${ANCHORS.toyArea.x}%`, bottom:`${ANCHORS.toyArea.y}%` }}>
-              <div className={`rm-obj-icon ${catState === 'playing' ? 'rm-ball-active' : ''}`}>🐭</div>
-            </div>
-          )}
-          {purchased.includes('scratching_board') && (
-            <div className="rm-floor-obj" style={{ left:`${ANCHORS.scratchingArea.x}%`, bottom:`${ANCHORS.scratchingArea.y}%` }}>
-              <div className={`rm-obj-icon ${catState === 'scratching' ? 'rm-ball-active' : ''}`}>🪵</div>
-            </div>
-          )}
-          {purchased.includes('cat_bed') && (
-            <div className="rm-floor-obj" style={{ left:`${ANCHORS.bedArea.x + 3}%`, bottom:`${ANCHORS.bedArea.y}%` }}>
-              <div className="rm-obj-icon">🛏️</div>
-            </div>
-          )}
-          {purchased.includes('blanket') && purchased.includes('cat_bed') && (
-            <div className="rm-floor-obj" style={{ left:`${ANCHORS.bedArea.x + 8}%`, bottom:`${ANCHORS.bedArea.y - 2}%` }}>
-              <div className="rm-obj-icon">🧣</div>
-            </div>
-          )}
-          {purchased.includes('water_bowl') && (
-            <div className="rm-floor-obj" style={{ left:`${ANCHORS.bowlArea.x + 3}%`, bottom:`${ANCHORS.bowlArea.y + 2}%` }}>
-              <div className="rm-obj-icon">💧</div>
-            </div>
-          )}
-          {purchased.includes('window_cushion') && (
-            <div className="rm-floor-obj" style={{ left:'82%', bottom:'35%' }}>
-              <div className="rm-obj-icon">🪟</div>
-            </div>
-          )}
+          {/* ── Owned cat supplies — CSS-drawn, behaviour-aware ── */}
+          <RoomSupplies purchased={purchased} catState={catState} />
 
           {/* Speech bubble */}
           {showMsg && (

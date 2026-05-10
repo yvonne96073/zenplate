@@ -2336,6 +2336,33 @@ body {
   80%       { transform: translateY(2px)   scaleY(0.88) scaleX(1.1); }
 }
 
+/* ── Room Supplies ──────────────────────────────────────── */
+.rm-supply {
+  position: absolute;
+  z-index: 4;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.rm-supply-shadow {
+  height: 6px;
+  margin: 2px auto 0;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.10);
+}
+/* Glow when cat is actively using the object */
+.rm-supply-lit {
+  filter: brightness(1.1) saturate(1.2) drop-shadow(0 0 5px rgba(255,195,60,0.45));
+  transition: filter 0.4s ease;
+}
+/* Toy mouse bounce when playing */
+@keyframes rm-toy-hop {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  45%       { transform: translateY(-7px) rotate(10deg); }
+}
+.rm-supply-bounce > div:first-child {
+  animation: rm-toy-hop 0.52s ease-in-out infinite;
+}
+
 /* ── Speech bubble (placed at scene level, Y-clamped via inline style) */
 .rm-bubble {
   position: absolute; transform: translateX(-50%);
