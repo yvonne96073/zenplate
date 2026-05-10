@@ -10,8 +10,8 @@ const PROG_KEY   = 'zp_prog_v2'          // new key → old data ignored
 const CE_KEY     = 'zp_care_energy'      // Care Energy — earned from logging meals
 const FEED_COST  = 20                     // 20 CE per feed
 const PLAY_COST  = 15                     // 15 CE per play
-const CAT_W      = 120                    // sprite display width per frame
-const CAT_H      = 100                    // sprite approx display height
+const CAT_W      = 160                    // sprite display width per frame
+const CAT_H      = 133                    // sprite approx display height
 
 function loadCE() { return Math.max(0, parseInt(localStorage.getItem(CE_KEY) || '0')) }
 function saveCE(n) { localStorage.setItem(CE_KEY, String(Math.max(0, n))) }
@@ -330,6 +330,22 @@ const STATE_LABEL = {
   eating:     { text: 'Eating 😋',        color: '#B84A00', bg: '#FFF3E0' },
   playing:    { text: 'Playing 😸',       color: '#2A7A3A', bg: '#E8F5E9' },
   scratching: { text: 'Scratching 😼',    color: '#6A1B9A', bg: '#F5EEF8' },
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SMART RECOMMENDATION
+// ─────────────────────────────────────────────────────────────────────────────
+function getRecommendation(fullness, energy, mood, ce) {
+  if (fullness < 30) {
+    if (ce < FEED_COST) return {
+      type: 'urgent', action: 'feed',
+      msg: "Your cat is hungry. Scan a meal to earn Care Energy ⚡ and feed it."
+    }
+    return { type: 'feed', action: 'feed', msg: "Your cat looks hungry. Feed it now." }
+  }
+  if (energy < 30) return { type: 'rest', action: 'rest', msg: "Your cat is tired. Let it rest to recover Energy." }
+  if (mood < 40)   return { type: 'play', action: 'play', msg: "Your cat looks bored. Play with it!" }
+  return { type: 'ok', action: null, msg: null }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -795,13 +811,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         {/* ── SCROLLABLE BOTTOM ──────────────────────────────────────────── */}
         <div className="rm-body">
 
-          {/* Encouraging quote */}
-          <div className="rm-quote">
-            <span className="rm-quote-label">A little note ✨</span>
-            <p className="rm-quote-text">"{getDailyQuote()}"</p>
-          </div>
-
-          {/* Cat status */}
+          {/* Cat status — compact bars */}
           <div className="rm-stats">
             {[
               { icon: '🍚', label: 'Fullness', val: fullness, color: fullnessColor },
@@ -813,59 +823,100 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                 <div className="rm-stat-track">
                   <div className="rm-stat-fill" style={{ width:`${val}%`, background: color }}/>
                 </div>
-                <span className="rm-stat-num" style={{ color }}>{val}<span className="rm-stat-den">/100</span></span>
+                <span className="rm-stat-num" style={{ color }}>{val}</span>
               </div>
             ))}
           </div>
 
-          {/* Care actions */}
-          <div className="rm-actions">
-            <button
-              className={`rm-btn rm-btn-feed ${fullness < 40 && canFeed ? 'urgent' : ''}`}
-              onClick={handleFeed}
-              disabled={!canFeed}
-            >
-              {fullness < 30 && <span className="rm-btn-dot"/>}
-              <span className="rm-btn-icon">🍚</span>
-              <div className="rm-btn-text">
-                <span className="rm-btn-label">Feed</span>
-                {canFeed
-                  ? <span className="rm-btn-effect">Fullness +{purchased.includes('premium_can') ? 60 : 45} · 20 ⚡</span>
-                  : <span className="rm-btn-cost">Need 20 ⚡ · Scan a meal to earn</span>
-                }
-              </div>
-            </button>
-
-            <button
-              className="rm-btn rm-btn-play"
-              onClick={handlePlay}
-              disabled={!canPlay}
-            >
-              <span className="rm-btn-icon">{purchased.includes('toy_mouse') ? '🐭' : '🧶'}</span>
-              <div className="rm-btn-text">
-                <span className="rm-btn-label">Play</span>
-                {canPlay
-                  ? <span className="rm-btn-effect">Mood +20 · 15 ⚡</span>
-                  : careEnergy < PLAY_COST
-                    ? <span className="rm-btn-cost">Need 15 ⚡ · Scan a meal to earn</span>
-                    : <span className="rm-btn-cost">Too tired 😴</span>
-                }
-              </div>
-            </button>
-
-            <button
-              className="rm-btn rm-btn-rest"
-              onClick={handleRest}
-              disabled={petState === 'sleeping'}
-            >
-              <span className="rm-btn-icon">😴</span>
-              <div className="rm-btn-text">
-                <span className="rm-btn-label">Rest</span>
-                <span className="rm-btn-effect">
-                  {petState === 'sleeping' ? 'Already sleeping...' : 'Energy recovers · Free'}
+          {/* Smart recommendation banner */}
+          {(() => {
+            const rec = getRecommendation(fullness, energy, mood, careEnergy)
+            if (!rec.msg) return null
+            return (
+              <div className={`rm-rec ${rec.type === 'urgent' || rec.type === 'feed' ? 'rm-rec-urgent' : 'rm-rec-soft'}`}>
+                <span className="rm-rec-icon">
+                  {rec.action === 'feed' ? '🍚' : rec.action === 'rest' ? '😴' : '🧶'}
                 </span>
+                <p className="rm-rec-msg">{rec.msg}</p>
               </div>
-            </button>
+            )
+          })()}
+
+          {/* Care actions */}
+          {(() => {
+            const rec = getRecommendation(fullness, energy, mood, careEnergy)
+            const feedAmt = purchased.includes('premium_can') ? 60 : 45
+            const restDisabled = energy >= 100 || petState === 'sleeping'
+            return (
+              <div className="rm-actions">
+
+                {/* Feed */}
+                <button
+                  className={`rm-action-btn ${rec.action === 'feed' ? 'rm-action-primary' : ''}`}
+                  onClick={handleFeed}
+                  disabled={!canFeed}
+                >
+                  <span className="rm-action-icon">🍚</span>
+                  <div className="rm-action-info">
+                    <span className="rm-action-label">Feed</span>
+                    <span className="rm-action-sub">
+                      {canFeed ? `Fullness +${feedAmt}` : 'Scan a meal to earn Care Energy ⚡'}
+                    </span>
+                  </div>
+                  <span className={`rm-action-tag ${canFeed ? 'rm-tag-cost' : 'rm-tag-locked'}`}>
+                    {canFeed ? '20 ⚡' : 'Need 20 ⚡'}
+                  </span>
+                </button>
+
+                {/* Play */}
+                <button
+                  className={`rm-action-btn ${rec.action === 'play' ? 'rm-action-primary' : ''}`}
+                  onClick={handlePlay}
+                  disabled={!canPlay}
+                >
+                  <span className="rm-action-icon">{purchased.includes('toy_mouse') ? '🐭' : '🧶'}</span>
+                  <div className="rm-action-info">
+                    <span className="rm-action-label">Play</span>
+                    <span className="rm-action-sub">
+                      {canPlay
+                        ? 'Mood +20'
+                        : energy < 20
+                          ? 'Your cat is too tired to play'
+                          : 'Scan a meal to earn Care Energy ⚡'}
+                    </span>
+                  </div>
+                  <span className={`rm-action-tag ${canPlay ? 'rm-tag-cost' : 'rm-tag-locked'}`}>
+                    {canPlay ? '15 ⚡' : energy < 20 ? 'Rest first' : 'Need 15 ⚡'}
+                  </span>
+                </button>
+
+                {/* Rest */}
+                <button
+                  className={`rm-action-btn ${rec.action === 'rest' ? 'rm-action-primary' : ''}`}
+                  onClick={handleRest}
+                  disabled={restDisabled}
+                >
+                  <span className="rm-action-icon">😴</span>
+                  <div className="rm-action-info">
+                    <span className="rm-action-label">Rest</span>
+                    <span className="rm-action-sub">
+                      {energy >= 100
+                        ? 'Energy is already full'
+                        : petState === 'sleeping'
+                          ? 'Your cat is sleeping'
+                          : 'Let your cat rest to recover Energy'}
+                    </span>
+                  </div>
+                  <span className="rm-action-tag rm-tag-free">Free</span>
+                </button>
+
+              </div>
+            )
+          })()}
+
+          {/* Daily quote */}
+          <div className="rm-quote">
+            <p className="rm-quote-text">✨ "{getDailyQuote()}"</p>
           </div>
 
         </div>{/* end rm-body */}

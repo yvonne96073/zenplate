@@ -559,44 +559,46 @@ export default function Profile({ session, profile, updateProfile }) {
 
       {showAllWardrobe && (
         <Modal title="👗 Wardrobe" onClose={() => setShowAllWardrobe(false)}>
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 14, fontWeight: 600 }}>
-            Tap to equip · 🔒 items unlock by milestone or ⭐ purchase in Star Shop
+          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, fontWeight: 600, lineHeight: 1.5 }}>
+            Equip the items you own. Locked items can be unlocked by streak milestones or purchased in Cat Supplies.
           </p>
 
-          <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Themes</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8, marginBottom: 20 }}>
+          {/* Themes — owned */}
+          <p className="wd-section-label">🎨 Themes</p>
+          <div className="wd-grid-themes">
             {THEMES.map(t => {
               const isOn     = equippedTheme === t.id
               const unlocked = !t.unlock || t.unlock(unlockCtx)
               return (
                 <div key={t.id}
-                  className={`w-item ${isOn ? 'equipped' : ''} ${!unlocked ? 'locked' : ''}`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleEquipTheme(t.id)}>
-                  <div className="w-emoji">{t.emoji}</div>
-                  <div className="w-name">{t.name}</div>
-                  <div className={`w-status ${isOn ? 'eq' : !unlocked ? 'lk' : ''}`}>
-                    {isOn ? '✓ On' : !unlocked ? `🔒 ${t.req}` : 'Equip'}
+                  className={`wd-card ${isOn ? 'wd-on' : ''} ${!unlocked ? 'wd-locked' : ''}`}
+                  onClick={() => unlocked && handleEquipTheme(t.id)}>
+                  <div className="wd-card-emoji">{t.emoji}</div>
+                  <div className="wd-card-name">{t.name}</div>
+                  <div className="wd-card-status">
+                    {isOn ? '✓ Equipped' : !unlocked ? `🔒 ${t.req || 'Locked'}` : 'Tap to equip'}
                   </div>
                 </div>
               )
             })}
           </div>
 
-          <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Accessories</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+          {/* Accessories — split owned / locked */}
+          <p className="wd-section-label" style={{ marginTop: 20 }}>✨ Accessories</p>
+          <div className="wd-grid-acc">
             {ACCESSORIES.map(a => {
               const isOn     = equippedAcc === a.id
               const unlocked = a.unlock(unlockCtx)
               return (
                 <div key={a.id}
-                  className={`w-item ${isOn ? 'equipped' : ''} ${!unlocked ? 'locked' : ''}`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => handleEquipAcc(a.id)}>
-                  <div className="w-emoji">{a.emoji}</div>
-                  <div className="w-name">{a.name}</div>
-                  <div className={`w-status ${isOn ? 'eq' : !unlocked ? 'lk' : ''}`}>
-                    {isOn ? '✓ On' : !unlocked ? `🔒 ${a.req}` : 'Equip'}
+                  className={`wd-card ${isOn ? 'wd-on' : ''} ${!unlocked ? 'wd-locked' : ''}`}
+                  onClick={() => unlocked && handleEquipAcc(a.id)}>
+                  <div className="wd-card-emoji">{a.emoji}</div>
+                  <div className="wd-card-name">{a.name}</div>
+                  <div className="wd-card-status">
+                    {isOn ? '✓ Equipped' : !unlocked
+                      ? (a.req?.includes('⭐') ? `🔒 Buy in Cat Supplies` : `🔒 ${a.req || 'Locked'}`)
+                      : 'Tap to equip'}
                   </div>
                 </div>
               )

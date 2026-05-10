@@ -631,13 +631,15 @@ body {
   z-index: 200;
   display: flex;
   align-items: flex-end;
+  justify-content: center;
   width: 100%;
 }
 .modal-sheet {
   background: white;
   border-radius: 24px 24px 0 0;
   width: 100%;
-  max-height: 95vh;
+  max-width: 430px;
+  max-height: 90vh;
   overflow-y: auto;
   padding-bottom: env(safe-area-inset-bottom, 24px);
 }
@@ -850,6 +852,32 @@ body {
   flex-shrink: 0; background: none; border: none; font-size: 13px; font-weight: 800;
   color: var(--primary); cursor: pointer; padding: 4px 0;
 }
+
+/* ── Wardrobe modal cards (new design) ─────────────────────── */
+.wd-section-label {
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.8px; margin: 0 0 10px;
+}
+.wd-grid-themes {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 4px;
+}
+.wd-grid-acc {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 8px;
+}
+.wd-card {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 6px; border-radius: 14px;
+  border: 1.5px solid var(--border); background: white;
+  cursor: pointer; transition: all 0.15s; text-align: center;
+}
+.wd-card:hover:not(.wd-locked) { border-color: var(--primary); background: var(--primary-light); }
+.wd-card.wd-on  { border-color: var(--primary); background: var(--primary-light); box-shadow: 0 0 0 2px rgba(43,181,160,0.2); }
+.wd-card.wd-locked { opacity: 0.5; cursor: default; }
+.wd-card-emoji  { font-size: 24px; line-height: 1; }
+.wd-card-name   { font-size: 10px; font-weight: 800; color: var(--dark); }
+.wd-card-status { font-size: 9px; font-weight: 700; color: var(--muted); }
+.wd-card.wd-on .wd-card-status  { color: var(--primary); }
+.wd-card.wd-locked .wd-card-status { color: #AA8866; }
 
 /* ── Zen Rewards shop modal ───────────────────────────────── */
 .zr-balance-bar {
@@ -2469,52 +2497,60 @@ body {
 }
 .rm-body::-webkit-scrollbar { display: none; }
 
-/* ── Action buttons ────────────────────────────────────── */
+/* ── Recommendation banner ─────────────────────────────── */
+.rm-rec {
+  margin: 4px 16px 8px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.rm-rec-urgent { background: #FFF0EC; border: 1.5px solid #F0A890; }
+.rm-rec-soft   { background: #F4F8FF; border: 1.5px solid #A8C4E8; }
+.rm-rec-icon   { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.rm-rec-msg    { font-size: 13px; font-weight: 600; color: #4A3828; line-height: 1.45; margin: 0; }
+
+/* ── Action buttons (new design) ──────────────────────── */
 .rm-actions {
-  display: flex; gap: 10px; padding: 10px 16px 8px;
-  background: #FFF8EE; border-top: 2px solid #EFE0C8;
-}
-.rm-btn {
-  flex: 1; display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px; border: 2px solid #E8D4B8; border-radius: 14px;
-  background: #FEF0D8; cursor: pointer; font-family: 'Nunito', sans-serif;
-  transition: transform 0.12s, box-shadow 0.12s, background 0.15s;
-  position: relative; text-align: left;
-}
-.rm-btn:hover:not(:disabled)  { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,0.12); }
-.rm-btn:active:not(:disabled) { transform: scale(0.94); }
-.rm-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-.rm-btn-feed { flex: 1.35; background: linear-gradient(135deg, #FFF0D8, #FFE4B8); border-color: #F0C06A; }
-.rm-btn-feed.urgent {
-  background: linear-gradient(135deg, #FEECEB, #FFC8C8); border-color: #E87070;
-  animation: rm-feed-urgent 1s ease-in-out infinite;
-}
-@keyframes rm-feed-urgent {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(220,50,50,0); }
-  50%       { box-shadow: 0 0 0 5px rgba(220,50,50,0.2); }
-}
-.rm-btn-play { background: linear-gradient(135deg, #E8F5E9, #C8EAC8); border-color: #80C880; }
-.rm-btn-rest { background: linear-gradient(135deg, #EEF0FA, #D8DCF0); border-color: #A0A8D8; }
-
-.rm-btn-dot {
-  position: absolute; top: 6px; right: 8px; width: 9px; height: 9px; border-radius: 50%;
-  background: #E53935; box-shadow: 0 0 0 2px #FFF8EE;
-  animation: rm-dot-pulse 1s ease-in-out infinite;
-}
-@keyframes rm-dot-pulse {
-  0%, 100% { transform: scale(1); }
-  50%       { transform: scale(1.4); }
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 16px 16px;
 }
 
-.rm-btn-icon  { font-size: 26px; line-height: 1; flex-shrink: 0; }
-.rm-btn-text  { display: flex; flex-direction: column; gap: 1px; }
-.rm-btn-label { font-size: 12px; font-weight: 800; color: #7A5030; }
-.rm-btn-cost  {
-  font-size: 10px; font-weight: 900; color: #5A8A5A;
-  background: rgba(90,138,90,0.12); padding: 1px 7px; border-radius: 10px; display: inline-block;
+.rm-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1.5px solid #E8D4B8;
+  border-radius: 14px;
+  background: white;
+  cursor: pointer;
+  font-family: 'Nunito', sans-serif;
+  text-align: left;
+  width: 100%;
+  transition: transform 0.12s, box-shadow 0.12s;
 }
-.rm-btn:disabled .rm-btn-cost { color: #C02020; background: rgba(200,30,30,0.1); }
+.rm-action-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+.rm-action-btn:active:not(:disabled) { transform: scale(0.97); }
+.rm-action-btn:disabled { opacity: 0.48; cursor: not-allowed; }
+.rm-action-btn.rm-action-primary {
+  border-color: #D4882A;
+  background: linear-gradient(135deg, #FFF4E0, #FFE8C0);
+  box-shadow: 0 2px 8px rgba(212,136,42,0.18);
+}
+
+.rm-action-icon  { font-size: 30px; line-height: 1; flex-shrink: 0; }
+.rm-action-info  { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.rm-action-label { font-size: 14px; font-weight: 800; color: #3D2B1A; }
+.rm-action-sub   { font-size: 11.5px; color: #7A6550; font-weight: 600; line-height: 1.3; }
+
+.rm-action-tag  { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
+.rm-tag-cost    { background: #FFF0D0; color: #A07030; }
+.rm-tag-free    { background: #E8F5E9; color: #3A7A3A; }
+.rm-tag-locked  { background: #F0F0F0; color: #888; }
 
 /* ── Hint ───────────────────────────────────────────────── */
 .rm-hint {
@@ -2525,21 +2561,18 @@ body {
 
 /* ── Stats ──────────────────────────────────────────────── */
 .rm-stats {
-  padding: 8px 16px 6px; background: #FFF8EE;
-  border-top: 2px solid #EFE0C8; display: flex; flex-direction: column; gap: 5px;
+  padding: 10px 16px 8px; background: rgba(255,255,255,0.85);
+  display: flex; flex-direction: column; gap: 6px;
 }
 .rm-stat-row    { display: flex; align-items: center; gap: 8px; }
-.rm-stat-lbl    { font-size: 11px; font-weight: 800; color: #8A6040; min-width: 72px; }
-.rm-stat-hint   { font-size: 9px; font-weight: 600; color: #B09070; opacity: 0.8; }
-.rm-stat-track  { flex: 1; height: 8px; background: #EFE0C8; border-radius: 5px; overflow: hidden; }
+.rm-stat-lbl    { font-size: 11px; font-weight: 800; color: #6A5040; min-width: 72px; }
+.rm-stat-track  { flex: 1; height: 8px; background: #E8DDD0; border-radius: 5px; overflow: hidden; }
 .rm-stat-fill   { height: 100%; border-radius: 5px; transition: width 0.5s ease, background 0.4s; }
-.rm-stat-num    { font-size: 12px; font-weight: 900; min-width: 40px; text-align: right; transition: color 0.3s; }
-.rm-stat-den    { font-size: 9px; font-weight: 600; opacity: 0.5; }
+.rm-stat-num    { font-size: 12px; font-weight: 900; min-width: 28px; text-align: right; transition: color 0.3s; }
 
 /* ── Encouraging quote ───────────────────────────────────── */
-.rm-quote         { padding: 10px 20px 12px; background: #FDFAF5; border-bottom: 1px solid #EDE0D0; text-align: center; }
-.rm-quote-label   { display: block; font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: #C8A070; margin-bottom: 4px; }
-.rm-quote-text    { margin: 0; font-size: 11.5px; font-style: italic; color: #8A6A4A; line-height: 1.55; }
+.rm-quote       { padding: 12px 20px 16px; text-align: center; }
+.rm-quote-text  { margin: 0; font-size: 11.5px; font-style: italic; color: #8A6A4A; line-height: 1.55; }
 
 /* ── Cat accessory overlay ───────────────────────────────── */
 /* rm-cat-acc sits outside rm-cat-body so overflow:hidden cannot clip it.
@@ -2579,8 +2612,6 @@ body {
 .rm-acc-status    { font-size: 9.5px; font-weight: 600; color: #9A7A60; text-align: center; }
 .rm-acc-card.on .rm-acc-status { color: #C08030; font-weight: 800; }
 
-/* ── Button effects text ─────────────────────────────────── */
-.rm-btn-effect    { font-size: 10px; font-weight: 700; color: #4A8A4A; }
 
 /* ── Cat sprite integration ──────────────────────────────── */
 .rm-cat-body > div { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
