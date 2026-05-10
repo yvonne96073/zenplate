@@ -33,6 +33,21 @@ const ANCHORS = {
   cornerArea:    { x: 8,  y: 8  },
 }
 
+// Minimum time (ms) a state must hold before the behavior loop can transition away
+const MIN_STATE_DURATION = {
+  idle:            6000,
+  walking:         4000,
+  sleeping:       15000,
+  hungry:          8000,
+  hungryCritical:  8000,
+  lowMood:        10000,
+  playing:         5000,
+  stretching:      3000,
+  lookingOutside:  8000,
+  grooming:        6000,
+  scratching:      5000,
+}
+
 // ── Room themes ──────────────────────────────────────────────────────────────
 export const THEMES = [
   { id: 'japandi', name: 'Cozy',   emoji: '🪨', req: null,              unlock: () => true },
@@ -80,7 +95,7 @@ function getDailyQuote() {
 // PERSISTENCE
 // ─────────────────────────────────────────────────────────────────────────────
 function defaultPet() {
-  return { catState: 'idle', pos: { x: 47, y: 8 }, hunger: 20, mood: 70, energy: 80, catFacing: false, lastUpdatedAt: Date.now() }
+  return { catState: 'idle', pos: { x: 47, y: 8 }, fullness: 80, mood: 70, energy: 80, catFacing: false, lastUpdatedAt: Date.now() }
 }
 
 function loadPet() {
@@ -90,26 +105,29 @@ function loadPet() {
     const s = JSON.parse(raw)
     const elapsed = Date.now() - (s.lastUpdatedAt || Date.now())
     const ticks   = Math.min(Math.floor(elapsed / 5000), 720)
-    // backward compat: old saves used petState
+    // backward compat: old saves used petState or hunger (0=full, 100=starving)
     let catState = s.catState || s.petState || 'idle'
-    let { hunger, mood, energy } = s
+    let fullness = s.fullness !== undefined ? s.fullness
+                 : s.hunger   !== undefined ? 100 - s.hunger
+                 : 80
+    let { mood, energy } = s
     for (let i = 0; i < ticks; i++) {
-      if (catState !== 'eating')   hunger  = Math.min(hunger + 2, 100)
-      if (catState === 'sleeping') energy  = Math.min(energy + 3, 100)
-      else                         energy  = Math.max(energy - 0.2, 0)
+      if (catState !== 'eating')   fullness = Math.max(fullness - 2, 0)
+      if (catState === 'sleeping') energy   = Math.min(energy + 3, 100)
+      else                         energy   = Math.max(energy - 0.2, 0)
     }
-    hunger = Math.round(Math.min(100, Math.max(0, hunger)))
-    energy = Math.round(Math.min(100, Math.max(0, energy)))
-    mood   = Math.round(Math.min(100, Math.max(0, mood)))
+    fullness = Math.round(Math.min(100, Math.max(0, fullness)))
+    energy   = Math.round(Math.min(100, Math.max(0, energy)))
+    mood     = Math.round(Math.min(100, Math.max(0, mood)))
     // Derive initial state from stats (priority order)
-    const fullness = 100 - hunger
-    if (energy < 30)        catState = 'sleeping'
+    if (fullness < 15)      catState = 'hungryCritical'
+    else if (energy < 30)   catState = 'sleeping'
     else if (fullness < 30) catState = 'hungry'
     // Reset transient states — timers don't survive reload; behavior loop re-derives
     else if (['walking','eating','playing','scratching','sleeping',
               'stretching','lying','grooming','lookingOutside','playingIdle',
-              'watching','lowMood','hungry','veryHungry'].includes(catState)) catState = 'idle'
-    return { ...s, catState, hunger, mood, energy, lastUpdatedAt: Date.now() }
+              'watching','lowMood','hungry','hungryCritical','veryHungry'].includes(catState)) catState = 'idle'
+    return { ...s, catState, fullness, mood, energy, lastUpdatedAt: Date.now() }
   } catch { return defaultPet() }
 }
 
@@ -120,11 +138,10 @@ function savePet(data) {
 // ─────────────────────────────────────────────────────────────────────────────
 // STATE-CONSISTENT MESSAGES
 // ─────────────────────────────────────────────────────────────────────────────
-function pickMessage(catState, hunger, mood, energy) {
+function pickMessage(catState, fullness, mood, energy) {
+  if (catState === 'hungryCritical') return ["I'm starving... 😿", "Please feed me!! 🍜", "So weak from hunger... 😢", "Too hungry to move... 😿"]
   if (catState === 'veryHungry')     return ["I'm starving... 😿", "Please feed me!! 🍜", "So weak... 😢"]  // kept for compat
-  if (catState === 'hungry')         return hunger > 85
-    ? ["I'm starving... 😿", "Please feed me!! 🍜", "So weak... 😢"]
-    : ["I'm hungry... 😿", "Feed me please! 🍜", "My tummy hurts..."]
+  if (catState === 'hungry')         return ["I'm hungry... 😿", "Feed me please! 🍜", "My tummy hurts..."]
   if (catState === 'lowMood')        return ["I need some comfort... 😿", "Feeling blue... 🩵", "Can we play? 🧶"]
   if (catState === 'sleeping')       return ["zzz... 😴", "*snores softly* 💤"]
   if (catState === 'eating')         return ["Yum! Thank you! 💕", "Nom nom nom~ 😋", "So delicious! ✨"]
@@ -158,12 +175,13 @@ const SPRITE_CFG = {
   watching:       { src: '/sprites/walk.png',    frames: 5, origH: 185 },
   idle:           { src: '/sprites/walk.png',    frames: 5, origH: 185 },
   hungry:         { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  hungryCritical: { src: '/sprites/walk.png',    frames: 5, origH: 185 },
   veryHungry:     { src: '/sprites/walk.png',    frames: 5, origH: 185 },
   lowMood:        { src: '/sprites/walk.png',    frames: 5, origH: 185 },
 }
 
 // States where sprite shows as still (first frame only)
-const STILL_STATES = new Set(['idle', 'hungry', 'veryHungry', 'lowMood', 'lookingOutside', 'watching', 'eating'])
+const STILL_STATES = new Set(['idle', 'hungry', 'hungryCritical', 'veryHungry', 'lowMood', 'lookingOutside', 'watching', 'eating'])
 const ORIG_STRIP_W = 1408
 
 function CatSprite({ state }) {
@@ -244,6 +262,7 @@ const STATE_LABEL = {
   walking:        { text: 'Wandering 🐾',           color: '#4A7A9A', bg: '#E8F4FA' },
   sleeping:       { text: 'Sleeping 😴',            color: '#4A5AAA', bg: '#EEF0FA' },
   hungry:         { text: 'Hungry 😿',              color: '#C05A00', bg: '#FFF3E0' },
+  hungryCritical: { text: 'Starving!! 😿',          color: '#B02020', bg: '#FEECEB' },
   veryHungry:     { text: 'Starving!! 😿',          color: '#B02020', bg: '#FEECEB' },
   lowMood:        { text: 'Feeling Sad 😿',         color: '#7A6A4A', bg: '#F5F0E8' },
   eating:         { text: 'Eating 😋',              color: '#B84A00', bg: '#FFF3E0' },
@@ -261,6 +280,13 @@ const STATE_LABEL = {
 // SMART RECOMMENDATION
 // ─────────────────────────────────────────────────────────────────────────────
 function getRecommendation(fullness, energy, mood, ce) {
+  if (fullness < 15) {
+    if (ce < FEED_COST) return {
+      type: 'urgent', action: 'feed',
+      msg: "Your cat is critically hungry! Scan a meal urgently to earn Care Energy ⚡!"
+    }
+    return { type: 'feed', action: 'feed', msg: "Your cat is starving! Feed it immediately!" }
+  }
   if (fullness < 30) {
     if (ce < FEED_COST) return {
       type: 'urgent', action: 'feed',
@@ -282,7 +308,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const [catState,    setCatState]    = useState('idle')      // single source of truth
   const [catPosition, setCatPosition] = useState({ x: 47, y: 8 })
   const [catFacing,   setCatFacing]   = useState(false)       // false = right, true = left
-  const [hunger,      setHunger]      = useState(20)
+  const [fullness,    setFullness]    = useState(80)
   const [mood,        setMood]        = useState(70)
   const [energy,      setEnergy]      = useState(80)
 
@@ -312,7 +338,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     const p = loadPet()
     setCatState(p.catState || 'idle')
     setCatPosition(p.pos || { x: 47, y: 8 })
-    setHunger(p.hunger)
+    setFullness(p.fullness ?? 80)
     setMood(p.mood)
     setEnergy(p.energy)
     setCatFacing(p.catFacing || p.flipX || false)
@@ -320,11 +346,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   }, [])
 
   // ── Refs (avoid stale closures) ───────────────────────────────────────────
-  const stateRef    = useRef('idle')
-  const hungerRef   = useRef(20)
-  const energyRef   = useRef(80)
-  const moodRef     = useRef(70)
-  const catPosRef   = useRef({ x: 47, y: 8 })
+  const stateRef       = useRef('idle')
+  const fullnessRef    = useRef(80)
+  const energyRef      = useRef(80)
+  const moodRef        = useRef(70)
+  const catPosRef      = useRef({ x: 47, y: 8 })
+  const stateEnteredRef = useRef(Date.now())
 
   const msgTimer     = useRef(null)
   const stateTimer   = useRef(null)
@@ -334,18 +361,18 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const stateStarted = useRef(Date.now())
   const stateDurRef  = useRef(null)
 
-  useEffect(() => { stateRef.current   = catState    }, [catState])
-  useEffect(() => { hungerRef.current  = hunger      }, [hunger])
-  useEffect(() => { energyRef.current  = energy      }, [energy])
-  useEffect(() => { moodRef.current    = mood        }, [mood])
-  useEffect(() => { catPosRef.current  = catPosition }, [catPosition])
+  useEffect(() => { stateRef.current    = catState;  stateEnteredRef.current = Date.now() }, [catState])
+  useEffect(() => { fullnessRef.current = fullness   }, [fullness])
+  useEffect(() => { energyRef.current   = energy     }, [energy])
+  useEffect(() => { moodRef.current     = mood       }, [mood])
+  useEffect(() => { catPosRef.current   = catPosition }, [catPosition])
 
   // ── Auto-save ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!inited) return
-    savePet({ catState, pos: catPosition, hunger, mood, energy, catFacing,
+    savePet({ catState, pos: catPosition, fullness, mood, energy, catFacing,
       stateStartedAt: stateStarted.current, stateDuration: stateDurRef.current })
-  }, [catState, hunger, mood, energy, catPosition, catFacing, inited])
+  }, [catState, fullness, mood, energy, catPosition, catFacing, inited])
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   const bubble = useCallback((msg, ms = 2800) => {
@@ -410,23 +437,38 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     const LOCKED = new Set(['eating', 'playing', 'scratching', 'grooming', 'stretching', 'watching', 'lookingOutside'])
 
     const id = setInterval(() => {
-      const s        = stateRef.current
-      const hp       = purchasedRef.current
-      const h        = hungerRef.current
-      const e        = energyRef.current
-      const m        = moodRef.current
-      const fullness = 100 - h
-      const hasBed   = hp.includes('cat_bed')
-      const hasToy   = hp.includes('toy_mouse')
+      const s  = stateRef.current
+      const hp = purchasedRef.current
+      const fl = fullnessRef.current
+      const e  = energyRef.current
+      const m  = moodRef.current
+      const hasBed     = hp.includes('cat_bed')
+      const hasToy     = hp.includes('toy_mouse')
       const hasScratch = hp.includes('scratching_board')
+      const hasWindow  = hp.includes('window_cushion')
+      const hasBrush   = hp.includes('brush')
 
       // Never interrupt a mid-action animation
       if (LOCKED.has(s)) return
 
-      // ── Priority 1: Energy < 30 → sleeping ──────────────────────────────
+      // ── Priority 1: Fullness < 15 → hungryCritical (overrides sleeping) ──
+      if (fl < 15) {
+        if (s === 'hungryCritical') {
+          if (Math.random() < 0.2) bubble("I'm starving! Please feed me!! 😿", 3500)
+          return
+        }
+        clearTimeout(stateTimer.current)
+        walkTo(ANCHORS.bowlArea, () => {
+          setCatState('hungryCritical')
+          bubble("I'm starving... Please feed me!! 😿", 4000)
+        })
+        return
+      }
+
+      // ── Priority 2: Energy < 30 → sleeping ──────────────────────────────
       if (e < 30) {
         if (s === 'sleeping') return
-        if (s === 'walking')  return  // finish current walk; next tick handles it
+        if (s === 'walking')  return
         clearTimeout(stateTimer.current)
         const dest = hasBed ? ANCHORS.bedArea : ANCHORS.centerFloor
         walkTo(dest, () => {
@@ -437,8 +479,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         return
       }
 
-      // ── Priority 2: Fullness < 30 → hungry, anchor near bowl ────────────
-      if (fullness < 30) {
+      // ── Priority 3: Fullness < 30 → hungry ──────────────────────────────
+      if (fl < 30) {
         if (s === 'walking') return
         if (s === 'hungry') {
           if (Math.random() < 0.15) bubble("I'm hungry... 😿", 3000)
@@ -452,7 +494,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         return
       }
 
-      // ── Priority 3: Mood < 30 → lowMood, anchor near corner ─────────────
+      // ── Priority 4: Mood < 30 → lowMood ─────────────────────────────────
       if (m < 30) {
         if (s === 'walking') return
         if (s === 'lowMood') return
@@ -464,8 +506,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         return
       }
 
-      // ── Recovery: stats improved, leave priority states ──────────────────
-      if (s === 'hungry' || s === 'lowMood') {
+      // ── Recovery ─────────────────────────────────────────────────────────
+      if (s === 'hungryCritical' || s === 'hungry' || s === 'lowMood') {
         setCatState('idle')
         return
       }
@@ -476,20 +518,21 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         return
       }
 
-      // Sleeping from a prior priority trigger — leave it alone until energy recovers
       if (s === 'sleeping' || s === 'walking') return
 
-      // ── Normal idle behaviors ────────────────────────────────────────────
-      // energy >= 50 AND mood >= 60 → full active rotation (idle/walking/playing)
-      // otherwise → gentle idle wander only
+      // ── Min duration guard ───────────────────────────────────────────────
+      const elapsed = Date.now() - stateEnteredRef.current
+      const minDur  = MIN_STATE_DURATION[s] ?? 5000
+      if (elapsed < minDur) return
+
+      // ── Active behaviors ─────────────────────────────────────────────────
       const canPlayNow = e >= 50 && m >= 60
       const r = Math.random()
 
       if (canPlayNow) {
         if (r < 0.28) {
-          // Walk to a safe anchor
           const dests = [ANCHORS.centerFloor, ANCHORS.windowArea]
-          if (hasToy)    dests.push(ANCHORS.toyArea)
+          if (hasToy)     dests.push(ANCHORS.toyArea)
           if (hasScratch) dests.push(ANCHORS.scratchingArea)
           walkTo(dests[Math.floor(Math.random() * dests.length)], () => {})
 
@@ -502,14 +545,18 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
           })
 
         } else if (r < 0.56) {
+          const windowDur = hasWindow
+            ? 10000 + Math.random() * 5000
+            : 7000  + Math.random() * 4000
           walkTo(ANCHORS.windowArea, () => {
             setCatState('lookingOutside')
             bubble("What's out there? 🪟", 3000)
-            stateTimer.current = setTimeout(() => setCatState('idle'), 7000 + Math.random() * 4000)
+            stateTimer.current = setTimeout(() => setCatState('idle'), windowDur)
           })
 
         } else if (r < 0.70) {
           setCatState('grooming')
+          if (hasBrush) setMood(m => Math.min(m + 3, 100))
           bubble('*lick lick lick* 🐱', 2500)
           stateTimer.current = setTimeout(() => setCatState('idle'), 5000 + Math.random() * 2000)
 
@@ -536,6 +583,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
           walkTo({ x: destX, y: 8 }, () => {})
         } else if (r < 0.70) {
           setCatState('grooming')
+          if (hasBrush) setMood(m => Math.min(m + 3, 100))
           bubble('...', 1500)
           stateTimer.current = setTimeout(() => setCatState('idle'), 3000 + Math.random() * 2000)
         }
@@ -555,7 +603,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
       const hasBlanket = purchasedRef.current.includes('blanket')
       const hasBed     = purchasedRef.current.includes('cat_bed')
 
-      if (s !== 'eating')   setHunger(h => Math.min(h + (hasBowl ? 1.5 : 2), 100))
+      if (s !== 'eating')   setFullness(f => Math.max(f - (hasBowl ? 1.5 : 2), 0))
       if (s === 'sleeping') setEnergy(e => Math.min(e + (hasBlanket || hasBed ? 4 : 3), 100))
       else                  setEnergy(e => Math.max(e - 0.5, 0))
       // mood: no auto-drain; only changes via interactions
@@ -587,8 +635,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     const feedAmt = hasCan ? 60 : 45
     walkTo(ANCHORS.bowlArea, () => {
       setCatState('eating')
-      setHunger(h => Math.max(0, h - feedAmt))
-      setMood(m   => Math.min(m + 10, 100))
+      setFullness(f => Math.min(100, f + feedAmt))
+      setMood(m => Math.min(m + 10, 100))
       bubble(`😋 Yum! Fullness +${feedAmt} 💕`, 3500)
       showHearts()
       scheduleIdle('eating')
@@ -600,7 +648,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     if (catState === 'walking') return
     if (catState === 'sleeping') { setWakeDialog(true); return }
     if (energyRef.current < 30) { bubble('😴 Too tired... let me rest.', 3000); return }
-    if (catState === 'hungry') {
+    if (catState === 'hungryCritical' || catState === 'hungry') {
       bubble("😿 Too hungry to play! Feed me first!", 2800); return
     }
     if (catState === 'lowMood') {
@@ -651,9 +699,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     if (catState === 'eating')    { bubble('😋 Eating, give me a sec~', 1500); return }
     if (catState === 'playing')   { bubble('😸 Busy playing!', 1500); return }
     if (catState === 'scratching'){ bubble('😼 Scratching, ahh~', 1500); return }
-    const msgs = pickMessage(catState, hunger, mood, energy)
+    const msgs = pickMessage(catState, fullness, mood, energy)
     bubble(msgs[Math.floor(Math.random() * msgs.length)])
-    if (catState !== 'hungry') {
+    if (catState !== 'hungry' && catState !== 'hungryCritical') {
       const hasBrush = purchasedRef.current.includes('brush')
       setMood(m => Math.min(m + (hasBrush ? 10 : 5), 100))
     }
@@ -663,7 +711,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const label         = STATE_LABEL[catState] || STATE_LABEL.idle
   const canFeed       = careEnergy >= FEED_COST
   const canPlay       = careEnergy >= PLAY_COST && energy >= 30
-  const fullness      = 100 - hunger
   const fullnessColor = fullness >= 70 ? '#43A047' : fullness >= 30 ? '#FB8C00' : '#E53935'
   const moodColor     = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
   const energyColor   = energy >= 60 ? '#2196F3' : energy >= 30 ? '#FF9800' : '#9E9E9E'
