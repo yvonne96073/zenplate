@@ -501,13 +501,14 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   }, [])
 
   // ── Natural idle behavior (Animal Crossing–style) ────────────────────────
-  // Picks a random cozy behavior every time the cat becomes idle.
+  // Always picks something to do — cat is never just "idle" for long.
   const doNaturalBehavior = useCallback(() => {
     const s = stateRef.current
     const ACTIVE = ['eating','playing','scratching','stretching','lying',
                     'grooming','lookingOutside','playingIdle','watching','sleeping']
     if (ACTIVE.includes(s) || isWalkRef.current) return
-    if (hungerRef.current >= 70) return   // hungry cat stays near bowl
+    // NOTE: No hunger check — cat behaves naturally regardless of fullness.
+    // (Hunger state is shown visually; blocking behavior made the cat look dead.)
 
     const hp  = purchasedRef.current
     const opts = []
@@ -517,7 +518,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
       const x = 20 + Math.random() * 55
       walkTo({ x, y: 8 }, () => {})
     }})
-    // Stretch near current position
+    // Stretch somewhere
     opts.push({ w: 2, fn: () => {
       const x = 25 + Math.random() * 50
       walkTo({ x, y: 8 }, () => {
@@ -526,13 +527,28 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         scheduleIdle('stretching')
       })
     }})
-    // Lie down — near bed if owned, else on rug
-    opts.push({ w: 2, fn: () => {
-      const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 35 + Math.random() * 30, y: 8 }
+    // Lie down — near bed if owned, else on rug (weight 3 — prominent rest)
+    opts.push({ w: 3, fn: () => {
+      const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 30 + Math.random() * 35, y: 8 }
       walkTo(dest, () => {
         setPetState('lying')
         bubble('Comfy here... 😌', 2000)
         scheduleIdle('lying')
+      })
+    }})
+    // Take a proper nap (weight 2)
+    opts.push({ w: 2, fn: () => {
+      const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 30 + Math.random() * 35, y: 8 }
+      walkTo(dest, () => {
+        setPetState('sleeping')
+        stateDurRef.current = null
+        bubble('😴 Taking a little nap...', 2500)
+        // Wake up naturally after 12–20 s
+        stateTimer.current = setTimeout(() => {
+          setPetState('idle')
+          stateDurRef.current = null
+          bubble('😺 Good morning~ ☀️', 1800)
+        }, 12000 + Math.random() * 8000)
       })
     }})
     // Groom in place
@@ -543,7 +559,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     }})
     // Look outside — walk to window side
     opts.push({ w: 2, fn: () => {
-      walkTo({ x: 65 + Math.random() * 10, y: 8 }, () => {
+      walkTo({ x: 62 + Math.random() * 12, y: 8 }, () => {
         setPetState('lookingOutside')
         bubble("What's out there? 🪟", 3000)
         scheduleIdle('lookingOutside')
@@ -635,14 +651,17 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         return
       }
 
-      // Hunger state transitions — only walk to bowl on first transition
-      if (h >= 90 && s !== 'eating' && s !== 'sleeping') {
+      // Hunger state transitions.
+      // Only interrupt when cat is idle/hungry — never cut off a natural behavior mid-action.
+      const NATURAL = ['stretching','lying','grooming','lookingOutside','playingIdle','watching']
+      const isBusy  = NATURAL.includes(s) || isWalkRef.current
+      if (h >= 90 && s !== 'eating' && s !== 'sleeping' && !isBusy) {
         if (s !== 'veryHungry') {
           setPetState('veryHungry')
           walkTo(OBJ.bowl, () => {})
           bubble("I'm starving... 😿 Please feed me!!", 4500)
         }
-      } else if (h >= 70 && s !== 'eating' && s !== 'sleeping' && s !== 'veryHungry' && s !== 'hungry') {
+      } else if (h >= 70 && s !== 'eating' && s !== 'sleeping' && s !== 'veryHungry' && s !== 'hungry' && !isBusy) {
         setPetState('hungry')
         walkTo(OBJ.bowl, () => {})
         bubble("I'm hungry... 😿", 3500)
