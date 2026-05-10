@@ -873,8 +873,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
               <CatSprite state={petState} isWalking={isWalking}/>
             </div>
 
-            {/* Accessory overlay — outside rm-cat-body to avoid overflow:hidden clipping */}
-            {activeAcc?.dispEmoji && (
+            {/* Accessory — hide when cat is lying/sleeping (collar invisible anyway) */}
+            {activeAcc?.dispEmoji && !['sleeping','lying'].includes(petState) && (
               <div className="rm-cat-acc">{activeAcc.dispEmoji}</div>
             )}
 
@@ -946,7 +946,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                   onClick={handleFeed}
                   disabled={!canFeed}
                 >
-                  <span className="rm-action-icon">🍚</span>
+                  <div className="rm-action-icon-wrap">
+                    <span className="rm-action-icon">🍚</span>
+                  </div>
                   <div className="rm-action-info">
                     <span className="rm-action-label">Feed</span>
                     <span className="rm-action-sub">
@@ -964,7 +966,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                   onClick={handlePlay}
                   disabled={!canPlay}
                 >
-                  <span className="rm-action-icon">{purchased.includes('toy_mouse') ? '🐭' : '🧶'}</span>
+                  <div className="rm-action-icon-wrap">
+                    <span className="rm-action-icon">{purchased.includes('toy_mouse') ? '🐭' : '🧶'}</span>
+                  </div>
                   <div className="rm-action-info">
                     <span className="rm-action-label">Play</span>
                     <span className="rm-action-sub">
@@ -986,7 +990,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                   onClick={handleRest}
                   disabled={restDisabled}
                 >
-                  <span className="rm-action-icon">😴</span>
+                  <div className="rm-action-icon-wrap">
+                    <span className="rm-action-icon">😴</span>
+                  </div>
                   <div className="rm-action-info">
                     <span className="rm-action-label">Rest</span>
                     <span className="rm-action-sub">

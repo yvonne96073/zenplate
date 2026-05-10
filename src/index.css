@@ -2535,22 +2535,32 @@ body {
 }
 .rm-action-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .rm-action-btn:active:not(:disabled) { transform: scale(0.97); }
-.rm-action-btn:disabled { opacity: 0.48; cursor: not-allowed; }
+.rm-action-btn:disabled { opacity: 0.62; cursor: not-allowed; }
 .rm-action-btn.rm-action-primary {
   border-color: #D4882A;
   background: linear-gradient(135deg, #FFF4E0, #FFE8C0);
   box-shadow: 0 2px 8px rgba(212,136,42,0.18);
 }
 
-.rm-action-icon  { font-size: 30px; line-height: 1; flex-shrink: 0; }
+/* Icon bubble — gives emoji a solid visual anchor even at reduced opacity */
+.rm-action-icon-wrap {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(0,0,0,0.06);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.rm-action-btn.rm-action-primary .rm-action-icon-wrap {
+  background: rgba(212,136,42,0.15);
+}
+.rm-action-icon  { font-size: 24px; line-height: 1; }
 .rm-action-info  { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .rm-action-label { font-size: 14px; font-weight: 800; color: #3D2B1A; }
 .rm-action-sub   { font-size: 11.5px; color: #7A6550; font-weight: 600; line-height: 1.3; }
 
-.rm-action-tag  { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; }
+.rm-action-tag  { font-size: 12px; font-weight: 800; padding: 4px 10px; border-radius: 20px; flex-shrink: 0; white-space: nowrap; }
 .rm-tag-cost    { background: #FFF0D0; color: #A07030; }
 .rm-tag-free    { background: #E8F5E9; color: #3A7A3A; }
-.rm-tag-locked  { background: #F0F0F0; color: #888; }
+.rm-tag-locked  { background: #EEEEEE; color: #666; }
 
 /* ── Hint ───────────────────────────────────────────────── */
 .rm-hint {
@@ -2578,7 +2588,7 @@ body {
 /* rm-cat-acc sits outside rm-cat-body so overflow:hidden cannot clip it.
    Positioned relative to .rm-cat (position:absolute). top:-10px ≡ same visual
    offset as before, but now free from rm-cat-body's overflow:hidden. */
-.rm-cat-acc       { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); font-size: 15px; z-index: 3; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25)); pointer-events: none; }
+.rm-cat-acc       { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 14px; z-index: 3; filter: drop-shadow(0 1px 3px rgba(0,0,0,0.25)); pointer-events: none; }
 
 /* ── Room Customization ──────────────────────────────────── */
 .rm-customize     { padding: 14px 16px 20px; background: #FFF9F3; border-top: 1.5px solid #EDE0D0; }
