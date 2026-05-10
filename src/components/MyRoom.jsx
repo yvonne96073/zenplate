@@ -502,85 +502,78 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     setTimeout(() => setHearts(h => h.filter(x => !batch.find(b => b.id === x.id))), 1400)
   }, [])
 
-  // ── Behavior loop — self-rescheduling, independent of React state ────────
-  // Uses refs only (stateRef, isWalkRef, purchasedRef) so it never has stale
-  // closure issues. Does NOT depend on petState changes to fire.
+  // ── Behavior loop — simple setInterval, fires every 3.5s ─────────────────
+  // If cat is busy, skip. Otherwise pick a behavior.
+  // Using setInterval (not self-scheduling timeout) to avoid timer conflicts.
   useEffect(() => {
     if (!inited) return
-    let t = null
 
     const BUSY = ['eating','playing','scratching','stretching','lying',
                   'grooming','lookingOutside','playingIdle','watching','sleeping']
 
-    const schedule = (ms) => {
-      clearTimeout(t)
-      t = setTimeout(run, ms ?? (1500 + Math.random() * 3000))
+    // Helper: walk to the OTHER side of the room from current position
+    // Guarantees dist > 20 so the walking animation always plays
+    const wanderFar = (cb) => {
+      const cx = catPosRef.current.x
+      const destX = cx < 45
+        ? 58 + Math.random() * 20   // currently left → go right
+        : 10 + Math.random() * 22   // currently right → go left
+      walkTo({ x: destX, y: 8 }, cb)
     }
 
-    const run = () => {
-      const s   = stateRef.current
-      const hp  = purchasedRef.current
-
-      // Cat is in the middle of something — try again shortly
-      if (BUSY.includes(s) || isWalkRef.current) { schedule(1200); return }
+    const id = setInterval(() => {
+      const s  = stateRef.current
+      const hp = purchasedRef.current
+      if (BUSY.includes(s) || isWalkRef.current) return
 
       const r = Math.random()
 
-      if (r < 0.22) {
-        // Wander to a random spot, then schedule next behavior after arriving
-        walkTo({ x: 15 + Math.random() * 62, y: 8 }, () => schedule())
+      if (r < 0.35) {
+        // Walk to opposite side — always a visible walk
+        wanderFar(() => {})
 
-      } else if (r < 0.38) {
-        // Lie down (most visible "alive" behavior)
-        const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 25 + Math.random() * 42, y: 8 }
+      } else if (r < 0.50) {
+        // Lie down for 8–14s
+        const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 18 + Math.random() * 55, y: 8 }
         walkTo(dest, () => {
           setPetState('lying')
           bubble('Comfy here... 😌', 2000)
-          setTimeout(() => { setPetState('idle'); schedule() }, 10000 + Math.random() * 8000)
+          stateTimer.current = setTimeout(() => setPetState('idle'), 8000 + Math.random() * 6000)
         })
 
-      } else if (r < 0.50) {
-        // Natural nap — walks to bed, sleeps, wakes on its own
-        const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 25 + Math.random() * 42, y: 8 }
+      } else if (r < 0.60) {
+        // Nap (sleep) for 12–18s — walks to bed if owned
+        const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 18 + Math.random() * 55, y: 8 }
         walkTo(dest, () => {
           setPetState('sleeping')
           stateDurRef.current = null
           bubble('😴 Taking a nap...', 2500)
-          setTimeout(() => {
+          stateTimer.current = setTimeout(() => {
             setPetState('idle')
-            bubble('😺 Good morning~ ☀️', 1800)
-            schedule()
-          }, 13000 + Math.random() * 9000)
+            bubble('😺 Up again~ ☀️', 1500)
+          }, 12000 + Math.random() * 6000)
         })
 
-      } else if (r < 0.62) {
+      } else if (r < 0.72) {
         // Groom in place
         setPetState('grooming')
         bubble('*lick lick lick* 🐱', 2500)
-        setTimeout(() => { setPetState('idle'); schedule() }, 5000 + Math.random() * 3000)
+        stateTimer.current = setTimeout(() => setPetState('idle'), 5000 + Math.random() * 3000)
 
-      } else if (r < 0.73) {
-        // Look outside window
+      } else if (r < 0.82) {
+        // Look outside — walks to window side
         walkTo({ x: 60 + Math.random() * 14, y: 8 }, () => {
           setPetState('lookingOutside')
           bubble("What's out there? 🪟", 3000)
-          setTimeout(() => { setPetState('idle'); schedule() }, 8000 + Math.random() * 4000)
-        })
-
-      } else if (r < 0.82) {
-        // Stretch
-        walkTo({ x: 22 + Math.random() * 52, y: 8 }, () => {
-          setPetState('stretching')
-          bubble('*stretches lazily* 🐾', 2500)
-          setTimeout(() => { setPetState('idle'); schedule() }, 3500 + Math.random() * 2000)
+          stateTimer.current = setTimeout(() => setPetState('idle'), 7000 + Math.random() * 4000)
         })
 
       } else if (r < 0.90) {
-        // Curious watching
-        walkTo({ x: 22 + Math.random() * 52, y: 8 }, () => {
-          setPetState('watching')
-          bubble('*curious stare* 👀', 2000)
-          setTimeout(() => { setPetState('idle'); schedule() }, 5000 + Math.random() * 3000)
+        // Stretch
+        wanderFar(() => {
+          setPetState('stretching')
+          bubble('*stretches lazily* 🐾', 2000)
+          stateTimer.current = setTimeout(() => setPetState('idle'), 3000 + Math.random() * 2000)
         })
 
       } else if (hp.includes('scratching_board')) {
@@ -588,24 +581,21 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
           setPetState('scratching')
           setMood(m => Math.min(m + 6, 100))
           bubble("😼 Ahh~ that's the spot!", 2800)
-          setTimeout(() => { setPetState('idle'); schedule() }, 5000)
-        })
-
-      } else if (hp.includes('toy_mouse')) {
-        walkTo(OBJ.toy, () => {
-          setPetState('playingIdle')
-          bubble('*batting at toy* 🐭', 2500)
-          setTimeout(() => { setPetState('idle'); schedule() }, 6000)
+          stateTimer.current = setTimeout(() => setPetState('idle'), 5000)
         })
 
       } else {
-        walkTo({ x: 15 + Math.random() * 62, y: 8 }, () => schedule())
+        // Watch curiously
+        wanderFar(() => {
+          setPetState('watching')
+          bubble('*curious stare* 👀', 2000)
+          stateTimer.current = setTimeout(() => setPetState('idle'), 5000 + Math.random() * 2000)
+        })
       }
-    }
+    }, 3500)
 
-    schedule(2000) // first behavior fires 2s after mount
-    return () => clearTimeout(t)
-  }, [inited, walkTo, bubble]) // walkTo & bubble are stable useCallbacks
+    return () => clearInterval(id)
+  }, [inited, walkTo, bubble])
 
   // ── Game tick — stats only, no behavior interruption ─────────────────────
   useEffect(() => {
