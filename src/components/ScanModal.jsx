@@ -6,6 +6,7 @@ import { loadFdaDb, lookupByName, searchFda, calcNutrition, CATEGORY_EMOJI } fro
 import { matchNycuDish } from '../utils/nycuDb'
 import { lookupPackagedFood } from '../data/packagedFoods'
 import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByCategory } from '../utils/subwayDb'
+import { isMcdonaldsContext, matchMcdonaldsItem } from '../utils/mcdonaldsDb'
 import { lookupComponent, compNutrition, COMPONENT_ID_LIST } from '../utils/portionDb'
 import { calcPlateScore, scoreInfo, getScoreBreakdown } from '../utils/scoring'
 
@@ -67,11 +68,12 @@ ${COMPONENT_ID_LIST}
 7. 包裝食品 → packaged:true，brand 填品牌名
 8. 就算不確定也要給最佳猜測，不可回傳空 candidates
 9. component name 欄位：優先用上方清單的英文 ID，找不到才用中文
-10. 看到 Subway 店面/包裝/logo → brand 填 "Subway"，name 填菜單品項中文名稱`
+10. 看到 Subway 店面/包裝/logo → brand 填 "Subway"，name 填菜單品項中文名稱
+11. 看到 McDonald's/麥當勞 店面/包裝/logo → brand 填 "McDonald's"，name 填菜單品項中文名稱（如：大麥克、麥克鷄塊、薯條）`
 
 // ── Source metadata ───────────────────────────────────────────────────────────
-const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫' }
-const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED' }
+const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方' }
+const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED', mcd: '#DA291C' }
 
 // ── Default Subway config ─────────────────────────────────────────────────────
 const DEFAULT_SUBWAY = { sandwichId: null, breadId: 'bread_white', sauceIds: [], sizeMult: 1 }
@@ -128,6 +130,17 @@ function calcCompNut(comp) {
       carbs:    +((d.carb || 0) * m).toFixed(1),
       fat:      +((d.fat  || 0) * m).toFixed(1),
       fiber: 0,
+    }
+  }
+  if (comp.source === 'mcd' && comp.mcdItem) {
+    const item = comp.mcdItem
+    const m = comp.portionMult || 1
+    return {
+      calories: Math.round(item.cal * m),
+      protein:  +(item.pro  * m).toFixed(1),
+      carbs:    +(item.carb * m).toFixed(1),
+      fat:      +(item.fat  * m).toFixed(1),
+      fiber:    +(item.fib  * m).toFixed(1),
     }
   }
   if (comp.source === 'packaged' && comp.packagedItem) {
@@ -203,6 +216,7 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
   const isFdaBased     = comp.source === 'fda' || comp.source === 'packaged'
   const isPortionBased = comp.source === 'portion' && comp.portionItem
   const isCountBased   = isPortionBased && comp.portionItem.count_based
+  const isMcdBased     = comp.source === 'mcd' && comp.mcdItem
 
   const actualGrams = isFdaBased
     ? comp.grams
@@ -271,6 +285,15 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
         </div>
       )}
 
+      {/* McDonald's quantity */}
+      {isMcdBased && (
+        <div className="count-row">
+          <button className="count-btn" onClick={() => onChange({ ...comp, portionMult: Math.max(1, (comp.portionMult || 1) - 1) })}>−</button>
+          <span className="count-val">{comp.portionMult || 1} 份</span>
+          <button className="count-btn" onClick={() => onChange({ ...comp, portionMult: (comp.portionMult || 1) + 1 })}>＋</button>
+        </div>
+      )}
+
       {/* FDA grams */}
       {isFdaBased && (
         <div className="comp-portion-row">
@@ -286,7 +309,7 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
       )}
 
       {/* AI/NYCU — gram multiples */}
-      {!isFdaBased && !isPortionBased && (
+      {!isFdaBased && !isPortionBased && !isMcdBased && (
         <div className="comp-portion-row">
           {aiGramOpts.map(({ mult, grams }) => (
             <button key={mult}
@@ -440,6 +463,27 @@ export default function ScanModal({ session, onClose, onSaved }) {
   const confirmCandidate = (idx) => {
     const cand = candidates[idx]
     setMealName(cand.name)
+
+    // ── McDonald's branch ─────────────────────────────────────────────────
+    const mcdCtx = isMcdonaldsContext(cand.brand || '') || isMcdonaldsContext(cand.name || '')
+    if (mcdCtx) {
+      const mcdMatches = (cand.components || [{ name: cand.name }])
+        .map(c => matchMcdonaldsItem(c.name))
+        .filter(Boolean)
+
+      if (mcdMatches.length > 0) {
+        setMealName(cand.name)
+        setComponents(mcdMatches.map(item => ({
+          name: item.name, aiName: item.name,
+          grams: 1, baseGrams: 1, portionMult: 1,
+          calEst: item.cal, source: 'mcd', mcdItem: item,
+          fdaItem: null, nycuDish: null, portionItem: null,
+          portionConf: 90,
+        })))
+        setStep('result')
+        return
+      }
+    }
 
     // ── Subway branch ─────────────────────────────────────────────────────
     if (isSubwayContext(cand)) {
