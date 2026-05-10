@@ -2269,11 +2269,19 @@ body {
   position: absolute; inset: 0;
   background: url('/room-bg.png') center center / cover no-repeat;
   z-index: 1;
+  transition: filter 0.6s ease;
 }
 .rm-wall::before { display: none; }
 .rm-baseboard { display: none; }
 .rm-floor { display: none; }
 .rm-floor::after { display: none; }
+
+/* ── Room themes — applied via filter on background ── */
+.rm-theme-japandi .rm-wall { filter: none; }
+.rm-theme-cafe    .rm-wall { filter: sepia(30%) saturate(130%) brightness(1.05); }
+.rm-theme-forest  .rm-wall { filter: hue-rotate(25deg) saturate(110%) brightness(0.98); }
+.rm-theme-ocean   .rm-wall { filter: hue-rotate(170deg) saturate(65%) brightness(1.08); }
+.rm-theme-night   .rm-wall { filter: brightness(0.48) saturate(60%) hue-rotate(215deg); }
 
 /* ── Wooden cat shelves — hidden, replaced by background image ── */
 .rm-shelf, .rm-shelf::before, .rm-shelf-rope-l, .rm-shelf-rope-r,

@@ -781,7 +781,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         </div>
 
         {/* ── SCENE ──────────────────────────────────────────────────────── */}
-        <div className="rm-scene">
+        <div className={`rm-scene rm-theme-${equippedTheme}`}>
 
           {/* Room layers */}
           <div className="rm-ceiling"/>
