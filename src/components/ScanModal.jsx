@@ -61,9 +61,9 @@ function enrichComp(ai, dbReady) {
     fatEst:  ai.fat_est  ?? null,
   }
 
-  // 1. NYCU campus DB
+  // 1. NYCU campus DB — high threshold to avoid hijacking generic ingredients
   const nycu = matchNycuDish(ai.name)
-  if (nycu && nycu.score >= 40) {
+  if (nycu && nycu.score >= 70) {
     return { ...base, name: nycu.dish.dishZh, source: 'nycu', nycuDish: nycu.dish, fdaItem: null }
   }
 
@@ -156,11 +156,19 @@ function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
 }
 
 // ── Component row with portion controls ──────────────────────────────────────
-const MULT_LABELS = { 0.5: '½份', 1: '1份', 1.5: '1.5份', 2: '2份' }
+const MULT_LABELS = { 0.5: '½x', 1: '1x', 1.5: '1.5x', 2: '2x' }
 const GRAM_OPTS   = [50, 100, 150, 200, 300]
 
 function ComponentRow({ comp, onChange, onRemove, dbReady }) {
   const nut = calcCompNut(comp)
+
+  // For AI items: actual gram estimate from AI
+  const aiGrams = comp.source === 'ai' && comp.baseGrams
+    ? `AI 估算 ~${comp.baseGrams}g` : null
+
+  // For FDA items: show the AI's original hint as reference
+  const fdaHint = comp.source === 'fda' && comp.hint
+    ? `AI 估算 ${comp.hint}` : null
 
   return (
     <div className="comp-row">
@@ -169,14 +177,14 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
           {SRC_LABEL[comp.source]}
         </span>
         <span className="comp-name">{comp.name}</span>
-        {comp.hint ? <span className="comp-hint">{comp.hint}</span> : null}
         <button className="comp-rm" onClick={onRemove}>✕</button>
       </div>
 
       {/* Portion controls */}
-      <div className="comp-portion-row">
-        {comp.source === 'fda'
-          ? <>
+      {comp.source === 'fda'
+        ? <>
+            {fdaHint && <p className="comp-ai-hint">📐 {fdaHint} · 可依實際調整</p>}
+            <div className="comp-portion-row">
               {GRAM_OPTS.map(g => (
                 <button key={g} className={`portion-btn ${comp.grams === g ? 'active' : ''}`}
                   onClick={() => onChange({ ...comp, grams: g })}>{g}g</button>
@@ -184,14 +192,19 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
               <input className="portion-input" type="number" min="1" max="2000"
                 value={comp.grams}
                 onChange={e => onChange({ ...comp, grams: parseInt(e.target.value) || comp.grams })}/>
-            </>
-          : Object.entries(MULT_LABELS).map(([m, label]) => (
-              <button key={m}
-                className={`portion-btn ${comp.portionMult == m ? 'active' : ''}`}
-                onClick={() => onChange({ ...comp, portionMult: +m })}>{label}</button>
-            ))
-        }
-      </div>
+            </div>
+          </>
+        : <>
+            {aiGrams && <p className="comp-ai-hint">📐 {aiGrams} · 不確定可直接沿用</p>}
+            <div className="comp-portion-row">
+              {Object.entries(MULT_LABELS).map(([m, label]) => (
+                <button key={m}
+                  className={`portion-btn ${comp.portionMult == m ? 'active' : ''}`}
+                  onClick={() => onChange({ ...comp, portionMult: +m })}>{label}</button>
+              ))}
+            </div>
+          </>
+      }
 
       {/* Nutrition */}
       <div className="comp-nut-row">
