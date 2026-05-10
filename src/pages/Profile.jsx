@@ -72,14 +72,32 @@ function getQuestResetTime() {
 
 // ── Cat Supplies ─────────────────────────────────────────────────
 const CAT_SUPPLIES = [
-  { id: 'cat_bed',          emoji: '🛏️', name: 'Cat Bed',          price: 3, effect: 'Rest restores Energy faster.' },
-  { id: 'scratching_board', emoji: '🪵', name: 'Scratching Board',  price: 2, effect: 'Mood decreases more slowly.' },
-  { id: 'toy_mouse',        emoji: '🐭', name: 'Toy Mouse',         price: 2, effect: 'Your cat has something to chase.' },
-  { id: 'water_bowl',       emoji: '💧', name: 'Water Bowl',        price: 2, effect: 'Hunger decreases more slowly.' },
-  { id: 'blanket',          emoji: '🧣', name: 'Small Blanket',     price: 3, effect: 'Nap quality improves.' },
-  { id: 'window_cushion',   emoji: '🪟', name: 'Window Cushion',    price: 5, effect: 'Unlocks a cozy window spot.' },
-  { id: 'premium_can',      emoji: '🥫', name: 'Premium Cat Food',  price: 4, effect: 'Feeding restores more Fullness.' },
-  { id: 'brush',            emoji: '🪮', name: 'Grooming Brush',    price: 4, effect: 'Petting boosts Mood more.' },
+  { id: 'cat_bed',          emoji: '🛏️', name: 'Cat Bed',          price: 3, effect: 'A soft nook just for her. Rest restores Energy faster.' },
+  { id: 'scratching_board', emoji: '🪵', name: 'Scratching Board',  price: 2, effect: 'Something to stretch on. Mood decreases more slowly.' },
+  { id: 'toy_mouse',        emoji: '🐭', name: 'Toy Mouse',         price: 2, effect: 'A tiny friend to chase across the floor.' },
+  { id: 'water_bowl',       emoji: '💧', name: 'Water Bowl',        price: 2, effect: 'Fresh water, always. Hunger fades more slowly.' },
+  { id: 'blanket',          emoji: '🧣', name: 'Small Blanket',     price: 3, effect: 'Warm naps, deep sleep. Nap quality improves.' },
+  { id: 'window_cushion',   emoji: '🪟', name: 'Window Cushion',    price: 5, effect: 'A perch to watch the world. Unlocks a cozy window spot.' },
+  { id: 'premium_can',      emoji: '🥫', name: 'Premium Cat Food',  price: 4, effect: 'The good stuff. Feeding restores more Fullness.' },
+  { id: 'brush',            emoji: '🪮', name: 'Grooming Brush',    price: 4, effect: 'Gentle strokes, happy cat. Petting boosts Mood more.' },
+]
+
+// ── Theme & Accessory shop display data ──────────────────────────
+const THEME_SHOP = [
+  { id: 'japandi', price: 0, desc: 'A quiet minimalist space — yours from day one.' },
+  { id: 'cafe',    price: 0, desc: 'Warm espresso tones and soft morning light.' },
+  { id: 'forest',  price: 0, desc: 'Dappled green and the hush of tall trees.' },
+  { id: 'ocean',   price: 5, desc: 'A calming tide that washes the day away.' },
+  { id: 'night',   price: 10, desc: 'Quiet stars and the warmth of a single lamp.' },
+]
+
+const ACC_SHOP = [
+  { id: 'green_collar', price: 0, desc: 'A gentle hello. Always yours.' },
+  { id: 'bell_collar',  price: 0, desc: 'Soft jingles as your cat walks.' },
+  { id: 'sunny_scarf',  price: 0, desc: 'Bright like a sunflower morning.' },
+  { id: 'leaf_collar',  price: 3, desc: 'Fresh from the garden, cool and quiet.' },
+  { id: 'wave_scarf',   price: 5, desc: 'Soft as sea foam on a calm afternoon.' },
+  { id: 'flower_crown', price: 8, desc: 'For the loveliest cat in the room.' },
 ]
 
 // ── Quest pool: 10 quests, pick 3 per day by date-seed ───────
@@ -257,7 +275,7 @@ export default function Profile({ session, profile, updateProfile }) {
   }
 
   const handleBuy = (item) => {
-    if (purchases.includes(item.id)) { showToast(`✅ Already owned!`); return }
+    if (purchases.includes(item.id)) { showToast('✅ Already owned!'); return }
     if (spendableStars < item.price) { showToast(`⭐ Need ${item.price} Stars (have ${spendableStars})`); return }
     const newSpent     = starsSpent + item.price
     const newPurchases = [...purchases, item.id]
@@ -265,13 +283,13 @@ export default function Profile({ session, profile, updateProfile }) {
     localStorage.setItem('zp_purchased',   JSON.stringify(newPurchases))
     setStarsSpent(newSpent)
     setPurchases(newPurchases)
-    showToast(`✅ ${item.name} added to wardrobe!`)
+    showToast(`✅ ${item.name} unlocked!`)
   }
 
-  const notifCount     = Object.values(notif).filter(Boolean).length
-  const unlockedThemes = THEMES.filter(t => !t.unlock || t.unlock(unlockCtx)).length
-  const unlockedAccs   = ACCESSORIES.filter(a => a.unlock(unlockCtx)).length
-  const unlockedCount  = unlockedThemes + unlockedAccs
+  const notifCount    = Object.values(notif).filter(Boolean).length
+  const ownedThemes   = THEMES.filter(t => t.unlock(unlockCtx))
+  const ownedAccs     = ACCESSORIES.filter(a => a.id !== 'none' && a.unlock(unlockCtx))
+  const ownedCount    = ownedThemes.length + ownedAccs.length
 
   return (
     <>
@@ -322,7 +340,7 @@ export default function Profile({ session, profile, updateProfile }) {
         <div className="section-header">
           <h3 className="section-title">👗 Wardrobe</h3>
           <span className="view-all-link" onClick={() => setShowAllWardrobe(true)}>
-            {unlockedCount}/{THEMES.length + ACCESSORIES.length} · Manage ›
+            {ownedCount} items · Manage ›
           </span>
         </div>
         <div className="wd-preview-row">
@@ -560,50 +578,46 @@ export default function Profile({ session, profile, updateProfile }) {
       {showAllWardrobe && (
         <Modal title="👗 Wardrobe" onClose={() => setShowAllWardrobe(false)}>
           <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, fontWeight: 600, lineHeight: 1.5 }}>
-            Equip the items you own. Locked items can be unlocked by streak milestones or purchased in Cat Supplies.
+            Everything your cat owns. Tap any item to wear it.
           </p>
 
-          {/* Themes — owned */}
           <p className="wd-section-label">🎨 Themes</p>
           <div className="wd-grid-themes">
-            {THEMES.map(t => {
-              const isOn     = equippedTheme === t.id
-              const unlocked = !t.unlock || t.unlock(unlockCtx)
+            {ownedThemes.map(t => {
+              const isOn = equippedTheme === t.id
               return (
                 <div key={t.id}
-                  className={`wd-card ${isOn ? 'wd-on' : ''} ${!unlocked ? 'wd-locked' : ''}`}
-                  onClick={() => unlocked && handleEquipTheme(t.id)}>
+                  className={`wd-card ${isOn ? 'wd-on' : ''}`}
+                  onClick={() => handleEquipTheme(t.id)}>
                   <div className="wd-card-emoji">{t.emoji}</div>
                   <div className="wd-card-name">{t.name}</div>
-                  <div className="wd-card-status">
-                    {isOn ? '✓ Equipped' : !unlocked ? `🔒 ${t.req || 'Locked'}` : 'Tap to equip'}
-                  </div>
+                  <div className="wd-card-status">{isOn ? '✓ Wearing' : 'Tap to wear'}</div>
                 </div>
               )
             })}
           </div>
 
-          {/* Accessories — split owned / locked */}
           <p className="wd-section-label" style={{ marginTop: 20 }}>✨ Accessories</p>
-          <div className="wd-grid-acc">
-            {ACCESSORIES.map(a => {
-              const isOn     = equippedAcc === a.id
-              const unlocked = a.unlock(unlockCtx)
-              return (
-                <div key={a.id}
-                  className={`wd-card ${isOn ? 'wd-on' : ''} ${!unlocked ? 'wd-locked' : ''}`}
-                  onClick={() => unlocked && handleEquipAcc(a.id)}>
-                  <div className="wd-card-emoji">{a.emoji}</div>
-                  <div className="wd-card-name">{a.name}</div>
-                  <div className="wd-card-status">
-                    {isOn ? '✓ Equipped' : !unlocked
-                      ? (a.req?.includes('⭐') ? `🔒 Buy in Cat Supplies` : `🔒 ${a.req || 'Locked'}`)
-                      : 'Tap to equip'}
+          {ownedAccs.length === 0 ? (
+            <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '12px 0' }}>
+              No accessories yet — check Cat Supplies to unlock some. 🐱
+            </p>
+          ) : (
+            <div className="wd-grid-acc">
+              {ownedAccs.map(a => {
+                const isOn = equippedAcc === a.id
+                return (
+                  <div key={a.id}
+                    className={`wd-card ${isOn ? 'wd-on' : ''}`}
+                    onClick={() => handleEquipAcc(a.id)}>
+                    <div className="wd-card-emoji">{a.emoji}</div>
+                    <div className="wd-card-name">{a.name}</div>
+                    <div className="wd-card-status">{isOn ? '✓ Wearing' : 'Tap to wear'}</div>
                   </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </Modal>
       )}
 
@@ -671,10 +685,8 @@ export default function Profile({ session, profile, updateProfile }) {
             ))}
           </div>
 
-          <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 12, fontWeight: 600 }}>
-            Supplies appear in My Room and improve your cat's life.
-          </p>
-
+          {/* Cat Care */}
+          <p className="zr-section-label">🐈 Cat Care</p>
           <div className="zr-item-list">
             {CAT_SUPPLIES.map(item => {
               const owned  = purchases.includes(item.id)
@@ -692,6 +704,70 @@ export default function Profile({ session, profile, updateProfile }) {
                   >
                     {owned ? '✓ Owned' : `⭐ ${item.price}`}
                   </button>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Room Themes */}
+          <p className="zr-section-label">🎨 Room Themes</p>
+          <div className="zr-item-list">
+            {THEME_SHOP.map(ts => {
+              const theme  = THEMES.find(t => t.id === ts.id)
+              const owned  = theme.unlock(unlockCtx)
+              const canBuy = ts.price > 0 && spendableStars >= ts.price
+              return (
+                <div key={ts.id} className="zr-item">
+                  <span className="zr-item-emoji">{theme.emoji}</span>
+                  <div className="zr-item-info">
+                    <p className="zr-item-name">{theme.name}</p>
+                    <p className="zr-item-desc">{ts.desc}</p>
+                  </div>
+                  {ts.price > 0 ? (
+                    <button
+                      className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
+                      onClick={() => handleBuy({ id: ts.id, name: theme.name, price: ts.price })}
+                    >
+                      {owned ? '✓ Owned' : `⭐ ${ts.price}`}
+                    </button>
+                  ) : (
+                    <span className={`zr-earn-badge ${owned ? 'earned' : ''}`}>
+                      {owned ? '✓ Yours' : `🔒 ${theme.req}`}
+                    </span>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Accessories */}
+          <p className="zr-section-label">✨ Accessories</p>
+          <div className="zr-item-list">
+            {ACC_SHOP.map(as => {
+              const acc    = ACCESSORIES.find(a => a.id === as.id)
+              const owned  = acc.unlock(unlockCtx)
+              const canBuy = as.price > 0 && spendableStars >= as.price
+              return (
+                <div key={as.id} className="zr-item">
+                  <span className="zr-item-emoji">{acc.emoji}</span>
+                  <div className="zr-item-info">
+                    <p className="zr-item-name">{acc.name}</p>
+                    <p className="zr-item-desc">{as.desc}</p>
+                  </div>
+                  {as.price > 0 ? (
+                    <button
+                      className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
+                      onClick={() => handleBuy({ id: as.id, name: acc.name, price: as.price })}
+                    >
+                      {owned ? '✓ Owned' : `⭐ ${as.price}`}
+                    </button>
+                  ) : (
+                    <span className={`zr-earn-badge ${owned ? 'earned' : ''}`}>
+                      {owned
+                        ? '✓ Yours'
+                        : acc.req === 'Always' ? '✓ Always' : `🔒 ${acc.req}`}
+                    </span>
+                  )}
                 </div>
               )
             })}
