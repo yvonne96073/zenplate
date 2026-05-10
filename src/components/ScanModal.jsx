@@ -482,13 +482,6 @@ export default function ScanModal({ session, onClose, onSaved }) {
               <input ref={galleryRef} type="file" accept="image/*"
                 style={{ display:'none' }} onChange={handlePhotoCapture}/>
 
-              <button className="scan-option-btn scan-subway-btn"
-                onClick={() => { setSubwayConfig(DEFAULT_SUBWAY); setSubwayMatches([]); setStep('subway') }}>
-                <span className="scan-option-icon">🥖</span>
-                <span className="scan-option-label">Subway 點餐</span>
-                <span className="scan-option-sub">官方台灣菜單數據</span>
-              </button>
-
               <div className="fda-manual-section">
                 <p className="fda-manual-label">🔍 直接搜尋 FDA 資料庫</p>
                 {dbReady

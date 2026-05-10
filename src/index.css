@@ -699,18 +699,6 @@ body {
   gap: 10px;
   padding: 14px 20px;
 }
-/* Subway direct entry button */
-.scan-subway-btn {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  justify-content: center;
-  gap: 10px;
-  padding: 14px 20px;
-  border-color: #00833D;
-  background: #F0FAF4;
-}
-.scan-subway-btn:hover { border-color: #00833D; background: #D8F3E6; }
-
 /* ── Subway Customizer ───────────────────────────────────────────────────── */
 .subway-header {
   display: flex; align-items: center; gap: 10px;
