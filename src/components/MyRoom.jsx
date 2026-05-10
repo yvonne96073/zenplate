@@ -16,7 +16,11 @@ const CAT_H      = 133                    // sprite approx display height
 function loadCE() { return Math.max(0, parseInt(localStorage.getItem(CE_KEY) || '0')) }
 function saveCE(n) { localStorage.setItem(CE_KEY, String(Math.max(0, n))) }
 
-const STATE_DURATION = { eating: 5000, playing: 8000, scratching: 6000 }
+const STATE_DURATION = {
+  eating: 5000, playing: 8000, scratching: 6000,
+  stretching: 4000, lying: 15000, grooming: 8000,
+  lookingOutside: 12000, playingIdle: 8000, watching: 6000,
+}
 
 // Floor object positions (left %, bottom % of scene)
 const OBJ = {
@@ -25,6 +29,7 @@ const OBJ = {
   scratch: { x: 13, y: 10 },
   bed:     { x: 6,  y: 22 },
   center:  { x: 47, y: 8  },
+  window:  { x: 70, y: 8  },
 }
 
 
@@ -110,14 +115,20 @@ function savePet(data) {
 // STATE-CONSISTENT MESSAGES
 // ─────────────────────────────────────────────────────────────────────────────
 function pickMessage(petState, hunger, mood, energy) {
-  if (petState === 'veryHungry') return ["I'm starving... 😿", "Please feed me!! 🍜", "I'm so weak... 😢"]
-  if (petState === 'hungry')     return ["I'm hungry... 😿", "Feed me please! 🍜", "My tummy hurts..."]
-  if (petState === 'sleeping')   return ["zzz... 😴", "*snores softly*"]
-  if (petState === 'eating')     return ["Yum! Thank you! 💕", "Nom nom nom~ 😋", "So delicious! ✨"]
-  if (petState === 'playing')    return ["Wheee!! 😸", "So fun! ✨", "Again! Again! 🧶"]
-  if (petState === 'scratching') return ["Ahh~ that's the spot! 😼", "*scratch scratch*"]
-  if (energy < 20)  return ["So sleepy... 😴", "I need a nap..."]
-  if (mood < 30)    return ["I'm bored... 😐", "Can we play? 🧶"]
+  if (petState === 'veryHungry')     return ["I'm starving... 😿", "Please feed me!! 🍜", "So weak... 😢"]
+  if (petState === 'hungry')         return ["I'm hungry... 😿", "Feed me please! 🍜", "My tummy hurts..."]
+  if (petState === 'sleeping')       return ["zzz... 😴", "*snores softly* 💤"]
+  if (petState === 'eating')         return ["Yum! Thank you! 💕", "Nom nom nom~ 😋", "So delicious! ✨"]
+  if (petState === 'playing')        return ["Wheee!! 😸", "So fun! ✨", "Again! Again! 🧶"]
+  if (petState === 'scratching')     return ["Ahh~ that's the spot! 😼", "*scratch scratch* 🪵"]
+  if (petState === 'stretching')     return ["*stretches lazily* 🐾", "Mmm, that feels good~", "Good morning~ ☀️"]
+  if (petState === 'lying')          return ["Comfy here... 😌", "*relaxing* 💕", "So peaceful~", "Don't disturb me 😸"]
+  if (petState === 'grooming')       return ["*lick lick lick* 🐱", "Gotta stay clean~ 😺", "Almost done~"]
+  if (petState === 'lookingOutside') return ["What's out there? 🪟", "Ooh, a bird! 😸", "*stares intently* 👀"]
+  if (petState === 'playingIdle')    return ["*batting at toy* 🐭", "This is fun~ ✨", "Hehe~ 😸"]
+  if (petState === 'watching')       return ["*curious stare* 👀", "What was that? 😸", "*ears perked* 🐱"]
+  if (energy < 20)   return ["So sleepy... 😴", "I need a nap..."]
+  if (mood < 30)     return ["I'm bored... 😐", "Can we play? 🧶"]
   return ["Purr~ 💕", "I love you! 😊", "*stretches lazily* 😺", "Meow~ 🐱", "Head bumps! 💕"]
 }
 
@@ -125,15 +136,24 @@ function pickMessage(petState, hunger, mood, energy) {
 // SPRITE CAT — image-based, state-aware, animated
 // ─────────────────────────────────────────────────────────────────────────────
 const SPRITE_CFG = {
-  walking:    { src: '/sprites/walk.png',    frames: 5, origH: 185 },
-  sleeping:   { src: '/sprites/sleep.png',   frames: 4, origH: 123 },
-  eating:     { src: '/sprites/eat.png',     frames: 5, origH: 188 },
-  playing:    { src: '/sprites/play.png',    frames: 5, origH: 200 },
-  scratching: { src: '/sprites/scratch.png', frames: 5, origH: 247 },
-  idle:       { src: '/sprites/walk.png',    frames: 5, origH: 185 },
-  hungry:     { src: '/sprites/walk.png',    frames: 5, origH: 185 },
-  veryHungry: { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  walking:        { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  sleeping:       { src: '/sprites/sleep.png',   frames: 4, origH: 123 },
+  eating:         { src: '/sprites/eat.png',     frames: 5, origH: 188 },
+  playing:        { src: '/sprites/play.png',    frames: 5, origH: 200 },
+  scratching:     { src: '/sprites/scratch.png', frames: 5, origH: 247 },
+  stretching:     { src: '/sprites/scratch.png', frames: 5, origH: 247 },
+  lying:          { src: '/sprites/sleep.png',   frames: 4, origH: 123 },
+  grooming:       { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  lookingOutside: { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  playingIdle:    { src: '/sprites/play.png',    frames: 5, origH: 200 },
+  watching:       { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  idle:           { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  hungry:         { src: '/sprites/walk.png',    frames: 5, origH: 185 },
+  veryHungry:     { src: '/sprites/walk.png',    frames: 5, origH: 185 },
 }
+
+// States where sprite shows as still (first frame only)
+const STILL_STATES = new Set(['idle', 'hungry', 'veryHungry', 'lookingOutside', 'watching'])
 const ORIG_STRIP_W = 1408
 
 function CatSprite({ state, isWalking }) {
@@ -143,7 +163,7 @@ function CatSprite({ state, isWalking }) {
   const scale = CAT_W / origFrameW
   const dispH = Math.round(cfg.origH * scale)
   const totalW = CAT_W * cfg.frames
-  const animated = key !== 'idle' && key !== 'hungry' && key !== 'veryHungry'
+  const animated = !STILL_STATES.has(key)
   return (
     <div
       className={animated ? `cat-sprite-anim-${key}` : ''}
@@ -322,14 +342,20 @@ function CatSVG({ state }) {
 // STATE LABELS
 // ─────────────────────────────────────────────────────────────────────────────
 const STATE_LABEL = {
-  idle:       { text: 'Relaxing 😌',      color: '#5A8A5A', bg: '#E8F5E9' },
-  walking:    { text: 'On the way 🐾',    color: '#4A7A9A', bg: '#E8F4FA' },
-  sleeping:   { text: 'Sleeping 😴',      color: '#4A5AAA', bg: '#EEF0FA' },
-  hungry:     { text: 'Hungry 😿',        color: '#C05A00', bg: '#FFF3E0' },
-  veryHungry: { text: 'Starving!! 😿',    color: '#B02020', bg: '#FEECEB' },
-  eating:     { text: 'Eating 😋',        color: '#B84A00', bg: '#FFF3E0' },
-  playing:    { text: 'Playing 😸',       color: '#2A7A3A', bg: '#E8F5E9' },
-  scratching: { text: 'Scratching 😼',    color: '#6A1B9A', bg: '#F5EEF8' },
+  idle:           { text: 'Relaxing 😌',           color: '#5A8A5A', bg: '#E8F5E9' },
+  walking:        { text: 'Wandering 🐾',           color: '#4A7A9A', bg: '#E8F4FA' },
+  sleeping:       { text: 'Sleeping 😴',            color: '#4A5AAA', bg: '#EEF0FA' },
+  hungry:         { text: 'Hungry 😿',              color: '#C05A00', bg: '#FFF3E0' },
+  veryHungry:     { text: 'Starving!! 😿',          color: '#B02020', bg: '#FEECEB' },
+  eating:         { text: 'Eating 😋',              color: '#B84A00', bg: '#FFF3E0' },
+  playing:        { text: 'Playing 😸',             color: '#2A7A3A', bg: '#E8F5E9' },
+  scratching:     { text: 'Scratching 😼',          color: '#6A1B9A', bg: '#F5EEF8' },
+  stretching:     { text: 'Stretching 🐾',          color: '#7A5A9A', bg: '#F0EBF8' },
+  lying:          { text: 'Lying Down 🐱',          color: '#5A7A5A', bg: '#EBF5EB' },
+  grooming:       { text: 'Grooming 🐾',            color: '#7A8A3A', bg: '#F0F5E0' },
+  lookingOutside: { text: 'Looking Outside 🪟',     color: '#3A6A8A', bg: '#E0EEF8' },
+  playingIdle:    { text: 'Playing Alone 🐭',       color: '#8A4A2A', bg: '#F8EEE0' },
+  watching:       { text: 'Watching... 👀',         color: '#5A5A7A', bg: '#EBEBF8' },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -474,46 +500,110 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     setTimeout(() => setHearts(h => h.filter(x => !batch.find(b => b.id === x.id))), 1400)
   }, [])
 
-  // ── Auto-scratch (only when scratching board is owned) ───────────────────
-  const scheduleAutoScratch = useCallback(() => {
-    clearTimeout(scratchTimer.current)
-    scratchTimer.current = setTimeout(() => {
-      if (stateRef.current === 'idle' && !isWalkRef.current && purchasedRef.current.includes('scratching_board')) {
+  // ── Natural idle behavior (Animal Crossing–style) ────────────────────────
+  // Picks a random cozy behavior every time the cat becomes idle.
+  const doNaturalBehavior = useCallback(() => {
+    const s = stateRef.current
+    const ACTIVE = ['eating','playing','scratching','stretching','lying',
+                    'grooming','lookingOutside','playingIdle','watching','sleeping']
+    if (ACTIVE.includes(s) || isWalkRef.current) return
+    if (hungerRef.current >= 70) return   // hungry cat stays near bowl
+
+    const hp  = purchasedRef.current
+    const opts = []
+
+    // Wander to random spot (weight 3 — most common)
+    opts.push({ w: 3, fn: () => {
+      const x = 20 + Math.random() * 55
+      walkTo({ x, y: 8 }, () => {})
+    }})
+    // Stretch near current position
+    opts.push({ w: 2, fn: () => {
+      const x = 25 + Math.random() * 50
+      walkTo({ x, y: 8 }, () => {
+        setPetState('stretching')
+        bubble('*stretches lazily* 🐾', 2500)
+        scheduleIdle('stretching')
+      })
+    }})
+    // Lie down — near bed if owned, else on rug
+    opts.push({ w: 2, fn: () => {
+      const dest = hp.includes('cat_bed') ? OBJ.bed : { x: 35 + Math.random() * 30, y: 8 }
+      walkTo(dest, () => {
+        setPetState('lying')
+        bubble('Comfy here... 😌', 2000)
+        scheduleIdle('lying')
+      })
+    }})
+    // Groom in place
+    opts.push({ w: 2, fn: () => {
+      setPetState('grooming')
+      bubble('*lick lick lick* 🐱', 2500)
+      scheduleIdle('grooming')
+    }})
+    // Look outside — walk to window side
+    opts.push({ w: 2, fn: () => {
+      walkTo({ x: 65 + Math.random() * 10, y: 8 }, () => {
+        setPetState('lookingOutside')
+        bubble("What's out there? 🪟", 3000)
+        scheduleIdle('lookingOutside')
+      })
+    }})
+    // Watch something (curious)
+    opts.push({ w: 2, fn: () => {
+      const x = 25 + Math.random() * 50
+      walkTo({ x, y: 8 }, () => {
+        setPetState('watching')
+        bubble('*curious stare* 👀', 2000)
+        scheduleIdle('watching')
+      })
+    }})
+    // Scratch post (only if owned)
+    if (hp.includes('scratching_board')) {
+      opts.push({ w: 2, fn: () => {
         walkTo(OBJ.scratch, () => {
           setPetState('scratching')
           setMood(m => Math.min(m + 6, 100))
           bubble("😼 Ahh~ that's the spot!", 2800)
           scheduleIdle('scratching')
         })
-      }
-    }, 30000 + Math.random() * 40000)
+      }})
+    }
+    // Play with toy mouse (only if owned)
+    if (hp.includes('toy_mouse')) {
+      opts.push({ w: 2, fn: () => {
+        walkTo(OBJ.toy, () => {
+          setPetState('playingIdle')
+          bubble('*batting at toy* 🐭', 2500)
+          scheduleIdle('playingIdle')
+        })
+      }})
+    }
+
+    // Weighted random pick
+    const total = opts.reduce((s, o) => s + o.w, 0)
+    let r = Math.random() * total
+    for (const o of opts) {
+      r -= o.w
+      if (r <= 0) { o.fn(); return }
+    }
+    opts[opts.length - 1].fn()
   }, [walkTo, bubble, scheduleIdle])
 
+  // Trigger natural behavior whenever cat becomes free
   useEffect(() => {
     if (!inited) return
-    if (petState === 'idle') scheduleAutoScratch()
-    else clearTimeout(scratchTimer.current)
-  }, [petState, inited, scheduleAutoScratch])
-
-  // ── Random wander (Animal Crossing–style) ─────────────────────────────────
-  useEffect(() => {
-    if (!inited) return
-    const BUSY = ['sleeping', 'eating', 'playing', 'scratching']
-    const doWander = () => {
-      if (!BUSY.includes(stateRef.current) && !isWalkRef.current) {
-        const x = 15 + Math.random() * 65  // keep cat 15–80% — away from edges
-        walkTo({ x, y: 8 }, () => {
-          // Arrived: pause naturally, then wander again
-          wanderTimer.current = setTimeout(doWander, 2000 + Math.random() * 2000)
-        })
-      } else {
-        // Cat is busy or mid-walk — check again shortly
-        wanderTimer.current = setTimeout(doWander, 1500)
-      }
-    }
-    wanderTimer.current = setTimeout(doWander, 800)
-    return () => clearTimeout(wanderTimer.current)
-  }, [inited, walkTo])
+    const ACTIVE = ['eating','playing','scratching','stretching','lying',
+                    'grooming','lookingOutside','playingIdle','watching','sleeping']
+    if (ACTIVE.includes(petState) || isWalking) return
+    clearTimeout(wanderTimer.current)
+    clearTimeout(scratchTimer.current)
+    const delay = 800 + Math.random() * 2500
+    wanderTimer.current = setTimeout(() => {
+      if (!ACTIVE.includes(stateRef.current) && !isWalkRef.current) doNaturalBehavior()
+    }, delay)
+    return () => { clearTimeout(wanderTimer.current); clearTimeout(scratchTimer.current) }
+  }, [petState, isWalking, inited, doNaturalBehavior])
 
   // ── Game tick ─────────────────────────────────────────────────────────────
   useEffect(() => {
