@@ -134,6 +134,9 @@ body {
   font-family: inherit; transition: all 0.15s;
 }
 .inapp-copy-btn:hover { background: #F5F5F5; }
+.inapp-hint {
+  margin: 12px 0 0; font-size: 11px; color: #AAA; text-align: center;
+}
 
 .login-divider {
   display: flex; align-items: center; gap: 12px; margin: 16px 0;
