@@ -7,6 +7,7 @@ import { matchNycuDish } from '../utils/nycuDb'
 import { lookupPackagedFood } from '../data/packagedFoods'
 import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByCategory } from '../utils/subwayDb'
 import { isMcdonaldsContext, matchMcdonaldsItem } from '../utils/mcdonaldsDb'
+import { isFamilyMartContext, searchFamilyMart, getFamilyMartNutrition } from '../utils/familymartDb'
 import { lookupComponent, compNutrition, COMPONENT_ID_LIST } from '../utils/portionDb'
 import { calcPlateScore, scoreInfo, getScoreBreakdown } from '../utils/scoring'
 import { loadPortionAdjustments, savePortionCorrections, hasPersonalization } from '../utils/portionLearning'
@@ -78,7 +79,8 @@ ${COMPONENT_ID_LIST}
 12. component name 欄位：優先用上方清單的英文 ID，找不到才用中文
 13. 看到 Subway 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "Subway"，name 填菜單品項中文名稱
 14. 看到 McDonald's/麥當勞 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "McDonald's"，name 填菜單品項中文名稱（如：大麥克、麥克鷄塊、薯條）
-15. cal_est/pro_est/carb_est/fat_est：只在 name 為中文且完全找不到對應 component_id 時填入（該 grams 份量的總估計值，不是每100g）；有 component_id 匹配就填 null`
+15. cal_est/pro_est/carb_est/fat_est：只在 name 為中文且完全找不到對應 component_id 時填入（該 grams 份量的總估計值，不是每100g）；有 component_id 匹配就填 null
+16. 看到全家/FamilyMart 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "FamilyMart"，name 填商品名稱（如：鮪魚飯糰、雞腿便當、關東煮）`
 
 // ── Food type badges ──────────────────────────────────────────────────────────
 const FOOD_TYPE_LABEL = {
@@ -109,11 +111,23 @@ function applyLevel(comp, level) {
 }
 
 // ── Source metadata ───────────────────────────────────────────────────────────
-const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方' }
-const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED', mcd: '#DA291C' }
+const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方', family: '全家官方' }
+const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED', mcd: '#DA291C', family: '#009944' }
 
 // ── Default Subway config ─────────────────────────────────────────────────────
 const DEFAULT_SUBWAY = { sandwichId: null, breadId: 'bread_white', sauceIds: [], sizeMult: 1 }
+
+// ── Build a component from FamilyMart official nutrition data ─────────────────
+function buildFamilyComp(nut) {
+  return {
+    name: nut.name, aiName: nut.name,
+    grams: 1, baseGrams: 1,
+    portionMult: 1, portionLevel: 'standard', correctionDir: null,
+    calEst: nut.calories, source: 'family', familyItem: nut,
+    fdaItem: null, nycuDish: null, portionItem: null,
+    portionConf: 95, portionReason: '全家便利商店官方營養資料',
+  }
+}
 
 // ── Enrich one AI component with DB data ─────────────────────────────────────
 function enrichComp(ai, dbReady, adjustments = {}) {
@@ -206,6 +220,17 @@ function calcCompNut(comp) {
       fiber:    +(item.fib  * m).toFixed(1),
     }
   }
+  if (comp.source === 'family' && comp.familyItem) {
+    const item = comp.familyItem
+    const m = comp.portionMult || 1
+    return {
+      calories: Math.round(item.calories * m),
+      protein:  +(item.protein * m).toFixed(1),
+      carbs:    +(item.carbs   * m).toFixed(1),
+      fat:      +(item.fat     * m).toFixed(1),
+      fiber:    0,
+    }
+  }
   if (comp.source === 'packaged' && comp.packagedItem) {
     const { item, servingG } = comp.packagedItem
     const g = (servingG || 100) * m
@@ -271,9 +296,10 @@ function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
 
 // ── Component row — Portion Science level UX ──────────────────────────────────
 function ComponentRow({ comp, onChange, onRemove, dbReady }) {
-  const nut          = calcCompNut(comp)
-  const isMcdBased   = comp.source === 'mcd' && comp.mcdItem
-  const portionLow   = (comp.portionConf ?? 55) < 55
+  const nut            = calcCompNut(comp)
+  const isMcdBased     = comp.source === 'mcd'    && comp.mcdItem
+  const isFamilyBased  = comp.source === 'family' && comp.familyItem
+  const portionLow     = (comp.portionConf ?? 55) < 55
   const currentLevel = comp.portionLevel || 'standard'
 
   const levelButtons = [
@@ -306,8 +332,8 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
 
       {/* ── Portion controls ── */}
 
-      {/* McDonald's: item count +/- */}
-      {isMcdBased ? (
+      {/* Fixed-portion items (McDonald's / FamilyMart): count +/- */}
+      {(isMcdBased || isFamilyBased) ? (
         <div className="count-row">
           <button className="count-btn" onClick={() => onChange({ ...comp, portionMult: Math.max(1, (comp.portionMult || 1) - 1) })}>−</button>
           <span className="count-val">{comp.portionMult || 1} 份</span>
@@ -336,7 +362,7 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
       </div>
 
       {/* FDA override: power-user search (secondary) */}
-      {comp.source !== 'fda' && dbReady && (
+      {comp.source !== 'fda' && comp.source !== 'family' && dbReady && (
         <FdaSearch compact initialQuery={comp.aiName || comp.name}
           onSelect={item => onChange({
             ...comp, name: item.n, source: 'fda', fdaItem: item,
@@ -377,6 +403,10 @@ export default function ScanModal({ session, onClose, onSaved }) {
   // Subway pipeline
   const [subwayConfig,  setSubwayConfig]  = useState(DEFAULT_SUBWAY)
   const [subwayMatches, setSubwayMatches] = useState([])
+
+  // FamilyMart pipeline
+  const [familyMatches,  setFamilyMatches]  = useState([])
+  const [familySelected, setFamilySelected] = useState(null)
 
   const videoRef     = useRef(null)
   const codeRef      = useRef(null)
@@ -472,15 +502,38 @@ export default function ScanModal({ session, onClose, onSaved }) {
   }
 
   // ── User confirms a candidate → route by food_type ───────────────────────
-  const confirmCandidate = (idx) => {
+  const confirmCandidate = async (idx) => {
     const cand = candidates[idx]
     setMealName(cand.name)
     setConfirmedCandidate(cand)
 
     const ft = cand.food_type || (cand.packaged ? 'packaged_food' : 'general_meal')
 
-    // ── chain_restaurant: McDonald's or Subway ────────────────────────────
+    // ── chain_restaurant: FamilyMart, McDonald's, or Subway ───────────────
     if (ft === 'chain_restaurant') {
+      // FamilyMart (async API lookup)
+      if (isFamilyMartContext(cand.brand || '') || isFamilyMartContext(cand.name || '')) {
+        setStep('analyzing')
+        const results = await searchFamilyMart(cand.name || '')
+        if (results.length > 0) {
+          setFamilyMatches(results)
+          setFamilySelected(results[0])
+          // Single match → auto-fetch nutrition and jump to result
+          if (results.length === 1) {
+            const nut = await getFamilyMartNutrition(results[0].CMNO)
+            if (nut) {
+              setComponents([buildFamilyComp(nut)])
+              setMealName(nut.name)
+              setStep('result')
+              return
+            }
+          }
+          setStep('family')
+          return
+        }
+        // No match: fall through to general_meal pipeline
+      }
+
       // McDonald's
       const mcdCtx = isMcdonaldsContext(cand.brand || '') || isMcdonaldsContext(cand.name || '')
       if (mcdCtx) {
@@ -605,6 +658,21 @@ export default function ScanModal({ session, onClose, onSaved }) {
     else onSaved()
   }
 
+  // ── FamilyMart confirm selection → fetch nutrition + go to result ────────
+  const handleFamilyConfirm = async () => {
+    if (!familySelected) return
+    setStep('analyzing')
+    const nut = await getFamilyMartNutrition(familySelected.CMNO)
+    if (!nut) {
+      setError('無法取得全家營養資料，請重試')
+      setStep('family')
+      return
+    }
+    setComponents([buildFamilyComp(nut)])
+    setMealName(nut.name)
+    setStep('result')
+  }
+
   const fileToBase64 = f => new Promise((res, rej) => {
     const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f)
   })
@@ -613,6 +681,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
     setStep('select'); setError(''); setCandidates([]); setChosenIdx(0)
     setComponents([]); setBarcodeResult(null); setMealName('')
     setSubwayConfig(DEFAULT_SUBWAY); setSubwayMatches([])
+    setFamilyMatches([]); setFamilySelected(null)
     setConfirmedCandidate(null)
   }
 
@@ -994,6 +1063,49 @@ export default function ScanModal({ session, onClose, onSaved }) {
                   const nut = subwayConfig.sandwichId ? calcSubwayMeal(subwayConfig) : null
                   return `✓ 記錄 Subway（${nut?.calories ?? '—'} kcal）`
                 })()}
+              </button>
+              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
+            </>
+          )}
+
+          {/* ── FamilyMart product picker ── */}
+          {step === 'family' && (
+            <>
+              <div className="subway-header">
+                <span className="subway-logo-badge" style={{ background: '#009944' }}>🏪 全家 FamilyMart</span>
+                <span className="subway-source-tag">官方公開營養數據</span>
+              </div>
+
+              <p className="subway-section-label">選擇商品</p>
+              <div className="subway-item-scroll">
+                {familyMatches.map(item => (
+                  <button key={item.CMNO}
+                    className={`subway-item-row ${familySelected?.CMNO === item.CMNO ? 'active' : ''}`}
+                    onClick={() => setFamilySelected(item)}>
+                    <span className="subway-item-zh">{item.PRODNAME}</span>
+                    <span className="subway-item-en">{item.CATEGORY_NAME}</span>
+                    {item.cal != null && <span className="subway-item-cal">{item.cal}</span>}
+                  </button>
+                ))}
+              </div>
+
+              <div className="form-group" style={{ marginTop: 10 }}>
+                <label>餐別</label>
+                <div className="meal-type-btns">
+                  {MEAL_TYPES.map(t => (
+                    <button key={t} type="button"
+                      className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
+                      onClick={() => setMealType(t)}>{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              {error && <p className="login-error">{error}</p>}
+
+              <button className="submit-btn"
+                disabled={!familySelected || saving}
+                onClick={handleFamilyConfirm}>
+                確認「{familySelected?.PRODNAME || ''}」→
               </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
