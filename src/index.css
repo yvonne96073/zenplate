@@ -106,6 +106,35 @@ body {
 }
 .google-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+/* ── In-app browser warning ── */
+.inapp-warning {
+  width: 100%; margin-bottom: 16px;
+  background: #FFF8E1; border: 1.5px solid #FFD54F;
+  border-radius: 14px; padding: 14px 16px;
+  text-align: center;
+}
+.inapp-warning-title {
+  margin: 0 0 6px; font-size: 14px; font-weight: 800; color: #B45000;
+}
+.inapp-warning-body {
+  margin: 0 0 12px; font-size: 12px; color: #5A3A00; line-height: 1.6;
+}
+.inapp-open-btn {
+  display: block; width: 100%; padding: 12px 20px;
+  background: #1A73E8; color: white; border: none; border-radius: 20px;
+  font-size: 15px; font-weight: 800; cursor: pointer;
+  font-family: inherit; transition: background 0.15s;
+  letter-spacing: 0.2px;
+}
+.inapp-open-btn:hover { background: #1558B0; }
+.inapp-copy-btn {
+  display: inline-block; padding: 8px 18px;
+  background: transparent; color: #888; border: 1.5px solid #DDD;
+  border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer;
+  font-family: inherit; transition: all 0.15s;
+}
+.inapp-copy-btn:hover { background: #F5F5F5; }
+
 .login-divider {
   display: flex; align-items: center; gap: 12px; margin: 16px 0;
 }
@@ -1415,14 +1444,15 @@ body {
   75%       { transform: translateX(6px)   rotate(2deg); }
 }
 
-/* eating: happy bob */
-.cat-anim-eating .cat-body-wrap {
-  animation: cat-eat 0.42s ease-in-out infinite;
+/* eating: nod toward bowl — only the body tilts, sprite stays on frame 1 */
+.rm-cat-eating {
+  animation: rm-cat-nod 0.72s ease-in-out infinite;
+  transform-origin: bottom center;
 }
-@keyframes cat-eat {
-  0%, 100% { transform: translateY(0)   rotate(-1deg) scale(1); }
-  30%       { transform: translateY(-11px) rotate(1.5deg) scale(1.06); }
-  65%       { transform: translateY(2px)  rotate(-1deg) scale(0.96); }
+@keyframes rm-cat-nod {
+  0%, 100% { transform: translateY(0)    rotate(0deg)  scaleY(1);    }
+  35%       { transform: translateY(5px)  rotate(6deg)  scaleY(0.97); }
+  70%       { transform: translateY(-2px) rotate(-1deg) scaleY(1.01); }
 }
 
 /* playing: big jump with squish */
@@ -2393,11 +2423,6 @@ body {
 @keyframes rm-cat-sleep {
   0%, 100% { transform: scale(1)    translateY(0); }
   50%       { transform: scale(1.05) translateY(-3px); }
-}
-@keyframes rm-cat-eat {
-  0%, 100% { transform: translateY(0)    rotate(-1deg) scale(1); }
-  30%       { transform: translateY(-11px) rotate(1.5deg) scale(1.06); }
-  65%       { transform: translateY(2px)  rotate(-1deg) scale(0.96); }
 }
 @keyframes rm-cat-play {
   0%   { transform: translateY(0)     scaleY(1)    scaleX(1)    rotate(0deg); }
