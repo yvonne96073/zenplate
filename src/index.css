@@ -699,6 +699,105 @@ body {
   gap: 10px;
   padding: 14px 20px;
 }
+/* Subway direct entry button */
+.scan-subway-btn {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  justify-content: center;
+  gap: 10px;
+  padding: 14px 20px;
+  border-color: #00833D;
+  background: #F0FAF4;
+}
+.scan-subway-btn:hover { border-color: #00833D; background: #D8F3E6; }
+
+/* ── Subway Customizer ───────────────────────────────────────────────────── */
+.subway-header {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.subway-logo-badge {
+  background: #00833D; color: #fff;
+  font-size: 13px; font-weight: 900;
+  padding: 5px 12px; border-radius: 20px;
+  letter-spacing: 0.3px;
+}
+.subway-source-tag {
+  font-size: 11px; font-weight: 700; color: #00833D;
+}
+.subway-section-label {
+  font-size: 13px; font-weight: 800; color: var(--dark);
+  margin: 12px 0 6px;
+}
+.subway-section-sub {
+  font-size: 11px; font-weight: 600; color: var(--muted);
+}
+
+/* Top-matched sandwich cards */
+.subway-matches-row {
+  display: flex; gap: 8px; margin-bottom: 10px;
+}
+.subway-match-card {
+  flex: 1; display: flex; flex-direction: column; gap: 3px;
+  padding: 10px; border-radius: 12px;
+  border: 2px solid var(--border); background: #fff;
+  cursor: pointer; transition: all 0.15s; text-align: left;
+}
+.subway-match-card.active {
+  border-color: #00833D; background: #F0FAF4;
+}
+.subway-match-name { font-size: 13px; font-weight: 800; color: var(--dark); }
+.subway-match-cal  { font-size: 11px; font-weight: 700; color: #00833D; }
+
+/* Full sandwich list — compact scrollable */
+.subway-all-label {
+  font-size: 10px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.8px;
+  margin: 2px 0 4px;
+}
+.subway-item-scroll {
+  max-height: 160px; overflow-y: auto;
+  border: 1.5px solid var(--border); border-radius: 12px;
+  margin-bottom: 2px;
+}
+.subway-item-row {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%; padding: 9px 12px; text-align: left;
+  background: none; border: none; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background 0.1s;
+}
+.subway-item-row:last-child { border-bottom: none; }
+.subway-item-row.active { background: #F0FAF4; }
+.subway-item-row:hover  { background: #F6FBF8; }
+.subway-item-zh  { font-size: 13px; font-weight: 800; color: var(--dark); flex: 1; }
+.subway-item-en  { font-size: 11px; color: var(--muted); font-weight: 600; }
+.subway-item-cal { font-size: 12px; font-weight: 800; color: #00833D; min-width: 36px; text-align: right; }
+
+/* Chip row for bread / sauce / size */
+.subway-chip-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-bottom: 4px;
+}
+.subway-chip {
+  padding: 6px 11px; border-radius: 20px;
+  border: 1.5px solid var(--border); background: #fff;
+  font-size: 12px; font-weight: 700; color: var(--dark);
+  cursor: pointer; transition: all 0.15s;
+}
+.subway-chip.active {
+  border-color: #00833D; background: #00833D; color: #fff;
+}
+.subway-chip:hover:not(.active) { border-color: #00833D; background: #F0FAF4; }
+.subway-chip-cal { font-size: 10px; opacity: 0.85; }
+
+/* Disclaimer */
+.subway-disclaimer {
+  font-size: 11px; font-weight: 600; color: var(--muted);
+  background: #F6FBF8; border-radius: 10px;
+  padding: 8px 12px; margin-top: 10px;
+  border-left: 3px solid #00833D;
+  line-height: 1.5;
+}
 
 .scan-video-wrap {
   border-radius: 16px; overflow: hidden; margin-bottom: 12px;

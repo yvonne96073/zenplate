@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase'
 import { loadFdaDb, lookupByName, searchFda, calcNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
 import { matchNycuDish } from '../utils/nycuDb'
 import { lookupPackagedFood } from '../data/packagedFoods'
+import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByCategory } from '../utils/subwayDb'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
@@ -40,11 +41,15 @@ const VISION_PROMPT = `你是台灣 AI 營養師，分析食物照片。
 4. 包裝食品 → packaged:true，brand 填品牌名
 5. cal_est / pro_est / carb_est / fat_est = 該份量的估計值（kcal 或 g），不是每 100g
 6. 就算不確定也要給最佳猜測，不可以回傳空 candidates
-7. 使用台灣常用中文食物名稱`
+7. 使用台灣常用中文食物名稱
+8. 看到 Subway 店面、包裝紙、logo、或潛艇堡環境 → brand 填 "Subway"，name 填 Subway 台灣菜單品項中文名稱（如：照燒雞肉、嫩切雞肉、鮪魚、素食蔬菜等）`
 
 // ── Source metadata ───────────────────────────────────────────────────────────
-const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算' }
-const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E' }
+const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方' }
+const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D' }
+
+// ── Default Subway config ─────────────────────────────────────────────────────
+const DEFAULT_SUBWAY = { sandwichId: null, breadId: 'bread_white', sauceIds: [], sizeMult: 1 }
 
 // ── Enrich one AI component with DB data ─────────────────────────────────────
 function enrichComp(ai, dbReady) {
@@ -225,6 +230,10 @@ export default function ScanModal({ session, onClose, onSaved }) {
   // Barcode fallback
   const [barcodeResult, setBarcodeResult] = useState(null)
 
+  // Subway pipeline
+  const [subwayConfig,  setSubwayConfig]  = useState(DEFAULT_SUBWAY)
+  const [subwayMatches, setSubwayMatches] = useState([])
+
   const videoRef     = useRef(null)
   const codeRef      = useRef(null)
   const fileInputRef = useRef(null)
@@ -322,6 +331,18 @@ export default function ScanModal({ session, onClose, onSaved }) {
     const cand = candidates[idx]
     setMealName(cand.name)
 
+    // ── Subway branch ─────────────────────────────────────────────────────
+    if (isSubwayContext(cand)) {
+      const matches = matchSubwayItems(cand.name, 3)
+      setSubwayMatches(matches)
+      setSubwayConfig({
+        ...DEFAULT_SUBWAY,
+        sandwichId: matches[0]?.item_id ?? null,
+      })
+      setStep('subway')
+      return
+    }
+
     // Packaged food → try local packaged DB first
     if (cand.packaged) {
       const pkg = lookupPackagedFood(cand.brand || '', cand.components?.[0]?.name || cand.name)
@@ -380,6 +401,36 @@ export default function ScanModal({ session, onClose, onSaved }) {
     else onSaved()
   }
 
+  // ── Subway save ───────────────────────────────────────────────────────────
+  const handleSubwaySave = async () => {
+    if (!subwayConfig.sandwichId) return
+    setSaving(true)
+    const nut      = calcSubwayMeal(subwayConfig)
+    const sandwich = SUBWAY_DB.find(x => x.item_id === subwayConfig.sandwichId)
+    const bread    = SUBWAY_DB.find(x => x.item_id === subwayConfig.breadId)
+    const sauces   = subwayConfig.sauceIds.map(id => SUBWAY_DB.find(x => x.item_id === id)).filter(Boolean)
+
+    const sizeLbl  = subwayConfig.sizeMult === 2 ? ' 12吋' : ' 6吋'
+    const breadLbl = bread && bread.item_id !== 'bread_white' ? ` / ${bread.product_name_zh}` : ''
+    const sauceLbl = sauces.length ? ` + ${sauces.map(s => s.product_name_zh).join('、')}` : ''
+    const name     = `Subway ${sandwich.product_name_zh}${sizeLbl}${breadLbl}${sauceLbl}`
+
+    const { error: dbErr } = await supabase.from('meals').insert({
+      user_id:   session.user.id,
+      name,
+      meal_type: MEAL_TYPE_V[mealType],
+      calories:  nut.calories,
+      protein_g: nut.protein_g,
+      carbs_g:   nut.carbs_g,
+      fat_g:     nut.fat_g,
+      fiber_g:   null,
+      data_source: 'Subway Taiwan 官方',
+    })
+    setSaving(false)
+    if (dbErr) setError(dbErr.message)
+    else onSaved()
+  }
+
   const fileToBase64 = f => new Promise((res, rej) => {
     const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f)
   })
@@ -387,6 +438,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
   const reset = () => {
     setStep('select'); setError(''); setCandidates([]); setChosenIdx(0)
     setComponents([]); setBarcodeResult(null); setMealName('')
+    setSubwayConfig(DEFAULT_SUBWAY); setSubwayMatches([])
   }
 
   // Derived totals for result step
@@ -429,6 +481,13 @@ export default function ScanModal({ session, onClose, onSaved }) {
                 style={{ display:'none' }} onChange={handlePhotoCapture}/>
               <input ref={galleryRef} type="file" accept="image/*"
                 style={{ display:'none' }} onChange={handlePhotoCapture}/>
+
+              <button className="scan-option-btn scan-subway-btn"
+                onClick={() => { setSubwayConfig(DEFAULT_SUBWAY); setSubwayMatches([]); setStep('subway') }}>
+                <span className="scan-option-icon">🥖</span>
+                <span className="scan-option-label">Subway 點餐</span>
+                <span className="scan-option-sub">官方台灣菜單數據</span>
+              </button>
 
               <div className="fda-manual-section">
                 <p className="fda-manual-label">🔍 直接搜尋 FDA 資料庫</p>
@@ -576,6 +635,145 @@ export default function ScanModal({ session, onClose, onSaved }) {
               <button className="submit-btn" onClick={handleSave}
                 disabled={saving || components.length === 0}>
                 {saving ? '儲存中...' : `✓ 記錄餐點（${total.calories ?? 0} kcal）`}
+              </button>
+              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
+            </>
+          )}
+
+          {/* ── Subway customizer ── */}
+          {step === 'subway' && (
+            <>
+              {/* Header */}
+              <div className="subway-header">
+                <span className="subway-logo-badge">🥖 Subway Taiwan</span>
+                <span className="subway-source-tag">官方公開營養數據</span>
+              </div>
+
+              {/* Sandwich picker */}
+              <p className="subway-section-label">選擇品項</p>
+
+              {/* Top matches highlighted */}
+              {subwayMatches.length > 0 && (
+                <div className="subway-matches-row">
+                  {subwayMatches.map(item => (
+                    <button key={item.item_id}
+                      className={`subway-match-card ${subwayConfig.sandwichId === item.item_id ? 'active' : ''}`}
+                      onClick={() => setSubwayConfig(c => ({ ...c, sandwichId: item.item_id }))}>
+                      <span className="subway-match-name">{item.product_name_zh}</span>
+                      <span className="subway-match-cal">{item.calories} kcal</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Full scrollable list */}
+              <div className="subway-all-label">全部品項</div>
+              <div className="subway-item-scroll">
+                {subwayByCategory('6inch').map(item => (
+                  <button key={item.item_id}
+                    className={`subway-item-row ${subwayConfig.sandwichId === item.item_id ? 'active' : ''}`}
+                    onClick={() => setSubwayConfig(c => ({ ...c, sandwichId: item.item_id }))}>
+                    <span className="subway-item-zh">{item.product_name_zh}</span>
+                    <span className="subway-item-en">{item.product_name_en}</span>
+                    <span className="subway-item-cal">{item.calories}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Bread */}
+              <p className="subway-section-label">麵包</p>
+              <div className="subway-chip-row">
+                {subwayByCategory('bread').map(b => (
+                  <button key={b.item_id}
+                    className={`subway-chip ${subwayConfig.breadId === b.item_id ? 'active' : ''}`}
+                    onClick={() => setSubwayConfig(c => ({ ...c, breadId: b.item_id }))}>
+                    {b.product_name_zh}
+                  </button>
+                ))}
+              </div>
+
+              {/* Sauce */}
+              <p className="subway-section-label">醬料 <span className="subway-section-sub">（可複選）</span></p>
+              <div className="subway-chip-row">
+                {subwayByCategory('sauce').map(s => {
+                  const on = subwayConfig.sauceIds.includes(s.item_id)
+                  return (
+                    <button key={s.item_id}
+                      className={`subway-chip ${on ? 'active' : ''}`}
+                      onClick={() => setSubwayConfig(c => ({
+                        ...c,
+                        sauceIds: on
+                          ? c.sauceIds.filter(id => id !== s.item_id)
+                          : [...c.sauceIds, s.item_id],
+                      }))}>
+                      {s.product_name_zh}
+                      {s.calories >= 50 && <span className="subway-chip-cal"> +{Math.round(s.calories)}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Size */}
+              <p className="subway-section-label">尺寸</p>
+              <div className="subway-chip-row">
+                {[[1, '6 吋'], [2, '12 吋（長）']].map(([mult, label]) => (
+                  <button key={mult}
+                    className={`subway-chip ${subwayConfig.sizeMult === mult ? 'active' : ''}`}
+                    onClick={() => setSubwayConfig(c => ({ ...c, sizeMult: mult }))}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Live nutrition preview */}
+              {subwayConfig.sandwichId && (() => {
+                const nut = calcSubwayMeal(subwayConfig)
+                return nut && (
+                  <div className="result-totals" style={{ marginTop: 14 }}>
+                    <div className="result-total-row">
+                      {[
+                        [nut.calories,  'kcal'],
+                        [nut.protein_g, '蛋白質 g'],
+                        [nut.carbs_g,   '碳水 g'],
+                        [nut.fat_g,     '脂肪 g'],
+                      ].map(([val, lbl]) => (
+                        <div key={lbl} className="result-total-item">
+                          <span className="result-total-val">{val}</span>
+                          <span className="result-total-lbl">{lbl}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Disclaimer */}
+              <p className="subway-disclaimer">
+                📋 依據 Subway Taiwan 官方公開數據。
+                蔬菜熱量極低已計入。醬料若未加選，以無醬計算。
+              </p>
+
+              {/* Meal type */}
+              <div className="form-group" style={{ marginTop: 10 }}>
+                <label>餐別</label>
+                <div className="meal-type-btns">
+                  {MEAL_TYPES.map(t => (
+                    <button key={t} type="button"
+                      className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
+                      onClick={() => setMealType(t)}>{t}</button>
+                  ))}
+                </div>
+              </div>
+
+              {error && <p className="login-error">{error}</p>}
+
+              <button className="submit-btn"
+                disabled={!subwayConfig.sandwichId || saving}
+                onClick={handleSubwaySave}>
+                {saving ? '儲存中...' : (() => {
+                  const nut = subwayConfig.sandwichId ? calcSubwayMeal(subwayConfig) : null
+                  return `✓ 記錄 Subway（${nut?.calories ?? '—'} kcal）`
+                })()}
               </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
