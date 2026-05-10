@@ -2540,24 +2540,32 @@ body {
 }
 .rm-action-btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
 .rm-action-btn:active:not(:disabled) { transform: scale(0.97); }
-.rm-action-btn:disabled { opacity: 0.62; cursor: not-allowed; }
+/* Disabled: dim only the text content, NOT the whole button.
+   CSS opacity on a parent cannot be undone by children — so we target
+   .rm-action-info and .rm-action-tag instead to keep the icon emoji visible. */
+.rm-action-btn:disabled { cursor: not-allowed; background: #F6F2EE; border-color: #DDD3C8; }
+.rm-action-btn:disabled .rm-action-info { opacity: 0.5; }
+.rm-action-btn:disabled .rm-action-tag  { opacity: 0.5; }
 .rm-action-btn.rm-action-primary {
   border-color: #D4882A;
   background: linear-gradient(135deg, #FFF4E0, #FFE8C0);
   box-shadow: 0 2px 8px rgba(212,136,42,0.18);
 }
 
-/* Icon bubble — gives emoji a solid visual anchor even at reduced opacity */
+/* Icon wrap — always full opacity so emoji stays readable */
 .rm-action-icon-wrap {
-  width: 44px; height: 44px; border-radius: 12px;
-  background: rgba(0,0,0,0.06);
+  min-width: 44px; width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(100,70,40,0.10);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
 .rm-action-btn.rm-action-primary .rm-action-icon-wrap {
-  background: rgba(212,136,42,0.15);
+  background: rgba(212,136,42,0.20);
 }
-.rm-action-icon  { font-size: 24px; line-height: 1; }
+.rm-action-btn:disabled .rm-action-icon-wrap {
+  background: rgba(100,70,40,0.06);
+}
+.rm-action-icon  { font-size: 26px; line-height: 1; display: block; }
 .rm-action-info  { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .rm-action-label { font-size: 14px; font-weight: 800; color: #3D2B1A; }
 .rm-action-sub   { font-size: 11.5px; color: #7A6550; font-weight: 600; line-height: 1.3; }
