@@ -2349,11 +2349,12 @@ body {
 }
 
 /* ── Cat sprite animations ─────────────────────────────── */
-@keyframes cat-walk    { to { background-position-x: -600px; } }
-@keyframes cat-sleep   { to { background-position-x: -480px; } }
-@keyframes cat-eat     { to { background-position-x: -600px; } }
-@keyframes cat-play    { to { background-position-x: -600px; } }
-@keyframes cat-scratch { to { background-position-x: -600px; } }
+/* CAT_W=160 → 5-frame strip = 800px total, 4-frame strip = 640px total */
+@keyframes cat-walk    { to { background-position-x: -800px; } }
+@keyframes cat-sleep   { to { background-position-x: -640px; } }
+@keyframes cat-eat     { to { background-position-x: -800px; } }
+@keyframes cat-play    { to { background-position-x: -800px; } }
+@keyframes cat-scratch { to { background-position-x: -800px; } }
 
 .cat-sprite-anim-walking    { animation: cat-walk    0.625s steps(5) infinite; }
 .cat-sprite-anim-sleeping   { animation: cat-sleep   1.333s steps(4) infinite; }

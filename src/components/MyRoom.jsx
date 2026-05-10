@@ -102,7 +102,9 @@ function loadPet() {
     mood   = Math.round(Math.min(100, Math.max(0, mood)))
     if (hunger >= 90 && petState !== 'sleeping') petState = 'veryHungry'
     else if (hunger >= 70 && petState !== 'sleeping') petState = 'hungry'
-    else if (['walking','eating','playing','scratching'].includes(petState)) petState = 'idle'
+    // Reset any transient action states — timers don't survive page reload
+    else if (['walking','eating','playing','scratching','sleeping',
+              'stretching','lying','grooming','lookingOutside','playingIdle','watching'].includes(petState)) petState = 'idle'
     return { ...s, petState, hunger, mood, energy, lastUpdatedAt: Date.now() }
   } catch { return defaultPet() }
 }
