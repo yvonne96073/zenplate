@@ -2234,7 +2234,7 @@ body {
 .rm-ceiling { display: none; }
 .rm-wall {
   position: absolute; inset: 0;
-  background: url('/room-bg.jpg') center center / cover no-repeat;
+  background: url('/room-bg.png') center center / cover no-repeat;
   z-index: 1;
 }
 .rm-wall::before { display: none; }
