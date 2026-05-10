@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 
 function isInAppBrowser() {
@@ -7,6 +7,8 @@ function isInAppBrowser() {
     || (/wv|WebView/i.test(ua) && !/Chrome\/\d/.test(ua))
 }
 
+const isAndroid = () => /android/i.test(navigator.userAgent || '')
+
 export default function Login() {
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
@@ -14,10 +16,14 @@ export default function Login() {
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
   const [message, setMessage]   = useState('')
-  const [showSafariGuide, setShowSafariGuide] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
+  const [btnLoading, setBtnLoading] = useState(false)
+  const timerRef = useRef(null)
 
   const inApp = isInAppBrowser()
+  const android = isAndroid()
 
+  // Normal OAuth (regular browser)
   const handleGoogleLogin = async () => {
     setError('')
     const { error } = await supabase.auth.signInWithOAuth({
@@ -25,6 +31,33 @@ export default function Login() {
       options: { redirectTo: window.location.origin },
     })
     if (error) setError(error.message)
+  }
+
+  // In-app browser: try to open system browser directly
+  const handleGoogleLoginInApp = async () => {
+    setBtnLoading(true)
+    const { data } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin, skipBrowserRedirect: true },
+    })
+    setBtnLoading(false)
+
+    if (!data?.url) { setShowGuide(true); return }
+
+    // Fallback guide if redirect doesn't open external browser within 2s
+    timerRef.current = setTimeout(() => setShowGuide(true), 2000)
+
+    if (android) {
+      // Android: intent:// opens Chrome (or default browser)
+      const intentUrl = 'intent://'
+        + data.url.replace(/^https?:\/\//, '')
+        + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url='
+        + encodeURIComponent(data.url) + ';end'
+      window.location.href = intentUrl
+    } else {
+      // iOS: x-safari-https:// opens URL directly in Safari app
+      window.location.href = data.url.replace(/^https:\/\//, 'x-safari-https://')
+    }
   }
 
   const handleAuth = async (e) => {
@@ -58,26 +91,24 @@ export default function Login() {
         <p className="login-sub">Your mindful nutrition companion</p>
 
         {inApp ? (
-          <>
-            {showSafariGuide ? (
-              <div className="safari-guide">
-                <p className="safari-guide-title">如何用 Google 登入</p>
-                <ol className="safari-guide-steps">
-                  <li>點右上角 <strong>···</strong> 選單</li>
-                  <li>選擇「<strong>在 Safari 中開啟</strong>」</li>
-                  <li>在 Safari 裡點 Google 登入</li>
-                </ol>
-                <button className="safari-guide-close" onClick={() => setShowSafariGuide(false)}>
-                  知道了
-                </button>
-              </div>
-            ) : (
-              <button className="google-btn google-btn-inapp" onClick={() => setShowSafariGuide(true)}>
-                {googleIcon}
-                Continue with Google
+          showGuide ? (
+            <div className="safari-guide">
+              <p className="safari-guide-title">如何用 Google 登入</p>
+              <ol className="safari-guide-steps">
+                <li>點右上角 <strong>···</strong> 選單</li>
+                <li>選擇「<strong>在 {android ? 'Chrome' : 'Safari'} 中開啟</strong>」</li>
+                <li>在 {android ? 'Chrome' : 'Safari'} 裡點 Google 登入</li>
+              </ol>
+              <button className="safari-guide-close" onClick={() => setShowGuide(false)}>
+                知道了
               </button>
-            )}
-          </>
+            </div>
+          ) : (
+            <button className="google-btn" onClick={handleGoogleLoginInApp} disabled={btnLoading}>
+              {googleIcon}
+              {btnLoading ? 'Loading...' : 'Continue with Google'}
+            </button>
+          )
         ) : (
           <button className="google-btn" onClick={handleGoogleLogin}>
             {googleIcon}
