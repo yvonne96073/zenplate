@@ -13,22 +13,37 @@ const MEAL_TYPES   = ['早餐', '午餐', '晚餐', '點心']
 const MEAL_TYPE_V  = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
 const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
 
-// ── New multi-candidate prompt ────────────────────────────────────────────────
-const VISION_PROMPT = `你是台灣 AI 營養師，分析食物照片。
+// ── Vision prompt — identity + portion estimate are both required ─────────────
+const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須同時完成兩件事：
+1. 辨識食物身份
+2. 從畫面視覺估算實際份量（g）
 
-仔細觀察所有細節：食物外觀、包裝文字、容器形狀、品牌顏色、餐廳環境、托盤、旁邊的物品。
+份量估算方法（依優先順序）：
+- 密封包裝 → 讀包裝上的克數
+- 標準容器（便當盒/碗/盤）→ 根據容器大小與填滿程度估算
+- 參考物（筷子/手/湯匙）→ 用比例推算
+- 台灣常見份量習慣（白飯1碗≈200g、雞腿≈120g、豬排≈100g、青菜1份≈80g、醬汁≈15g）
 
 只回傳 JSON（不加任何說明或 markdown）：
 {
   "candidates": [
     {
-      "name": "食物名稱（中文）",
-      "confidence": 75,
-      "clues": ["判斷依據1", "判斷依據2"],
+      "name": "餐點名稱（中文）",
+      "confidence": 80,
+      "clues": ["食物辨識依據", "份量判斷依據"],
       "packaged": false,
       "brand": "",
       "components": [
-        { "name": "食材或品項名稱", "grams": 150, "cal_est": 200, "pro_est": 12, "carb_est": 25, "fat_est": 8, "hint": "1碗" }
+        {
+          "name": "食材名稱",
+          "grams": 220,
+          "portion_confidence": 75,
+          "cal_est": 286,
+          "pro_est": 5.3,
+          "carb_est": 63,
+          "fat_est": 0.5,
+          "hint": "約1碗"
+        }
       ]
     }
   ]
@@ -36,13 +51,18 @@ const VISION_PROMPT = `你是台灣 AI 營養師，分析食物照片。
 
 規則：
 1. 永遠回傳 3 個 candidates，由高到低信心度排序
-2. confidence：0-100 整數
-3. 多個食物（便當/托盤/套餐）→ components 分列每個品項
-4. 包裝食品 → packaged:true，brand 填品牌名
-5. cal_est / pro_est / carb_est / fat_est = 該份量的估計值（kcal 或 g），不是每 100g
-6. 就算不確定也要給最佳猜測，不可以回傳空 candidates
-7. 使用台灣常用中文食物名稱
-8. 看到 Subway 店面、包裝紙、logo、或潛艇堡環境 → brand 填 "Subway"，name 填 Subway 台灣菜單品項中文名稱（如：照燒雞肉、嫩切雞肉、鮪魚、素食蔬菜等）`
+2. confidence / portion_confidence：0-100 整數
+3. portion_confidence 判斷基準：
+   80+ = 密封包裝、完整餐盒、份量明確
+   55-79 = 大致可判斷（家常菜、標準碗盤）
+   30-54 = 不確定（混合料理、醬汁、看不清的配料）
+4. grams = 畫面中實際份量的視覺估算，不是資料庫標準份量
+5. cal_est / pro_est / carb_est / fat_est = 該 grams 份量的總估計值，不是每100g
+6. 多個食物 → components 分列每個品項，每個都要估算 grams 和 portion_confidence
+7. 包裝食品 → packaged:true，brand 填品牌名
+8. 就算不確定也要給最佳猜測，不可回傳空 candidates
+9. 使用台灣常用中文食物名稱
+10. 看到 Subway 店面/包裝/logo → brand 填 "Subway"，name 填菜單品項中文名稱`
 
 // ── Source metadata ───────────────────────────────────────────────────────────
 const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方' }
@@ -56,6 +76,7 @@ function enrichComp(ai, dbReady) {
   const base = {
     aiName: ai.name, grams: ai.grams || 100, baseGrams: ai.grams || 100,
     portionMult: 1, calEst: ai.cal_est || 0, hint: ai.hint || '',
+    portionConf: ai.portion_confidence ?? 55,   // 0-100, drives warning UI
     proEst:  ai.pro_est  ?? null,
     carbEst: ai.carb_est ?? null,
     fatEst:  ai.fat_est  ?? null,
@@ -155,58 +176,73 @@ function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
   )
 }
 
-// ── Component row with portion controls ──────────────────────────────────────
-const MULT_LABELS = { 0.5: '½x', 1: '1x', 1.5: '1.5x', 2: '2x' }
-const GRAM_OPTS   = [50, 100, 150, 200, 300]
+// ── Component row — gram-first design ────────────────────────────────────────
+const GRAM_OPTS = [50, 100, 150, 200, 300]
 
 function ComponentRow({ comp, onChange, onRemove, dbReady }) {
   const nut = calcCompNut(comp)
 
-  // For AI items: actual gram estimate from AI
-  const aiGrams = comp.source === 'ai' && comp.baseGrams
-    ? `AI 估算 ~${comp.baseGrams}g` : null
+  const isFdaBased  = comp.source === 'fda' || comp.source === 'packaged'
+  const actualGrams = isFdaBased
+    ? comp.grams
+    : Math.round((comp.baseGrams || 100) * (comp.portionMult || 1))
 
-  // For FDA items: show the AI's original hint as reference
-  const fdaHint = comp.source === 'fda' && comp.hint
-    ? `AI 估算 ${comp.hint}` : null
+  // For AI/NYCU: gram buttons derived from baseGrams × multiples
+  const aiGramOpts = [0.5, 1, 1.5, 2].map(m => ({
+    mult: m,
+    grams: Math.round((comp.baseGrams || 100) * m),
+  }))
+
+  const portionLow = (comp.portionConf ?? 55) < 55
 
   return (
     <div className="comp-row">
+      {/* Header: source + name + gram badge */}
       <div className="comp-row-header">
         <span className="comp-src-tag" style={{ background: SRC_COLOR[comp.source] }}>
           {SRC_LABEL[comp.source]}
         </span>
         <span className="comp-name">{comp.name}</span>
+        <span className="comp-gram-badge">{actualGrams}g</span>
         <button className="comp-rm" onClick={onRemove}>✕</button>
       </div>
 
-      {/* Portion controls */}
-      {comp.source === 'fda'
-        ? <>
-            {fdaHint && <p className="comp-ai-hint">📐 {fdaHint} · 可依實際調整</p>}
-            <div className="comp-portion-row">
+      {/* Low portion-confidence warning */}
+      {portionLow && (
+        <p className="comp-portion-warn">⚠️ 份量估算不確定，請依實際情況調整</p>
+      )}
+
+      {/* Portion controls — always gram-based */}
+      <p className="comp-portion-label">調整份量</p>
+      <div className="comp-portion-row">
+        {isFdaBased
+          ? <>
               {GRAM_OPTS.map(g => (
-                <button key={g} className={`portion-btn ${comp.grams === g ? 'active' : ''}`}
+                <button key={g}
+                  className={`portion-btn ${comp.grams === g ? 'active' : ''}`}
                   onClick={() => onChange({ ...comp, grams: g })}>{g}g</button>
               ))}
               <input className="portion-input" type="number" min="1" max="2000"
                 value={comp.grams}
                 onChange={e => onChange({ ...comp, grams: parseInt(e.target.value) || comp.grams })}/>
-            </div>
-          </>
-        : <>
-            {aiGrams && <p className="comp-ai-hint">📐 {aiGrams} · 不確定可直接沿用</p>}
-            <div className="comp-portion-row">
-              {Object.entries(MULT_LABELS).map(([m, label]) => (
-                <button key={m}
-                  className={`portion-btn ${comp.portionMult == m ? 'active' : ''}`}
-                  onClick={() => onChange({ ...comp, portionMult: +m })}>{label}</button>
+            </>
+          : <>
+              {aiGramOpts.map(({ mult, grams }) => (
+                <button key={mult}
+                  className={`portion-btn ${comp.portionMult == mult ? 'active' : ''}`}
+                  onClick={() => onChange({ ...comp, portionMult: mult })}>{grams}g</button>
               ))}
-            </div>
-          </>
-      }
+              <input className="portion-input" type="number" min="1" max="2000"
+                value={actualGrams}
+                onChange={e => {
+                  const g = Math.max(1, parseInt(e.target.value) || comp.baseGrams)
+                  onChange({ ...comp, portionMult: g / (comp.baseGrams || 100) })
+                }}/>
+            </>
+        }
+      </div>
 
-      {/* Nutrition */}
+      {/* Nutrition result */}
       <div className="comp-nut-row">
         <span className="comp-nut-cal">{nut.calories ?? '?'} kcal</span>
         {nut.protein != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">蛋白 {nut.protein}g</span></>}
@@ -214,10 +250,11 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
         {nut.fat     != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">脂肪 {nut.fat}g</span></>}
       </div>
 
-      {/* FDA override search for non-FDA items */}
+      {/* FDA override search — carry over AI gram estimate */}
       {comp.source !== 'fda' && dbReady && (
         <FdaSearch compact initialQuery={comp.aiName}
-          onSelect={item => onChange({ ...comp, name: item.n, source: 'fda', fdaItem: item })}/>
+          onSelect={item => onChange({ ...comp, name: item.n, source: 'fda',
+            fdaItem: item, grams: actualGrams })}/>
       )}
     </div>
   )
