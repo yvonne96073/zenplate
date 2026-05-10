@@ -2495,6 +2495,7 @@ body {
   50%       { box-shadow: 0 0 0 5px rgba(220,50,50,0.2); }
 }
 .rm-btn-play { background: linear-gradient(135deg, #E8F5E9, #C8EAC8); border-color: #80C880; }
+.rm-btn-rest { background: linear-gradient(135deg, #EEF0FA, #D8DCF0); border-color: #A0A8D8; }
 
 .rm-btn-dot {
   position: absolute; top: 6px; right: 8px; width: 9px; height: 9px; border-radius: 50%;

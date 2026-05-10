@@ -27,21 +27,6 @@ const OBJ = {
   center:  { x: 47, y: 8  },
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// UNLOCK MILESTONES
-// ─────────────────────────────────────────────────────────────────────────────
-export const UNLOCK_MILESTONES = [
-  { id: 'scratchPost', emoji: '🪵', name: 'Scratch Post', req: '3 feeds',   check: (p)      => p.feedCount >= 3  },
-  { id: 'toy',         emoji: '🧶', name: 'Yarn Toy',     req: '5 plays',   check: (p)      => p.playCount >= 5  },
-  { id: 'bed',         emoji: '🛏️', name: 'Cat Bed',      req: '3d streak', check: (p, str) => (str || 0) >= 3   },
-  { id: 'plant',       emoji: '🪴', name: 'Potted Plant', req: '10 feeds',  check: (p)      => p.feedCount >= 10 },
-  { id: 'lamp',        emoji: '🪔', name: 'Floor Lamp',   req: '10 plays',  check: (p)      => p.playCount >= 10 },
-  { id: 'painting',    emoji: '🖼️', name: 'Wall Art',     req: '20 feeds',  check: (p)      => p.feedCount >= 20 },
-  { id: 'bookshelf',   emoji: '📚', name: 'Bookshelf',    req: '7d streak', check: (p, str) => (str || 0) >= 7   },
-  { id: 'sofa',        emoji: '🛋️', name: 'Cozy Sofa',   req: '30 feeds',  check: (p)      => p.feedCount >= 30 },
-]
-
-export const ROOM_ITEMS = UNLOCK_MILESTONES   // Profile.jsx compat
 
 // ── Room themes — shared with Wardrobe in Profile.jsx ────────────────────────
 // unlock(ctx) where ctx = { streak, stars, mealCount, purchased[] }
@@ -87,12 +72,6 @@ function getDailyQuote() {
   return DAILY_QUOTES[day % DAILY_QUOTES.length]
 }
 
-function getUnlocks(prog, streak) {
-  const r = {}
-  for (const m of UNLOCK_MILESTONES) r[m.id] = m.check(prog, streak)
-  return r
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // PERSISTENCE
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,19 +104,6 @@ function loadPet() {
 
 function savePet(data) {
   try { localStorage.setItem(PET_KEY, JSON.stringify({ ...data, lastUpdatedAt: Date.now() })) } catch {}
-}
-
-function defaultProg() { return { feedCount: 0, playCount: 0 } }
-
-function loadProg() {
-  try {
-    const raw = localStorage.getItem(PROG_KEY)
-    return raw ? { ...defaultProg(), ...JSON.parse(raw) } : defaultProg()
-  } catch { return defaultProg() }
-}
-
-function saveProg(p) {
-  try { localStorage.setItem(PROG_KEY, JSON.stringify(p)) } catch {}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -367,17 +333,6 @@ const STATE_LABEL = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// ROOM LEVEL
-// ─────────────────────────────────────────────────────────────────────────────
-function getRoomLevel(xp) {
-  if (xp >= 800) return 5
-  if (xp >= 500) return 4
-  if (xp >= 300) return 3
-  if (xp >= 100) return 2
-  return 1
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }) {
@@ -398,7 +353,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const [wakeDialog,  setWakeDialog]  = useState(false)
   const [careEnergy,  setCareEnergy]  = useState(loadCE)   // Care Energy — local only
   const [hearts,      setHearts]      = useState([])       // [{id,offsetX}]
-  const [unlockPop,  setUnlockPop]  = useState(null)       // milestone obj
   const [equippedTheme, setEquippedTheme] = useState(() => {
     try { return localStorage.getItem('zp_theme') || 'japandi' } catch { return 'japandi' }
   })
@@ -406,17 +360,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     try { return localStorage.getItem('zp_acc') || 'green_collar' } catch { return 'green_collar' }
   })
 
-  // ── Progression ───────────────────────────────────────────────────────────
-  const [prog,       setProg]       = useState(defaultProg)
-
-  const purchased  = useMemo(() => {
+  // ── Purchased supplies (from Star shop) ───────────────────────────────────
+  const purchased = useMemo(() => {
     try { return JSON.parse(localStorage.getItem('zp_purchased') || '[]') } catch { return [] }
   }, [])
-  const unlockCtx  = useMemo(() => ({
-    streak: streak || 0, stars: calcStars(streak || 0), mealCount: mealCount || 0, purchased,
-  }), [streak, mealCount, purchased])
-
-  const unlocks = useMemo(() => getUnlocks(prog, streak || 0), [prog, streak])
+  const purchasedRef = useRef(purchased)
+  const hasPurchased = useCallback((id) => purchasedRef.current.includes(id), [])
 
   // ── Load on mount ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -427,7 +376,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     setMood(p.mood)
     setEnergy(p.energy)
     setFlipX(p.flipX || false)
-    setProg(loadProg())
     setInited(true)
   }, [])
 
@@ -437,8 +385,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const energyRef  = useRef(80)
   const isWalkRef  = useRef(false)
   const catPosRef  = useRef({ x: 47, y: 8 })
-  const unlocksRef = useRef(unlocks)
-  const progRef    = useRef(prog)
 
   const msgTimer    = useRef(null)
   const stateTimer  = useRef(null)
@@ -448,13 +394,11 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const stateStarted = useRef(Date.now())
   const stateDurRef  = useRef(null)
 
-  useEffect(() => { stateRef.current   = petState  }, [petState])
-  useEffect(() => { hungerRef.current  = hunger    }, [hunger])
-  useEffect(() => { energyRef.current  = energy    }, [energy])
-  useEffect(() => { isWalkRef.current  = isWalking }, [isWalking])
-  useEffect(() => { catPosRef.current  = catPos    }, [catPos])
-  useEffect(() => { unlocksRef.current = unlocks   }, [unlocks])
-  useEffect(() => { progRef.current    = prog      }, [prog])
+  useEffect(() => { stateRef.current  = petState  }, [petState])
+  useEffect(() => { hungerRef.current = hunger    }, [hunger])
+  useEffect(() => { energyRef.current = energy    }, [energy])
+  useEffect(() => { isWalkRef.current = isWalking }, [isWalking])
+  useEffect(() => { catPosRef.current = catPos    }, [catPos])
 
   // ── Auto-save ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -514,24 +458,11 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     setTimeout(() => setHearts(h => h.filter(x => !batch.find(b => b.id === x.id))), 1400)
   }, [])
 
-  // ── Check unlocks after progress change ───────────────────────────────────
-  const checkUnlocks = useCallback((next, prevProg) => {
-    const pU = getUnlocks(prevProg, streak || 0)
-    const nU = getUnlocks(next,     streak || 0)
-    for (const m of UNLOCK_MILESTONES) {
-      if (nU[m.id] && !pU[m.id]) {
-        setUnlockPop(m)
-        setTimeout(() => setUnlockPop(null), 3500)
-        break
-      }
-    }
-  }, [streak])
-
-  // ── Auto-scratch (only when unlocked) ─────────────────────────────────────
+  // ── Auto-scratch (only when scratching board is owned) ───────────────────
   const scheduleAutoScratch = useCallback(() => {
     clearTimeout(scratchTimer.current)
     scratchTimer.current = setTimeout(() => {
-      if (stateRef.current === 'idle' && !isWalkRef.current && unlocksRef.current.scratchPost) {
+      if (stateRef.current === 'idle' && !isWalkRef.current && purchasedRef.current.includes('scratching_board')) {
         walkTo(OBJ.scratch, () => {
           setPetState('scratching')
           setMood(m => Math.min(m + 6, 100))
@@ -573,22 +504,25 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     if (!inited) return
     const tick = setInterval(() => {
       const s = stateRef.current
-      if (s !== 'eating')    setHunger(h => Math.min(h + 2, 100))
-      if (s === 'sleeping')  setEnergy(e => Math.min(e + 3, 100))
+      const hasBowl    = purchasedRef.current.includes('water_bowl')
+      const hasBlanket = purchasedRef.current.includes('blanket')
+      const hasBed     = purchasedRef.current.includes('cat_bed')
+
+      if (s !== 'eating')    setHunger(h => Math.min(h + (hasBowl ? 1.5 : 2), 100))
+      if (s === 'sleeping')  setEnergy(e => Math.min(e + (hasBlanket || hasBed ? 4 : 3), 100))
       else if (s !== 'idle') setEnergy(e => Math.max(e - 1, 0))
 
       const h = hungerRef.current
       const e = energyRef.current
 
-      // Auto-sleep (goes to bed if unlocked, otherwise sleeps in place)
+      // Auto-sleep (goes to bed if owned, otherwise sleeps in place)
       if (e <= 10 && s === 'idle') {
-        if (unlocksRef.current.bed) {
+        if (hasBed) {
           walkTo(OBJ.bed, () => {
             setPetState('sleeping'); stateDurRef.current = null
             bubble('😴 Crawling into bed... zzz', 3000)
           })
         } else {
-          // No bed → sleep on the floor
           setPetState('sleeping'); stateDurRef.current = null
           bubble('😴 So sleepy... zzz', 2500)
         }
@@ -633,18 +567,14 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const doFeed = () => {
     if (!spendCE(FEED_COST)) return
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
+    const hasCan    = purchasedRef.current.includes('premium_can')
+    const feedAmt   = hasCan ? 60 : 45
     walkTo(OBJ.bowl, () => {
       setPetState('eating')
-      setHunger(h => Math.max(0, h - 45))
+      setHunger(h => Math.max(0, h - feedAmt))
       setMood(m   => Math.min(m + 10, 100))
-      bubble('😋 Yum! Fullness +45 💕', 3500)
+      bubble(`😋 Yum! Fullness +${feedAmt} 💕`, 3500)
       showHearts()
-      setProg(prev => {
-        const next = { ...prev, feedCount: prev.feedCount + 1 }
-        saveProg(next)
-        checkUnlocks(next, prev)
-        return next
-      })
       scheduleIdle('eating')
     })
   }
@@ -664,18 +594,12 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const doPlay = () => {
     if (!spendCE(PLAY_COST)) return
     clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
-    const dest = unlocksRef.current.toy ? OBJ.toy : OBJ.center
+    const dest = purchasedRef.current.includes('toy_mouse') ? OBJ.toy : OBJ.center
     walkTo(dest, () => {
       setPetState('playing')
       setMood(m   => Math.min(m + 20, 100))
       setEnergy(e => Math.max(e - 18, 0))
       bubble('😸 Wheee!! So fun! ✨', 3000)
-      setProg(prev => {
-        const next = { ...prev, playCount: prev.playCount + 1 }
-        saveProg(next)
-        checkUnlocks(next, prev)
-        return next
-      })
       scheduleIdle('playing')
     })
   }
@@ -684,6 +608,21 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     setWakeDialog(false); clearTimeout(stateTimer.current); setPetState('idle')
     bubble("😺 Okay okay, I'm up!", 1400)
     setTimeout(doPlay, 1500)
+  }
+
+  // ── REST (free, no CE cost) ────────────────────────────────────────────────
+  const handleRest = () => {
+    if (petState === 'sleeping') { bubble('Already sleeping~ zzz 😴', 1500); return }
+    clearTimeout(stateTimer.current); clearTimeout(scratchTimer.current)
+    if (purchasedRef.current.includes('cat_bed')) {
+      walkTo(OBJ.bed, () => {
+        setPetState('sleeping'); stateDurRef.current = null
+        bubble('😴 Taking a nap in bed...', 2500)
+      })
+    } else {
+      setPetState('sleeping'); stateDurRef.current = null
+      bubble('😴 Taking a little rest...', 2500)
+    }
   }
 
   // ── Cat click ─────────────────────────────────────────────────────────────
@@ -695,27 +634,22 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
     if (petState === 'scratching') { bubble('😼 Scratching, ahh~', 1500); return }
     const msgs = pickMessage(petState, hunger, mood, energy)
     bubble(msgs[Math.floor(Math.random() * msgs.length)])
-    if (petState !== 'hungry' && petState !== 'veryHungry') setMood(m => Math.min(m + 5, 100))
+    if (petState !== 'hungry' && petState !== 'veryHungry') {
+      const hasBrush = purchasedRef.current.includes('brush')
+      setMood(m => Math.min(m + (hasBrush ? 10 : 5), 100))
+    }
   }
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const displayState    = isWalking ? 'walking' : petState
-  const label           = STATE_LABEL[displayState] || STATE_LABEL.idle
-  const canFeed         = careEnergy >= FEED_COST
-  const canPlay         = careEnergy >= PLAY_COST && energy >= 20
-  const fullness        = 100 - hunger   // flip: higher = fuller (intuitive)
-  const fullnessColor   = fullness >= 70 ? '#43A047' : fullness >= 30 ? '#FB8C00' : '#E53935'
-  const moodColor       = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
-  const energyColor     = energy >= 60 ? '#2196F3' : energy >= 30 ? '#FF9800' : '#9E9E9E'
-  const handleEquipTheme = (id) => {
-    setEquippedTheme(id)
-    try { localStorage.setItem('zp_theme', id) } catch {}
-  }
-  const handleEquipAcc = (id) => {
-    setEquippedAcc(id)
-    try { localStorage.setItem('zp_acc', id) } catch {}
-  }
-  const activeAcc = ACCESSORIES.find(a => a.id === equippedAcc)
+  const displayState  = isWalking ? 'walking' : petState
+  const label         = STATE_LABEL[displayState] || STATE_LABEL.idle
+  const canFeed       = careEnergy >= FEED_COST
+  const canPlay       = careEnergy >= PLAY_COST && energy >= 20
+  const fullness      = 100 - hunger   // flip: higher = fuller (intuitive)
+  const fullnessColor = fullness >= 70 ? '#43A047' : fullness >= 30 ? '#FB8C00' : '#E53935'
+  const moodColor     = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
+  const energyColor   = energy >= 60 ? '#2196F3' : energy >= 30 ? '#FF9800' : '#9E9E9E'
+  const activeAcc     = ACCESSORIES.find(a => a.id === equippedAcc)
 
   if (!inited) return null
 
@@ -739,9 +673,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         <div className="rm-header">
           <div className="rm-header-left">
             <span className="rm-title">🐱 My Room</span>
-            <span className="rm-room-lv">Room Lv.{getRoomLevel(xp || 0)}</span>
+            <span className="rm-room-lv">Bond Lv.{level || 1}</span>
           </div>
-          <div className="rm-xp" title="Log meals to earn Care Energy (+30 per meal)">
+          <div className="rm-xp" title="Scan a meal to earn Care Energy ⚡">
             <span>⚡</span>
             <span>{careEnergy}</span>
           </div>
@@ -757,14 +691,37 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
           <div className="rm-baseboard"/>
           <div className="rm-floor"/>
 
-          {/* Only show earned decorations — no bowl (bg already has one) */}
-          {unlocks.toy && (
+          {/* Purchased cat supplies — appear in room */}
+          {purchased.includes('toy_mouse') && (
             <div className="rm-floor-obj" style={{ left:`${OBJ.toy.x}%`, bottom:`${OBJ.toy.y}%` }}>
-              <div className={`rm-obj-icon ${petState === 'playing' ? 'rm-ball-active' : ''}`}>🧶</div>
+              <div className={`rm-obj-icon ${petState === 'playing' ? 'rm-ball-active' : ''}`}>🐭</div>
             </div>
           )}
-          {unlocks.plant  && <div className="rm-floor-obj" style={{ left:'78%', bottom:'18%' }}><div className="rm-obj-icon">🪴</div></div>}
-          {unlocks.lamp   && <div className="rm-floor-obj" style={{ left:'6%', bottom:'12%'  }}><div className="rm-obj-icon">🪔</div></div>}
+          {purchased.includes('scratching_board') && (
+            <div className="rm-floor-obj" style={{ left:`${OBJ.scratch.x}%`, bottom:`${OBJ.scratch.y}%` }}>
+              <div className={`rm-obj-icon ${petState === 'scratching' ? 'rm-ball-active' : ''}`}>🪵</div>
+            </div>
+          )}
+          {purchased.includes('cat_bed') && (
+            <div className="rm-floor-obj" style={{ left:`${OBJ.bed.x + 3}%`, bottom:`${OBJ.bed.y}%` }}>
+              <div className="rm-obj-icon">🛏️</div>
+            </div>
+          )}
+          {purchased.includes('blanket') && purchased.includes('cat_bed') && (
+            <div className="rm-floor-obj" style={{ left:`${OBJ.bed.x + 8}%`, bottom:`${OBJ.bed.y - 2}%` }}>
+              <div className="rm-obj-icon">🧣</div>
+            </div>
+          )}
+          {purchased.includes('water_bowl') && (
+            <div className="rm-floor-obj" style={{ left:`${OBJ.bowl.x + 3}%`, bottom:`${OBJ.bowl.y + 2}%` }}>
+              <div className="rm-obj-icon">💧</div>
+            </div>
+          )}
+          {purchased.includes('window_cushion') && (
+            <div className="rm-floor-obj" style={{ left:'82%', bottom:'35%' }}>
+              <div className="rm-obj-icon">🪟</div>
+            </div>
+          )}
 
           {/* ── SPEECH BUBBLE (clamped, never clipped) ── */}
           {showMsg && (
@@ -822,17 +779,6 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
           {/* XP flash */}
           {xpFlash && <div className="rm-xp-flash">{xpFlash}</div>}
 
-          {/* Unlock popup */}
-          {unlockPop && (
-            <div className="rm-unlock-pop">
-              <span className="rm-unlock-emoji">{unlockPop.emoji}</span>
-              <div>
-                <div className="rm-unlock-title">New item unlocked!</div>
-                <div className="rm-unlock-name">{unlockPop.name}</div>
-              </div>
-            </div>
-          )}
-
           {/* ── Wake dialog (inside scene so position:absolute anchors correctly) */}
           {wakeDialog && (
             <div className="rm-wake-dialog">
@@ -884,8 +830,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Feed</span>
                 {canFeed
-                  ? <span className="rm-btn-effect">Fullness +45 · 20 ⚡</span>
-                  : <span className="rm-btn-cost">Need 20 ⚡ · Log a meal to earn</span>
+                  ? <span className="rm-btn-effect">Fullness +{purchased.includes('premium_can') ? 60 : 45} · 20 ⚡</span>
+                  : <span className="rm-btn-cost">Need 20 ⚡ · Scan a meal to earn</span>
                 }
               </div>
             </button>
@@ -895,63 +841,31 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
               onClick={handlePlay}
               disabled={!canPlay}
             >
-              <span className="rm-btn-icon">🧶</span>
+              <span className="rm-btn-icon">{purchased.includes('toy_mouse') ? '🐭' : '🧶'}</span>
               <div className="rm-btn-text">
                 <span className="rm-btn-label">Play</span>
                 {canPlay
                   ? <span className="rm-btn-effect">Mood +20 · 15 ⚡</span>
                   : careEnergy < PLAY_COST
-                    ? <span className="rm-btn-cost">Need 15 ⚡ · Log a meal to earn</span>
+                    ? <span className="rm-btn-cost">Need 15 ⚡ · Scan a meal to earn</span>
                     : <span className="rm-btn-cost">Too tired 😴</span>
                 }
               </div>
             </button>
-          </div>
 
-          {/* Room Customization */}
-          <div className="rm-customize">
-            <p className="rm-section-title">🏠 Customize Room</p>
-
-            <p className="rm-sub-label">Themes</p>
-            <div className="rm-theme-row">
-              {THEMES.map(t => {
-                const isOn = equippedTheme === t.id
-                const ok   = !t.unlock || t.unlock(unlockCtx)
-                return (
-                  <button
-                    key={t.id}
-                    className={`rm-theme-chip ${isOn ? 'on' : ''} ${!ok ? 'locked' : ''}`}
-                    onClick={() => ok && handleEquipTheme(t.id)}
-                  >
-                    <span>{t.emoji}</span>
-                    <span>{t.name}</span>
-                    {isOn  && <span className="rm-chip-badge">✓</span>}
-                    {!ok   && <span className="rm-chip-lock">🔒</span>}
-                  </button>
-                )
-              })}
-            </div>
-
-            <p className="rm-sub-label">Accessories</p>
-            <div className="rm-acc-grid">
-              {ACCESSORIES.map(a => {
-                const isOn      = equippedAcc === a.id
-                const unlocked  = a.unlock(unlockCtx)
-                return (
-                  <button
-                    key={a.id}
-                    className={`rm-acc-card ${isOn ? 'on' : ''} ${!unlocked ? 'locked' : ''}`}
-                    onClick={() => unlocked && handleEquipAcc(a.id)}
-                  >
-                    <span className="rm-acc-emoji">{a.emoji}</span>
-                    <span className="rm-acc-name">{a.name}</span>
-                    <span className="rm-acc-status">
-                      {isOn ? '✓ On' : unlocked ? 'Equip' : `🔒 ${a.req}`}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
+            <button
+              className="rm-btn rm-btn-rest"
+              onClick={handleRest}
+              disabled={petState === 'sleeping'}
+            >
+              <span className="rm-btn-icon">😴</span>
+              <div className="rm-btn-text">
+                <span className="rm-btn-label">Rest</span>
+                <span className="rm-btn-effect">
+                  {petState === 'sleeping' ? 'Already sleeping...' : 'Energy recovers · Free'}
+                </span>
+              </div>
+            </button>
           </div>
 
         </div>{/* end rm-body */}

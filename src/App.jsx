@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from './lib/supabase'
 import { useProfile } from './hooks/useProfile'
+import { calcMealRewards } from './utils/scoring'
 
 import Login from './pages/Login'
 import Home from './pages/Home'
@@ -34,12 +35,12 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  const handleMealLogged = async () => {
+  const handleMealLogged = async (plateScore) => {
     setShowLogModal(false)
     setShowScanModal(false)
-    await onMealLogged()
-    // Award +30 Care Energy per meal logged (cap at 200)
-    const next = Math.min(careEnergy + 30, 200)
+    await onMealLogged(plateScore)
+    const { ce } = calcMealRewards(plateScore)
+    const next = Math.min(careEnergy + ce, 200)
     localStorage.setItem('zp_care_energy', String(next))
     setCareEnergy(next)
     setRefreshKey(k => k + 1)

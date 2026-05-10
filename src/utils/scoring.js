@@ -92,3 +92,13 @@ export function calcStars(streak = 0) {
   if (streak >= 30) stars += 10
   return stars
 }
+
+// Meal rewards — Care Energy + XP per plate score tier
+// plateScore null = manual entry (mid-tier baseline)
+export function calcMealRewards(plateScore) {
+  if (plateScore == null) return { ce: 15, xp: 10 }
+  if (plateScore >= 80)   return { ce: 30, xp: 20 }
+  if (plateScore >= 60)   return { ce: 20, xp: 15 }
+  if (plateScore >= 40)   return { ce: 15, xp: 10 }
+  return                         { ce: 10, xp: 5  }
+}

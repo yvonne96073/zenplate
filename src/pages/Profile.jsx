@@ -70,14 +70,16 @@ function getQuestResetTime() {
   return `${h}h ${m}m`
 }
 
-// ── Star Shop ─────────────────────────────────────────────────
-const STAR_SHOP = [
-  { id: 'ocean',        emoji: '🌊', name: 'Ocean Theme',   price: 5,  desc: 'Unlocks in My Room — dive into the deep blue',  category: '🎨 Themes' },
-  { id: 'night',        emoji: '🌙', name: 'Night Theme',   price: 10, desc: 'Unlocks in My Room — starry night vibes',       category: '🎨 Themes' },
-  { id: 'leaf_collar',  emoji: '🍃', name: 'Leaf Collar',   price: 3,  desc: 'A fresh forest touch for your cat',             category: '✨ Accessories' },
-  { id: 'wave_scarf',   emoji: '〰️', name: 'Wave Scarf',    price: 5,  desc: 'Flow with the ocean breeze',                   category: '✨ Accessories' },
-  { id: 'flower_crown', emoji: '🌺', name: 'Flower Crown',  price: 8,  desc: 'Bloom beautifully, petal by petal',            category: '✨ Accessories' },
-  { id: 'star_cape',    emoji: '🌟', name: 'Star Cape',     price: 10, desc: 'Shine across the room',                        category: '✨ Accessories' },
+// ── Cat Supplies ─────────────────────────────────────────────────
+const CAT_SUPPLIES = [
+  { id: 'cat_bed',          emoji: '🛏️', name: 'Cat Bed',          price: 3, effect: 'Rest restores Energy faster.' },
+  { id: 'scratching_board', emoji: '🪵', name: 'Scratching Board',  price: 2, effect: 'Mood decreases more slowly.' },
+  { id: 'toy_mouse',        emoji: '🐭', name: 'Toy Mouse',         price: 2, effect: 'Your cat has something to chase.' },
+  { id: 'water_bowl',       emoji: '💧', name: 'Water Bowl',        price: 2, effect: 'Hunger decreases more slowly.' },
+  { id: 'blanket',          emoji: '🧣', name: 'Small Blanket',     price: 3, effect: 'Nap quality improves.' },
+  { id: 'window_cushion',   emoji: '🪟', name: 'Window Cushion',    price: 5, effect: 'Unlocks a cozy window spot.' },
+  { id: 'premium_can',      emoji: '🥫', name: 'Premium Cat Food',  price: 4, effect: 'Feeding restores more Fullness.' },
+  { id: 'brush',            emoji: '🪮', name: 'Grooming Brush',    price: 4, effect: 'Petting boosts Mood more.' },
 ]
 
 // ── Quest pool: 10 quests, pick 3 per day by date-seed ───────
@@ -350,7 +352,7 @@ export default function Profile({ session, profile, updateProfile }) {
             <span className="room-entry-icon">🐱</span>
             <div className="room-entry-text">
               <div className="room-entry-title">Visit Your Cat</div>
-              <div className="room-entry-sub">Use ⚡ Care Energy to feed &amp; play · +30 ⚡ per meal logged</div>
+              <div className="room-entry-sub">Use ⚡ Care Energy to feed &amp; play · Scan a meal to earn more</div>
             </div>
             <span className="room-entry-arrow">›</span>
           </div>
@@ -426,9 +428,9 @@ export default function Profile({ session, profile, updateProfile }) {
           </div>
         </div>
         <div className="setting-row" onClick={() => setShowShop(true)}>
-          <div className="sr-icon" style={{ background: '#FFFBE6' }}>⭐</div>
+          <div className="sr-icon" style={{ background: '#FFFBE6' }}>🐱</div>
           <div className="sr-info">
-            <div className="sr-name">Star Shop</div>
+            <div className="sr-name">Cat Supplies</div>
             <div className="sr-sub">⭐ {spendableStars} available · earn from streaks</div>
           </div>
           <div className="sr-right">
@@ -641,7 +643,7 @@ export default function Profile({ session, profile, updateProfile }) {
       )}
 
       {showShop && (
-        <Modal title="⭐ Star Shop" onClose={() => setShowShop(false)}>
+        <Modal title="🐱 Cat Supplies" onClose={() => setShowShop(false)}>
           {/* Balance bar */}
           <div className="zr-balance-bar">
             <div>
@@ -667,33 +669,31 @@ export default function Profile({ session, profile, updateProfile }) {
             ))}
           </div>
 
-          {/* Group items by category */}
-          {['🎨 Themes', '✨ Accessories'].map(cat => (
-            <div key={cat}>
-              <p className="zr-section-label">{cat}</p>
-              <div className="zr-item-list">
-                {STAR_SHOP.filter(item => item.category === cat).map(item => {
-                  const owned  = purchases.includes(item.id)
-                  const canBuy = spendableStars >= item.price
-                  return (
-                    <div key={item.id} className="zr-item">
-                      <span className="zr-item-emoji">{item.emoji}</span>
-                      <div className="zr-item-info">
-                        <p className="zr-item-name">{item.name}</p>
-                        <p className="zr-item-desc">{item.desc}</p>
-                      </div>
-                      <button
-                        className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
-                        onClick={() => handleBuy(item)}
-                      >
-                        {owned ? '✓ Owned' : `⭐ ${item.price}`}
-                      </button>
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
-          ))}
+          <p style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 12, fontWeight: 600 }}>
+            Supplies appear in My Room and improve your cat's life.
+          </p>
+
+          <div className="zr-item-list">
+            {CAT_SUPPLIES.map(item => {
+              const owned  = purchases.includes(item.id)
+              const canBuy = spendableStars >= item.price
+              return (
+                <div key={item.id} className="zr-item">
+                  <span className="zr-item-emoji">{item.emoji}</span>
+                  <div className="zr-item-info">
+                    <p className="zr-item-name">{item.name}</p>
+                    <p className="zr-item-desc">{item.effect}</p>
+                  </div>
+                  <button
+                    className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
+                    onClick={() => handleBuy(item)}
+                  >
+                    {owned ? '✓ Owned' : `⭐ ${item.price}`}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         </Modal>
       )}
     </>

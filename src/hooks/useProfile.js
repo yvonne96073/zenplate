@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '../lib/supabase'
+import { calcMealRewards } from '../utils/scoring'
 
 const XP_LEVELS = [0, 100, 300, 600, 1000, 1500, 2200, 3000, 4000, 5500, 7000]
 
@@ -55,7 +56,7 @@ export function useProfile(userId) {
 
   useEffect(() => { fetchProfile() }, [fetchProfile])
 
-  const onMealLogged = useCallback(async () => {
+  const onMealLogged = useCallback(async (plateScore) => {
     if (!userId) return
     const { data: current } = await supabase
       .from('profiles')
@@ -67,10 +68,11 @@ export function useProfile(userId) {
     const today = getToday()
     const yesterday = getYesterday()
     let newStreak = current.streak || 0
-    const newXp = (current.xp || 0) + 10
+    const { xp: xpGain } = calcMealRewards(plateScore)
+    const newXp = (current.xp || 0) + xpGain
 
     if (current.last_logged_date === today) {
-      // already logged today, just add XP
+      // already logged today — still add XP
     } else if (current.last_logged_date === yesterday) {
       newStreak += 1
     } else {
