@@ -2458,12 +2458,16 @@ body {
 @keyframes cat-scratch { to { background-position-x: -800px; } }
 
 .cat-sprite-anim-walking    { animation: cat-walk    0.625s steps(5) infinite; }
-.cat-sprite-anim-sleeping   { animation: cat-sleep   1.333s steps(4) infinite; }
+.cat-sprite-anim-sleeping   { animation: cat-breathe 3.6s ease-in-out infinite; }
+@keyframes cat-breathe {
+  0%, 100% { transform: scaleY(1);    opacity: 1;    }
+  45%       { transform: scaleY(0.93); opacity: 0.88; }
+}
 .cat-sprite-anim-eating     { animation: cat-eat     0.833s steps(5) infinite; }
 .cat-sprite-anim-playing     { animation: cat-play    0.714s steps(5) infinite; }
 .cat-sprite-anim-scratching  { animation: cat-scratch 1.0s   steps(5) infinite; }
 /* New idle behavior states — reuse existing keyframes at relaxed speeds */
-.cat-sprite-anim-lying       { animation: cat-sleep   2.2s   steps(4) infinite; }
+.cat-sprite-anim-lying       { animation: cat-breathe 4.2s   ease-in-out infinite; }
 .cat-sprite-anim-stretching  { animation: cat-scratch 1.8s   steps(5) infinite; }
 .cat-sprite-anim-grooming    { animation: cat-walk    1.5s   steps(5) infinite; }
 .cat-sprite-anim-playingIdle { animation: cat-play    1.4s   steps(5) infinite; }

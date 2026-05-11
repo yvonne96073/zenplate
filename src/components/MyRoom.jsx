@@ -182,7 +182,7 @@ const SPRITE_CFG = {
 }
 
 // States where sprite shows as still (first frame only)
-const STILL_STATES = new Set(['idle', 'hungry', 'hungryCritical', 'veryHungry', 'lowMood', 'lookingOutside', 'watching', 'eating'])
+const STILL_STATES = new Set(['idle', 'hungry', 'hungryCritical', 'veryHungry', 'lowMood', 'lookingOutside', 'watching', 'eating', 'sleeping', 'lying'])
 const ORIG_STRIP_W = 1408
 
 function CatSprite({ state }) {
@@ -796,6 +796,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
   // ── FEED ──────────────────────────────────────────────────────────────────
   const handleFeed = () => {
     if (catState === 'walking') return
+    if (fullnessRef.current >= 85) {
+      bubble('😸 Already full! Come back later~', 2500); return
+    }
     if (catState === 'sleeping') {
       clearTimeout(stateTimer.current); setCatState('idle')
       bubble('😴 Mmm... food?', 1400)
@@ -885,7 +888,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const label         = STATE_LABEL[catState] || STATE_LABEL.idle
-  const canFeed       = careEnergy >= FEED_COST
+  const isFull        = fullness >= 85
+  const canFeed       = careEnergy >= FEED_COST && !isFull
   const canPlay       = careEnergy >= PLAY_COST && energy >= 30
   const fullnessColor = fullness >= 70 ? '#43A047' : fullness >= 30 ? '#FB8C00' : '#E53935'
   const moodColor     = mood   >= 60 ? '#43A047' : mood   >= 30 ? '#FB8C00' : '#E53935'
@@ -1028,11 +1032,15 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
                   <div className="rm-action-info">
                     <span className="rm-action-label">Feed</span>
                     <span className="rm-action-sub">
-                      {canFeed ? `Fullness +${feedAmt}` : 'Need 20 Care Energy. Log a meal first.'}
+                      {isFull
+                        ? 'Cat is full! Come back later~ 😸'
+                        : canFeed
+                          ? `Fullness +${feedAmt}`
+                          : 'Need 20 Care Energy. Log a meal first.'}
                     </span>
                   </div>
-                  <span className={`rm-action-tag ${canFeed ? 'rm-tag-cost' : 'rm-tag-locked'}`}>
-                    {canFeed ? '20 ⚡' : 'Need 20 ⚡'}
+                  <span className={`rm-action-tag ${isFull ? 'rm-tag-free' : canFeed ? 'rm-tag-cost' : 'rm-tag-locked'}`}>
+                    {isFull ? 'Full 😸' : canFeed ? '20 ⚡' : 'Need 20 ⚡'}
                   </span>
                 </button>
 
