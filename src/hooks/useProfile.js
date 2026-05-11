@@ -19,6 +19,14 @@ export function getNextLevelXp(level) {
   return XP_LEVELS[level] || XP_LEVELS[XP_LEVELS.length - 1]
 }
 
+export function levelProgress(xp) {
+  const lvl    = getLevel(xp)
+  const xpThis = getLevelXp(lvl)
+  const xpNext = getNextLevelXp(lvl)
+  const pct    = Math.round(((xp - xpThis) / (xpNext - xpThis)) * 100)
+  return { lvl, xpThis, xpNext, pct: Math.min(100, Math.max(0, pct)) }
+}
+
 function getToday() {
   return new Date().toISOString().split('T')[0]
 }

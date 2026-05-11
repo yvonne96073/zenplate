@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { calcStars } from '../utils/scoring'
+import { getLevelXp, getNextLevelXp } from '../hooks/useProfile'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONSTANTS
@@ -441,6 +442,17 @@ const STATE_LABEL = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CAT STATUS — short human-readable summary of current state
+// ─────────────────────────────────────────────────────────────────────────────
+function getCatStatus(catState) {
+  if (catState === 'hungryCritical') return { text: 'Your cat really needs food.', urgent: true }
+  if (catState === 'hungry')         return { text: 'Your cat is hungry.', urgent: true }
+  if (catState === 'sleeping')       return { text: 'Your cat is resting.', urgent: false }
+  if (catState === 'lowMood')        return { text: 'Your cat could use some comfort.', urgent: false }
+  return { text: 'Your cat is doing well today.', urgent: false }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // SMART RECOMMENDATION
 // ─────────────────────────────────────────────────────────────────────────────
 function getRecommendation(fullness, energy, mood, ce) {
@@ -466,7 +478,7 @@ function getRecommendation(fullness, energy, mood, ce) {
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
 // ─────────────────────────────────────────────────────────────────────────────
-export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }) {
+export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, onLogMeal }) {
   // ── Pet state — ONE variable controls which cat visual is shown ───────────
   const [inited,      setInited]      = useState(false)
   const [catState,    setCatState]    = useState('idle')      // single source of truth
@@ -880,6 +892,14 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
   const energyColor   = energy >= 60 ? '#2196F3' : energy >= 30 ? '#FF9800' : '#9E9E9E'
   const activeAcc     = ACCESSORIES.find(a => a.id === equippedAcc)
 
+  // Bond XP progress bar
+  const currentLevel  = level || 1
+  const xpThis        = getLevelXp(currentLevel)
+  const xpNext        = getNextLevelXp(currentLevel)
+  const xpPct         = xpNext > xpThis ? Math.min(100, Math.round(((xp || 0) - xpThis) / (xpNext - xpThis) * 100)) : 100
+  const catStatus     = getCatStatus(catState)
+  const needsCare     = ['hungryCritical', 'hungry', 'lowMood'].includes(catState)
+
   if (!inited) return null
 
   const scenePx      = 300
@@ -896,15 +916,25 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
 
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <div className="rm-header">
-          <div className="rm-header-left">
-            <span className="rm-title">🐱 My Room</span>
-            <span className="rm-room-lv">Bond Lv.{level || 1}</span>
-          </div>
-          <div className="rm-xp" title="Scan a meal to earn Care Energy ⚡">
-            <span>⚡</span>
-            <span>{careEnergy}</span>
-          </div>
+          <span className="rm-title">🐱 My Room</span>
           <button className="rm-close" onClick={onClose}>✕</button>
+        </div>
+
+        {/* ── INFO STRIP — Bond XP + Care Energy ─────────────────────────── */}
+        <div className="rm-info-strip">
+          <div className="rm-bond-info">
+            <span className="rm-bond-lv-label">Bond Lv.{currentLevel}</span>
+            <div className="rm-bond-bar-track">
+              <div className="rm-bond-bar-fill" style={{ width: `${xpPct}%` }} />
+            </div>
+            <span className="rm-bond-xp-text">{xp || 0} / {xpNext} XP to Lv.{currentLevel + 1}</span>
+          </div>
+          <div className="rm-ce-info">
+            <span className="rm-ce-val">Care Energy ⚡ {careEnergy}</span>
+            <span className="rm-ce-hint">
+              {careEnergy === 0 ? 'Log a meal to earn Care Energy.' : 'Earn by logging meals.'}
+            </span>
+          </div>
         </div>
 
         {/* ── SCENE ──────────────────────────────────────────────────────── */}
@@ -958,6 +988,11 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
         {/* ── SCROLLABLE BOTTOM ──────────────────────────────────────────── */}
         <div className="rm-body">
 
+          {/* ── Cat status card ─── */}
+          <div className={`rm-status-card ${catStatus.urgent ? 'rm-status-urgent' : ''}`}>
+            {catStatus.text}
+          </div>
+
           <div className="rm-stats">
             {[
               { icon: '🍚', label: 'Fullness', val: fullness, color: fullnessColor },
@@ -976,21 +1011,9 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
 
           {(() => {
             const rec = getRecommendation(fullness, energy, mood, careEnergy)
-            if (!rec.msg) return null
-            return (
-              <div className={`rm-rec ${rec.type === 'urgent' || rec.type === 'feed' ? 'rm-rec-urgent' : 'rm-rec-soft'}`}>
-                <span className="rm-rec-icon">
-                  {rec.action === 'feed' ? '🍚' : rec.action === 'rest' ? '😴' : '🧶'}
-                </span>
-                <p className="rm-rec-msg">{rec.msg}</p>
-              </div>
-            )
-          })()}
-
-          {(() => {
-            const rec = getRecommendation(fullness, energy, mood, careEnergy)
-            const feedAmt = purchased.includes('premium_can') ? 60 : 45
+            const feedAmt    = purchased.includes('premium_can') ? 60 : 45
             const restDisabled = energy >= 100 || catState === 'sleeping'
+            const isSleeping   = catState === 'sleeping'
             return (
               <div className="rm-actions">
 
@@ -1005,7 +1028,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                   <div className="rm-action-info">
                     <span className="rm-action-label">Feed</span>
                     <span className="rm-action-sub">
-                      {canFeed ? `Fullness +${feedAmt}` : 'Scan a meal to earn Care Energy ⚡'}
+                      {canFeed ? `Fullness +${feedAmt}` : 'Need 20 Care Energy. Log a meal first.'}
                     </span>
                   </div>
                   <span className={`rm-action-tag ${canFeed ? 'rm-tag-cost' : 'rm-tag-locked'}`}>
@@ -1027,8 +1050,8 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                       {canPlay
                         ? 'Mood +20'
                         : energy < 30
-                          ? 'Your cat is too tired to play'
-                          : 'Scan a meal to earn Care Energy ⚡'}
+                          ? 'Your cat is too tired to play. Let it rest first.'
+                          : 'Need 15 Care Energy. Log a meal first.'}
                     </span>
                   </div>
                   <span className={`rm-action-tag ${canPlay ? 'rm-tag-cost' : 'rm-tag-locked'}`}>
@@ -1045,13 +1068,13 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
                     <span className="rm-action-icon">😴</span>
                   </div>
                   <div className="rm-action-info">
-                    <span className="rm-action-label">Rest</span>
+                    <span className="rm-action-label">{isSleeping ? 'Resting now' : 'Rest'}</span>
                     <span className="rm-action-sub">
                       {energy >= 100
                         ? 'Energy is already full'
-                        : catState === 'sleeping'
-                          ? 'Your cat is sleeping'
-                          : 'Let your cat rest to recover Energy'}
+                        : isSleeping
+                          ? 'Resting peacefully. Energy recovering.'
+                          : 'Free · Let your cat rest to recover Energy'}
                     </span>
                   </div>
                   <span className="rm-action-tag rm-tag-free">Free</span>
@@ -1060,6 +1083,16 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose }
               </div>
             )
           })()}
+
+          {/* ── Log a Meal CTA — shown when CE=0 and cat needs care ─── */}
+          {careEnergy === 0 && needsCare && (
+            <button
+              className="rm-log-cta-btn"
+              onClick={() => { onClose(); onLogMeal?.() }}
+            >
+              🍽️ Log a Meal to Care for Your Cat
+            </button>
+          )}
 
           <div className="rm-quote">
             <p className="rm-quote-text">✨ "{getDailyQuote()}"</p>

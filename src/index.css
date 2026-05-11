@@ -946,6 +946,44 @@ body {
 }
 .zr-earn-badge.earned { background: var(--primary-light); color: var(--primary); }
 
+/* ── Cat Supplies — updated states ──────────────────────────── */
+.zr-stars-hint {
+  font-size: 11.5px; font-weight: 700; color: #9A7840;
+  background: #FFFBEF; border: 1px solid #F0DC90; border-radius: 10px;
+  padding: 8px 12px; margin-bottom: 12px; line-height: 1.5;
+}
+/* balance bar now contains earn-row on the right */
+.zr-balance-bar .zr-earn-row { margin-bottom: 0; flex-wrap: wrap; max-width: 56%; }
+.zr-item-owned {
+  background: #F2FAF7; border: 1.5px solid #B8DDD0;
+}
+.zr-owned-badge {
+  flex-shrink: 0; font-size: 11px; font-weight: 800;
+  color: var(--primary); background: var(--primary-light);
+  border-radius: 10px; padding: 6px 10px; white-space: nowrap; cursor: default;
+}
+.zr-lock-badge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700;
+  color: var(--muted); background: var(--border);
+  border-radius: 10px; padding: 6px 10px; white-space: nowrap; cursor: default;
+}
+
+/* ── Wardrobe — updated layout ──────────────────────────────── */
+.wd-intro {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  margin-bottom: 16px; line-height: 1.5;
+}
+.wd-slot-group { margin-bottom: 14px; }
+.wd-slot-label {
+  font-size: 10.5px; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+}
+.wd-unlock-hint {
+  font-size: 12px; font-weight: 600; color: var(--muted);
+  text-align: center; padding: 10px 0 4px;
+  cursor: pointer; text-decoration: underline; text-decoration-style: dotted;
+}
+
 /* header coins chip */
 .header-coins { font-size: 12px; font-weight: 800; color: white; background: rgba(255,255,255,0.18); padding: 3px 9px; border-radius: 10px; }
 
@@ -2253,7 +2291,7 @@ body {
 
 /* ── Header ────────────────────────────────────────────── */
 .rm-header {
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px 10px;
   background: #FFF8EE;
   border-bottom: 2px solid #EFE0C8;
@@ -2698,6 +2736,70 @@ body {
 /* ── Cat sprite integration ──────────────────────────────── */
 .rm-cat-body > div { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
 
+/* ── Info strip — Bond XP + Care Energy ─────────────────── */
+.rm-info-strip {
+  display: flex; align-items: stretch; gap: 0;
+  background: #FFF4E4;
+  border-bottom: 1.5px solid #EFE0C8;
+  flex-shrink: 0;
+}
+.rm-bond-info {
+  flex: 1; display: flex; flex-direction: column; gap: 4px;
+  padding: 8px 12px 8px 14px;
+  border-right: 1px solid #EFE0C8;
+}
+.rm-bond-lv-label {
+  font-size: 11px; font-weight: 900; color: #A06808; letter-spacing: 0.2px;
+}
+.rm-bond-bar-track {
+  height: 5px; background: #EDE0C8; border-radius: 3px; overflow: hidden;
+}
+.rm-bond-bar-fill {
+  height: 100%; background: linear-gradient(90deg, #2BB5A0, #1E8A79);
+  border-radius: 3px; transition: width 0.4s ease;
+}
+.rm-bond-xp-text {
+  font-size: 10px; font-weight: 700; color: #9A7840;
+}
+.rm-ce-info {
+  flex: 1; display: flex; flex-direction: column; gap: 3px;
+  padding: 8px 14px 8px 12px;
+}
+.rm-ce-val {
+  font-size: 11px; font-weight: 900; color: #A06808;
+}
+.rm-ce-hint {
+  font-size: 10px; font-weight: 600; color: #B09050; line-height: 1.4;
+}
+
+/* ── Cat status card ─────────────────────────────────────── */
+.rm-status-card {
+  margin: 12px 16px 4px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: #F0F6F0;
+  border: 1.5px solid #C8DCC8;
+  font-size: 12.5px; font-weight: 700; color: #3A5A3A;
+  line-height: 1.4;
+}
+.rm-status-card.rm-status-urgent {
+  background: #FFF0EC; border-color: #F0B0A0; color: #8A2A10;
+}
+
+/* ── Log a Meal CTA ──────────────────────────────────────── */
+.rm-log-cta-btn {
+  display: block; width: calc(100% - 32px); margin: 10px 16px 4px;
+  padding: 12px 16px;
+  background: linear-gradient(135deg, #2BB5A0, #1E8A79);
+  color: #fff; font-size: 14px; font-weight: 800;
+  border: none; border-radius: 14px; cursor: pointer;
+  box-shadow: 0 3px 10px rgba(43,181,160,0.35);
+  transition: transform 0.15s, box-shadow 0.15s;
+  text-align: center;
+}
+.rm-log-cta-btn:hover  { transform: translateY(-2px); box-shadow: 0 5px 14px rgba(43,181,160,0.45); }
+.rm-log-cta-btn:active { transform: scale(0.97); }
+
 /* ══════════════════════════════════════════════════════════
    SCAN MODAL — REDESIGNED PIPELINE
    ══════════════════════════════════════════════════════════ */
@@ -3084,3 +3186,118 @@ body {
   font-size: 10px; color: var(--muted); text-align: center;
   margin: 8px 0 4px; line-height: 1.5;
 }
+
+/* ── Meal Reward Modal ───────────────────────────────────── */
+.mrew-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: flex-end; justify-content: center;
+  animation: mrew-fade-in 0.2s ease;
+}
+@keyframes mrew-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.mrew-card {
+  width: 100%; max-width: 480px;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  padding: 28px 24px 32px;
+  display: flex; flex-direction: column; align-items: center; gap: 16px;
+  animation: mrew-slide-up 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes mrew-slide-up {
+  from { transform: translateY(60px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* header */
+.mrew-header {
+  display: flex; align-items: center; gap: 8px;
+}
+.mrew-icon  { font-size: 22px; }
+.mrew-title { font-size: 20px; font-weight: 900; color: #2D2D2D; }
+
+/* plate score */
+.mrew-score-wrap {
+  width: 100%;
+  border-radius: 14px;
+  padding: 14px 20px;
+  display: flex; align-items: baseline; gap: 10px;
+}
+.mrew-score-num   { font-size: 36px; font-weight: 900; line-height: 1; }
+.mrew-score-label { font-size: 16px; font-weight: 800; }
+
+/* message */
+.mrew-msg {
+  font-size: 14px; font-weight: 600; color: #555;
+  text-align: center; line-height: 1.5;
+}
+
+/* reward badges */
+.mrew-rewards {
+  display: flex; gap: 12px; width: 100%;
+}
+.mrew-badge {
+  flex: 1;
+  border-radius: 14px; padding: 14px 12px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+.mrew-badge-ce { background: #FFF8E8; border: 1.5px solid #F0D060; }
+.mrew-badge-xp { background: #EEF4FF; border: 1.5px solid #B0C8F0; }
+.mrew-badge-val  { font-size: 28px; font-weight: 900; color: #2D2D2D; line-height: 1; }
+.mrew-badge-icon { font-size: 20px; }
+.mrew-badge-lbl  { font-size: 11px; font-weight: 700; color: #777; text-align: center; }
+
+/* level up */
+.mrew-levelup {
+  width: 100%;
+  background: linear-gradient(135deg, #FFF3CD, #FFE58F);
+  border: 1.5px solid #F0C040;
+  border-radius: 12px; padding: 10px 16px;
+  font-size: 14px; font-weight: 800; color: #7A5000;
+  text-align: center;
+}
+
+/* XP progress */
+.mrew-progress-wrap { width: 100%; }
+.mrew-progress-labels {
+  display: flex; justify-content: space-between;
+  font-size: 11px; font-weight: 700; color: #888;
+  margin-bottom: 6px;
+}
+.mrew-progress-track {
+  height: 8px; border-radius: 99px;
+  background: #EAEAEA; overflow: hidden;
+}
+.mrew-progress-fill {
+  height: 100%; border-radius: 99px;
+  background: linear-gradient(90deg, #6BC5A8, #4CAF85);
+  transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+/* CTA */
+.mrew-cta {
+  width: 100%; padding: 16px;
+  border: none; border-radius: 14px;
+  background: linear-gradient(135deg, #3D9A7A, #2E7A5E);
+  color: #fff; font-size: 16px; font-weight: 900;
+  cursor: pointer; letter-spacing: 0.2px;
+  box-shadow: 0 4px 16px rgba(46,122,94,0.3);
+  transition: transform 0.1s, box-shadow 0.1s;
+}
+.mrew-cta:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 8px rgba(46,122,94,0.2);
+}
+.mrew-sub {
+  font-size: 12px; color: #888; font-weight: 600; text-align: center;
+}
+
+/* dismiss */
+.mrew-dismiss {
+  background: none; border: none; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: #AAA;
+  padding: 4px 8px;
+}
+.mrew-dismiss:hover { color: #666; }

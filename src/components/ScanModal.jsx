@@ -11,12 +11,12 @@ import { isFamilyMartContext, searchFamilyMart, getFamilyMartNutrition } from '.
 import { lookupComponent, compNutrition, COMPONENT_ID_LIST } from '../utils/portionDb'
 import { calcPlateScore, scoreInfo, getScoreBreakdown } from '../utils/scoring'
 import { loadPortionAdjustments, savePortionCorrections, hasPersonalization } from '../utils/portionLearning'
+import { GEMINI_FALLBACK_MODELS } from '../config/ai'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
 const MEAL_TYPES   = ['早餐', '午餐', '晚餐', '點心']
 const MEAL_TYPE_V  = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
-const GEMINI_MODELS = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest']
 
 // ── Vision prompt — Portion Science v2 ───────────────────────────────────────
 const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須完成：
@@ -260,6 +260,9 @@ function sumComps(comps) {
     protein:  nuts.some(n => n.protein != null) ? +nuts.reduce((s, n) => s + (n.protein || 0), 0).toFixed(1) : null,
     carbs:    nuts.some(n => n.carbs   != null) ? +nuts.reduce((s, n) => s + (n.carbs   || 0), 0).toFixed(1) : null,
     fat:      nuts.some(n => n.fat     != null) ? +nuts.reduce((s, n) => s + (n.fat     || 0), 0).toFixed(1) : null,
+    fiber:    nuts.some(n => n.fiber   != null && n.fiber > 0)
+                ? +nuts.reduce((s, n) => s + (n.fiber || 0), 0).toFixed(1)
+                : null,
   }
 }
 
@@ -468,36 +471,56 @@ export default function ScanModal({ session, onClose, onSaved }) {
     if (!file) return
     setStep('analyzing'); setError('')
 
+    console.log('[ZenPlate AI] Upload received:', file.name, file.type, `${(file.size / 1024).toFixed(1)}KB`)
+
     try {
-      const base64  = await fileToBase64(file)
-      const imgPart = { inlineData: { data: base64.split(',')[1], mimeType: file.type || 'image/jpeg' } }
-      const timeout = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('TIMEOUT')), ms))])
+      const base64 = await fileToBase64(file)
+      // Normalize MIME type: Safari omits it, Android Chrome may report 'image/jpg' (non-standard)
+      const rawMime = file.type || ''
+      const mimeType = rawMime === 'image/jpg' ? 'image/jpeg'
+                     : rawMime.startsWith('image/') ? rawMime
+                     : 'image/jpeg'
+      console.log('[ZenPlate AI] MIME:', rawMime, '→', mimeType)
+      const imgPart  = { inlineData: { data: base64.split(',')[1], mimeType } }
+      const timeout  = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('TIMEOUT')), ms))])
+
+      console.log('[ZenPlate AI] Starting recognition, models:', GEMINI_FALLBACK_MODELS)
 
       let resp = null, lastErr = null
-      for (const model of GEMINI_MODELS) {
+      for (const model of GEMINI_FALLBACK_MODELS) {
         try {
+          console.log('[ZenPlate AI] Trying model:', model)
           resp = await timeout(genAI.getGenerativeModel({ model }).generateContent([imgPart, VISION_PROMPT]), 30000)
+          console.log('[ZenPlate AI] Success with model:', model)
           break
         } catch (err) {
           lastErr = err
+          console.warn('[ZenPlate AI] Model failed:', model, err.message)
           const s = err?.message?.match(/\[(\d+)\s/)?.[1]
           if (['503','429','404'].includes(s) || err.message === 'TIMEOUT') continue
           throw err
         }
       }
-      if (!resp) throw new Error(lastErr?.message === 'TIMEOUT' ? 'AI 回應逾時，請重試' : lastErr?.message)
+      if (!resp) throw new Error(lastErr?.message === 'TIMEOUT' ? 'TIMEOUT' : lastErr?.message)
 
       const text  = resp.response.text().trim()
+      console.log('[ZenPlate AI] Raw response (first 300 chars):', text.slice(0, 300))
       const match = text.match(/\{[\s\S]*\}/)
-      if (!match) throw new Error('AI 回傳格式錯誤，請重試')
+      if (!match) throw new Error('FORMAT_ERROR')
 
       const parsed = JSON.parse(match[0])
       const cands  = (parsed.candidates || []).filter(c => c.name)
-      if (!cands.length) throw new Error('AI 無法辨識，請重試或手動輸入')
+      if (!cands.length) throw new Error('NO_CANDIDATES')
 
       setCandidates(cands); setChosenIdx(0); setStep('candidates')
     } catch (err) {
-      setError('辨識失敗：' + err.message); setStep('select')
+      console.error('[ZenPlate AI] Recognition error:', err)
+      const msg =
+        err.message === 'TIMEOUT'      ? 'AI 回應逾時，請稍後再試或改用手動搜尋。' :
+        err.message === 'FORMAT_ERROR' ? 'AI 回傳格式異常，請重試或改用手動搜尋。' :
+        err.message === 'NO_CANDIDATES' ? 'AI 無法辨識這張圖片，請換一張或改用手動搜尋。' :
+        'AI 辨識暫時失敗，請稍後再試或改用手動搜尋。'
+      setError(msg); setStep('select')
     }
   }
 
@@ -625,7 +648,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
     if (dbErr) { setError(dbErr.message); return }
     // Persist any portion corrections the user made (non-blocking)
     savePortionCorrections(supabase, session.user.id, saved?.id, MEAL_TYPE_V[mealType], components).catch(() => {})
-    onSaved()
+    onSaved(calcPlateScore(payload))
   }
 
   // ── Subway save ───────────────────────────────────────────────────────────
@@ -655,7 +678,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
     })
     setSaving(false)
     if (dbErr) setError(dbErr.message)
-    else onSaved()
+    else onSaved(calcPlateScore({ calories: nut.calories, protein_g: nut.protein_g, carbs_g: nut.carbs_g, fat_g: nut.fat_g, fiber_g: null }))
   }
 
   // ── FamilyMart confirm selection → fetch nutrition + go to result ────────
@@ -690,12 +713,12 @@ export default function ScanModal({ session, onClose, onSaved }) {
   const hasAiEstimate = components.some(c => c.source === 'ai')
   const plateScore    = total.calories > 0 ? calcPlateScore({
     calories: total.calories, protein_g: total.protein ?? 0,
-    fat_g: total.fat ?? 0, fiber_g: 0, carbs_g: total.carbs ?? 0
+    fat_g: total.fat ?? 0, fiber_g: total.fiber ?? 0, carbs_g: total.carbs ?? 0
   }) : null
   const plateInfo      = plateScore != null ? scoreInfo(plateScore) : null
   const breakdown      = plateScore != null ? getScoreBreakdown({
     calories: total.calories, protein_g: total.protein ?? 0,
-    fat_g: total.fat ?? 0, fiber_g: 0, carbs_g: total.carbs ?? 0
+    fat_g: total.fat ?? 0, fiber_g: total.fiber ?? 0, carbs_g: total.carbs ?? 0
   }) : null
 
   // ── Render ────────────────────────────────────────────────────────────────

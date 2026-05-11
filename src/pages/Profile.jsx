@@ -72,15 +72,27 @@ function getQuestResetTime() {
 
 // ── Cat Supplies ─────────────────────────────────────────────────
 const CAT_SUPPLIES = [
-  { id: 'cat_bed',          emoji: '🛏️', name: 'Cat Bed',          price: 3, effect: 'A soft nook just for her. Rest restores Energy faster.' },
-  { id: 'scratching_board', emoji: '🪵', name: 'Scratching Board',  price: 2, effect: 'Something to stretch on. Mood decreases more slowly.' },
-  { id: 'toy_mouse',        emoji: '🐭', name: 'Toy Mouse',         price: 2, effect: 'A tiny friend to chase across the floor.' },
-  { id: 'water_bowl',       emoji: '💧', name: 'Water Bowl',        price: 2, effect: 'Fresh water, always. Hunger fades more slowly.' },
-  { id: 'blanket',          emoji: '🧣', name: 'Small Blanket',     price: 3, effect: 'Warm naps, deep sleep. Nap quality improves.' },
-  { id: 'window_cushion',   emoji: '🪟', name: 'Window Cushion',    price: 5, effect: 'A perch to watch the world. Unlocks a cozy window spot.' },
-  { id: 'premium_can',      emoji: '🥫', name: 'Premium Cat Food',  price: 4, effect: 'The good stuff. Feeding restores more Fullness.' },
-  { id: 'brush',            emoji: '🪮', name: 'Grooming Brush',    price: 4, effect: 'Gentle strokes, happy cat. Petting boosts Mood more.' },
+  { id: 'cat_bed',          emoji: '🛏️', name: 'Cat Bed',          price: 3, effect: 'Rest restores Energy faster.' },
+  { id: 'water_bowl',       emoji: '💧', name: 'Water Bowl',        price: 2, effect: 'Fullness decreases more slowly.' },
+  { id: 'scratching_board', emoji: '🪵', name: 'Scratching Board',  price: 2, effect: 'Mood decreases more slowly.' },
+  { id: 'toy_mouse',        emoji: '🐭', name: 'Toy Mouse',         price: 2, effect: 'Unlocks the play animation.' },
+  { id: 'blanket',          emoji: '🧣', name: 'Small Blanket',     price: 3, effect: 'Improves nap quality and sleep recovery.' },
+  { id: 'window_cushion',   emoji: '🪟', name: 'Window Cushion',    price: 5, effect: 'Unlocks the window resting animation.' },
+  { id: 'premium_can',      emoji: '🥫', name: 'Premium Cat Food',  price: 4, effect: 'Feeding restores more Fullness.' },
+  { id: 'brush',            emoji: '🪮', name: 'Grooming Brush',    price: 4, effect: 'Comfort improves Mood more.' },
 ]
+
+// ── Accessory slot map (Neck / Scarf / Head) ──────────────────────
+const ACC_SLOTS = {
+  green_collar: 'Neck',
+  bell_collar:  'Neck',
+  leaf_collar:  'Neck',
+  sunny_scarf:  'Scarf',
+  wave_scarf:   'Scarf',
+  flower_crown: 'Head',
+}
+const SLOT_ORDER  = ['Neck', 'Scarf', 'Head']
+const SLOT_EMOJI  = { Neck: '🐾', Scarf: '🧣', Head: '👑' }
 
 // ── Theme & Accessory shop display data ──────────────────────────
 const THEME_SHOP = [
@@ -152,7 +164,7 @@ const GOAL_LABELS = [
   { value: 'gain',   label: '📈 Build muscle',   sub: '+250 kcal/day' },
 ]
 
-export default function Profile({ session, profile, updateProfile }) {
+export default function Profile({ session, profile, updateProfile, autoOpenRoom, onLogMeal }) {
   const [editingAvatar, setEditingAvatar]   = useState(false)
   const [showRoom, setShowRoom]             = useState(false)
   const [showGoals, setShowGoals]           = useState(false)
@@ -180,6 +192,10 @@ export default function Profile({ session, profile, updateProfile }) {
   // Calculator form state
   const [calc, setCalc] = useState({ height: '', weight: '', age: '', gender: 'female', activity: 'light', goal: 'maintain' })
   const [calcResult, setCalcResult] = useState(null)
+
+  useEffect(() => {
+    if (autoOpenRoom) { setShowRoom(true) }
+  }, [autoOpenRoom])
 
   useEffect(() => {
     if (profile) {
@@ -449,10 +465,9 @@ export default function Profile({ session, profile, updateProfile }) {
           <div className="sr-icon" style={{ background: '#FFFBE6' }}>🐱</div>
           <div className="sr-info">
             <div className="sr-name">Cat Supplies</div>
-            <div className="sr-sub">⭐ {spendableStars} available · earn from streaks</div>
+            <div className="sr-sub">⭐ {spendableStars} Stars · earn from streaks</div>
           </div>
           <div className="sr-right">
-            <div className="sr-badge" style={{ background: '#FFF9C4', color: '#7A6000' }}>Shop</div>
             <div className="sr-arrow">›</div>
           </div>
         </div>
@@ -577,17 +592,15 @@ export default function Profile({ session, profile, updateProfile }) {
 
       {showAllWardrobe && (
         <Modal title="👗 Wardrobe" onClose={() => setShowAllWardrobe(false)}>
-          <p style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, fontWeight: 600, lineHeight: 1.5 }}>
-            Everything your cat owns. Tap any item to wear it.
-          </p>
+          <p className="wd-intro">Switch what your cat is wearing right now.</p>
 
-          <p className="wd-section-label">🎨 Themes</p>
+          {/* ── Themes ── */}
+          <p className="wd-section-label">🎨 Room Theme</p>
           <div className="wd-grid-themes">
             {ownedThemes.map(t => {
               const isOn = equippedTheme === t.id
               return (
-                <div key={t.id}
-                  className={`wd-card ${isOn ? 'wd-on' : ''}`}
+                <div key={t.id} className={`wd-card ${isOn ? 'wd-on' : ''}`}
                   onClick={() => handleEquipTheme(t.id)}>
                   <div className="wd-card-emoji">{t.emoji}</div>
                   <div className="wd-card-name">{t.name}</div>
@@ -596,27 +609,39 @@ export default function Profile({ session, profile, updateProfile }) {
               )
             })}
           </div>
+          {ownedThemes.length <= 1 && (
+            <p className="wd-unlock-hint">Unlock more looks from Cat Supplies.</p>
+          )}
 
-          <p className="wd-section-label" style={{ marginTop: 20 }}>✨ Accessories</p>
+          {/* ── Accessories by slot ── */}
+          <p className="wd-section-label" style={{ marginTop: 18 }}>✨ Accessories</p>
           {ownedAccs.length === 0 ? (
-            <p style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'center', padding: '12px 0' }}>
-              No accessories yet — check Cat Supplies to unlock some. 🐱
-            </p>
+            <p className="wd-unlock-hint">Unlock more looks from Cat Supplies.</p>
           ) : (
-            <div className="wd-grid-acc">
-              {ownedAccs.map(a => {
-                const isOn = equippedAcc === a.id
+            <>
+              {SLOT_ORDER.map(slot => {
+                const slotAccs = ownedAccs.filter(a => ACC_SLOTS[a.id] === slot)
+                if (slotAccs.length === 0) return null
                 return (
-                  <div key={a.id}
-                    className={`wd-card ${isOn ? 'wd-on' : ''}`}
-                    onClick={() => handleEquipAcc(a.id)}>
-                    <div className="wd-card-emoji">{a.emoji}</div>
-                    <div className="wd-card-name">{a.name}</div>
-                    <div className="wd-card-status">{isOn ? '✓ Wearing' : 'Tap to wear'}</div>
+                  <div key={slot} className="wd-slot-group">
+                    <p className="wd-slot-label">{SLOT_EMOJI[slot]} {slot}</p>
+                    <div className="wd-grid-acc">
+                      {slotAccs.map(a => {
+                        const isOn = equippedAcc === a.id
+                        return (
+                          <div key={a.id} className={`wd-card ${isOn ? 'wd-on' : ''}`}
+                            onClick={() => handleEquipAcc(a.id)}>
+                            <div className="wd-card-emoji">{a.emoji}</div>
+                            <div className="wd-card-name">{a.name}</div>
+                            <div className="wd-card-status">{isOn ? '✓ Wearing' : 'Tap to wear'}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 )
               })}
-            </div>
+            </>
           )}
         </Modal>
       )}
@@ -655,55 +680,63 @@ export default function Profile({ session, profile, updateProfile }) {
           mealCount={mealCount}
           level={level}
           onClose={() => setShowRoom(false)}
+          onLogMeal={onLogMeal}
         />
       )}
 
       {showShop && (
         <Modal title="🐱 Cat Supplies" onClose={() => setShowShop(false)}>
+
+          {/* Stars helper line */}
+          <p className="zr-stars-hint">
+            Earn Stars from streaks and milestones — not from every meal.
+          </p>
+
           {/* Balance bar */}
           <div className="zr-balance-bar">
             <div>
               <p className="zr-balance-label">Your Stars</p>
               <p className="zr-balance-amt">⭐ {spendableStars}</p>
             </div>
-            <p className="zr-balance-hint">Earned from streak milestones</p>
+            <div className="zr-earn-row">
+              {[
+                { icon: '🔥', act: '3-day',  reward: '+1 ⭐' },
+                { icon: '🔥', act: '7-day',  reward: '+3 ⭐' },
+                { icon: '💎', act: '14-day', reward: '+7 ⭐' },
+                { icon: '👑', act: '30-day', reward: '+10 ⭐' },
+              ].map(e => (
+                <div key={e.act} className="zr-earn-chip">
+                  <span className="zr-earn-icon">{e.icon}</span>
+                  <span className="zr-earn-act">{e.act}</span>
+                  <span className="zr-earn-reward">{e.reward}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* How to earn */}
-          <div className="zr-earn-row">
-            {[
-              { icon: '🔥', act: '3-day streak',  reward: '+1 ⭐' },
-              { icon: '🔥', act: '7-day streak',  reward: '+3 ⭐' },
-              { icon: '💎', act: '14-day streak', reward: '+7 ⭐' },
-              { icon: '👑', act: '30-day streak', reward: '+10 ⭐' },
-            ].map(e => (
-              <div key={e.act} className="zr-earn-chip">
-                <span className="zr-earn-icon">{e.icon}</span>
-                <span className="zr-earn-act">{e.act}</span>
-                <span className="zr-earn-reward">{e.reward}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Cat Care */}
-          <p className="zr-section-label">🐈 Cat Care</p>
+          {/* Cat Care items */}
+          <p className="zr-section-label">🐈 For Your Cat</p>
           <div className="zr-item-list">
             {CAT_SUPPLIES.map(item => {
               const owned  = purchases.includes(item.id)
-              const canBuy = spendableStars >= item.price
+              const canGet = spendableStars >= item.price
               return (
-                <div key={item.id} className="zr-item">
+                <div key={item.id} className={`zr-item ${owned ? 'zr-item-owned' : ''}`}>
                   <span className="zr-item-emoji">{item.emoji}</span>
                   <div className="zr-item-info">
                     <p className="zr-item-name">{item.name}</p>
                     <p className="zr-item-desc">{item.effect}</p>
                   </div>
-                  <button
-                    className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
-                    onClick={() => handleBuy(item)}
-                  >
-                    {owned ? '✓ Owned' : `⭐ ${item.price}`}
-                  </button>
+                  {owned ? (
+                    <span className="zr-owned-badge">✓ Yours</span>
+                  ) : (
+                    <button
+                      className={`zr-buy-btn ${canGet ? 'active' : 'disabled'}`}
+                      onClick={() => handleBuy(item)}
+                    >
+                      ⭐ {item.price}
+                    </button>
+                  )}
                 </div>
               )
             })}
@@ -715,25 +748,25 @@ export default function Profile({ session, profile, updateProfile }) {
             {THEME_SHOP.map(ts => {
               const theme  = THEMES.find(t => t.id === ts.id)
               const owned  = theme.unlock(unlockCtx)
-              const canBuy = ts.price > 0 && spendableStars >= ts.price
+              const canGet = ts.price > 0 && spendableStars >= ts.price
               return (
-                <div key={ts.id} className="zr-item">
+                <div key={ts.id} className={`zr-item ${owned ? 'zr-item-owned' : ''}`}>
                   <span className="zr-item-emoji">{theme.emoji}</span>
                   <div className="zr-item-info">
                     <p className="zr-item-name">{theme.name}</p>
                     <p className="zr-item-desc">{ts.desc}</p>
                   </div>
-                  {ts.price > 0 ? (
+                  {owned ? (
+                    <span className="zr-owned-badge">✓ Yours</span>
+                  ) : ts.price > 0 ? (
                     <button
-                      className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
+                      className={`zr-buy-btn ${canGet ? 'active' : 'disabled'}`}
                       onClick={() => handleBuy({ id: ts.id, name: theme.name, price: ts.price })}
                     >
-                      {owned ? '✓ Owned' : `⭐ ${ts.price}`}
+                      ⭐ {ts.price}
                     </button>
                   ) : (
-                    <span className={`zr-earn-badge ${owned ? 'earned' : ''}`}>
-                      {owned ? '✓ Yours' : `🔒 ${theme.req}`}
-                    </span>
+                    <span className="zr-lock-badge">🔒 {theme.req}</span>
                   )}
                 </div>
               )
@@ -746,26 +779,26 @@ export default function Profile({ session, profile, updateProfile }) {
             {ACC_SHOP.map(as => {
               const acc    = ACCESSORIES.find(a => a.id === as.id)
               const owned  = acc.unlock(unlockCtx)
-              const canBuy = as.price > 0 && spendableStars >= as.price
+              const canGet = as.price > 0 && spendableStars >= as.price
               return (
-                <div key={as.id} className="zr-item">
+                <div key={as.id} className={`zr-item ${owned ? 'zr-item-owned' : ''}`}>
                   <span className="zr-item-emoji">{acc.emoji}</span>
                   <div className="zr-item-info">
                     <p className="zr-item-name">{acc.name}</p>
                     <p className="zr-item-desc">{as.desc}</p>
                   </div>
-                  {as.price > 0 ? (
+                  {owned ? (
+                    <span className="zr-owned-badge">✓ Yours</span>
+                  ) : as.price > 0 ? (
                     <button
-                      className={`zr-buy-btn ${owned ? 'owned' : canBuy ? 'active' : 'disabled'}`}
+                      className={`zr-buy-btn ${canGet ? 'active' : 'disabled'}`}
                       onClick={() => handleBuy({ id: as.id, name: acc.name, price: as.price })}
                     >
-                      {owned ? '✓ Owned' : `⭐ ${as.price}`}
+                      ⭐ {as.price}
                     </button>
                   ) : (
-                    <span className={`zr-earn-badge ${owned ? 'earned' : ''}`}>
-                      {owned
-                        ? '✓ Yours'
-                        : acc.req === 'Always' ? '✓ Always' : `🔒 ${acc.req}`}
+                    <span className="zr-lock-badge">
+                      {acc.req === 'Always' ? '✓ Yours' : `🔒 ${acc.req}`}
                     </span>
                   )}
                 </div>

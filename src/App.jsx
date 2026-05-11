@@ -10,6 +10,7 @@ import Profile from './pages/Profile'
 import BottomNav from './components/BottomNav'
 import LogMealModal from './components/LogMealModal'
 import ScanModal from './components/ScanModal'
+import MealRewardModal from './components/MealRewardModal'
 
 export default function App() {
   const [session, setSession] = useState(null)
@@ -17,6 +18,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('home')
   const [showLogModal, setShowLogModal] = useState(false)
   const [showScanModal, setShowScanModal] = useState(false)
+  const [showReward, setShowReward] = useState(false)
+  const [rewardData, setRewardData] = useState(null)
+  const [autoOpenRoom, setAutoOpenRoom] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [careEnergy, setCareEnergy] = useState(() =>
     Math.max(0, parseInt(localStorage.getItem('zp_care_energy') || '0'))
@@ -38,12 +42,33 @@ export default function App() {
   const handleMealLogged = async (plateScore) => {
     setShowLogModal(false)
     setShowScanModal(false)
+
+    const oldXp = profile?.xp || 0
     await onMealLogged(plateScore)
-    const { ce } = calcMealRewards(plateScore)
-    const next = Math.min(careEnergy + ce, 200)
+
+    const { ce, xp } = calcMealRewards(plateScore)
+    const currentCE = Math.max(0, parseInt(localStorage.getItem('zp_care_energy') || '0'))
+    const next = Math.min(currentCE + ce, 200)
     localStorage.setItem('zp_care_energy', String(next))
     setCareEnergy(next)
     setRefreshKey(k => k + 1)
+
+    setRewardData({
+      plateScore,
+      ceEarned: ce,
+      xpEarned: xp,
+      totalCE: next,
+      oldXp,
+      newXp: oldXp + xp,
+    })
+    setShowReward(true)
+  }
+
+  const handleGoToRoom = () => {
+    setShowReward(false)
+    setActiveTab('profile')
+    setAutoOpenRoom(true)
+    setTimeout(() => setAutoOpenRoom(false), 500)
   }
 
   if (loading) return <div className="loading">Loading...</div>
@@ -69,7 +94,7 @@ export default function App() {
           <Stats key={refreshKey} session={session} profile={profile} />
         )}
         {activeTab === 'profile' && (
-          <Profile session={session} profile={profile} updateProfile={updateProfile} />
+          <Profile session={session} profile={profile} updateProfile={updateProfile} autoOpenRoom={autoOpenRoom} onLogMeal={() => setShowLogModal(true)} />
         )}
       </main>
 
@@ -80,6 +105,18 @@ export default function App() {
       )}
       {showScanModal && (
         <ScanModal session={session} onClose={() => setShowScanModal(false)} onSaved={handleMealLogged} />
+      )}
+      {showReward && rewardData && (
+        <MealRewardModal
+          plateScore={rewardData.plateScore}
+          ceEarned={rewardData.ceEarned}
+          xpEarned={rewardData.xpEarned}
+          totalCE={rewardData.totalCE}
+          oldXp={rewardData.oldXp}
+          newXp={rewardData.newXp}
+          onGoToRoom={handleGoToRoom}
+          onClose={() => setShowReward(false)}
+        />
       )}
     </div>
   )

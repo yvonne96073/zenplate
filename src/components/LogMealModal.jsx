@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { loadFdaDb, searchFda, calcNutrition, sumNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
+import { calcPlateScore } from '../utils/scoring'
 
 const MEAL_TYPES = ['早餐', '午餐', '晚餐', '點心']
 const MEAL_TYPE_VAL = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
@@ -137,7 +138,13 @@ export default function LogMealModal({ session, onClose, onSaved }) {
     })
     setLoading(false)
     if (dbErr) setError(dbErr.message)
-    else onSaved()
+    else onSaved(calcPlateScore({
+      calories:  Math.round(nutrition.calories || 0),
+      protein_g: nutrition.protein || 0,
+      carbs_g:   nutrition.carbs || 0,
+      fat_g:     nutrition.fat || 0,
+      fiber_g:   nutrition.fiber || 0,
+    }))
   }
 
   const handleSaveManual = async (e) => {
@@ -158,7 +165,13 @@ export default function LogMealModal({ session, onClose, onSaved }) {
     })
     setLoading(false)
     if (dbErr) setError(dbErr.message)
-    else onSaved()
+    else onSaved(calcPlateScore({
+      calories:  parseInt(manual.calories) || 0,
+      protein_g: parseFloat(manual.protein_g) || 0,
+      carbs_g:   parseFloat(manual.carbs_g) || 0,
+      fat_g:     parseFloat(manual.fat_g) || 0,
+      fiber_g:   parseFloat(manual.fiber_g) || 0,
+    }))
   }
 
   return (
