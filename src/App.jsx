@@ -44,7 +44,9 @@ export default function App() {
     setShowScanModal(false)
 
     const oldXp = profile?.xp || 0
-    await onMealLogged(plateScore)
+
+    // XP update is best-effort — CE reward must always run regardless
+    try { await onMealLogged(plateScore) } catch (e) { console.warn('XP update failed:', e) }
 
     const { ce, xp } = calcMealRewards(plateScore)
     const currentCE = Math.max(0, parseInt(localStorage.getItem('zp_care_energy') || '0'))
