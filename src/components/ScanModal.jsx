@@ -18,6 +18,14 @@ const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 const MEAL_TYPES   = ['早餐', '午餐', '晚餐', '點心']
 const MEAL_TYPE_V  = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
 
+function getDefaultMealType() {
+  const h = new Date().getHours()
+  if (h >= 5  && h < 11) return '早餐'
+  if (h >= 11 && h < 15) return '午餐'
+  if (h >= 15 && h < 21) return '晚餐'
+  return '點心'
+}
+
 // ── Vision prompt — Portion Science v2 ───────────────────────────────────────
 const VISION_PROMPT = `你是台灣 AI 營養師。每次分析必須完成：
 1. 判斷食物類型（packaged_food / chain_restaurant / general_meal）
@@ -197,7 +205,7 @@ function calcCompNut(comp) {
     return calcNutrition(comp.fdaItem, comp.grams)
   if (comp.source === 'portion' && comp.portionItem) {
     const nut = compNutrition(comp.portionItem, comp.grams)
-    return { calories: nut.calories, protein: nut.protein, carbs: nut.carbs, fat: nut.fat, fiber: 0 }
+    return { calories: nut.calories, protein: nut.protein, carbs: nut.carbs, fat: nut.fat, fiber: null }
   }
   if (comp.source === 'nycu' && comp.nycuDish) {
     const d = comp.nycuDish
@@ -206,7 +214,7 @@ function calcCompNut(comp) {
       protein:  +((d.pro  || 0) * m).toFixed(1),
       carbs:    +((d.carb || 0) * m).toFixed(1),
       fat:      +((d.fat  || 0) * m).toFixed(1),
-      fiber: 0,
+      fiber: null,
     }
   }
   if (comp.source === 'mcd' && comp.mcdItem) {
@@ -228,7 +236,7 @@ function calcCompNut(comp) {
       protein:  +(item.protein * m).toFixed(1),
       carbs:    +(item.carbs   * m).toFixed(1),
       fat:      +(item.fat     * m).toFixed(1),
-      fiber:    0,
+      fiber:    null,
     }
   }
   if (comp.source === 'packaged' && comp.packagedItem) {
@@ -239,7 +247,7 @@ function calcCompNut(comp) {
       protein:  +(item.pro100  * g / 100).toFixed(1),
       carbs:    +(item.carb100 * g / 100).toFixed(1),
       fat:      +(item.fat100  * g / 100).toFixed(1),
-      fiber: 0,
+      fiber: null,
     }
   }
   // AI estimate — use AI macro estimates when available
@@ -248,7 +256,7 @@ function calcCompNut(comp) {
     protein:  comp.proEst  != null ? +(comp.proEst  * m).toFixed(1) : null,
     carbs:    comp.carbEst != null ? +(comp.carbEst * m).toFixed(1) : null,
     fat:      comp.fatEst  != null ? +(comp.fatEst  * m).toFixed(1) : null,
-    fiber: 0,
+    fiber: null,
   }
 }
 
@@ -383,7 +391,7 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
 export default function ScanModal({ session, onClose, onSaved }) {
   const [step,      setStep]      = useState('select')  // select|analyzing|candidates|result|barcode
   const [error,     setError]     = useState('')
-  const [mealType,  setMealType]  = useState('午餐')
+  const [mealType,  setMealType]  = useState(() => getDefaultMealType())
   const [saving,    setSaving]    = useState(false)
   const [dbReady,   setDbReady]   = useState(false)
   const [scanning,  setScanning]  = useState(false)
@@ -638,7 +646,7 @@ export default function ScanModal({ session, onClose, onSaved }) {
         protein_g: total.protein   ?? null,
         carbs_g:   total.carbs     ?? null,
         fat_g:     total.fat       ?? null,
-        fiber_g:   null,
+        fiber_g:   total.fiber     ?? null,
         data_source: srcStr,
       }
     }
