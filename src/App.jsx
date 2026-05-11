@@ -91,7 +91,7 @@ export default function App() {
 
       <main className="tab-content">
         {activeTab === 'home' && (
-          <Home key={refreshKey} session={session} profile={profile} onLogMeal={(type) => { setDefaultMealType(type ?? null); setShowLogModal(true) }} />
+          <Home key={refreshKey} session={session} profile={profile} onLogMeal={(type) => { setDefaultMealType(type ?? null); setShowScanModal(true) }} />
         )}
         {activeTab === 'stats' && (
           <Stats key={refreshKey} session={session} profile={profile} />
@@ -107,7 +107,7 @@ export default function App() {
         <LogMealModal session={session} onClose={() => setShowLogModal(false)} onSaved={handleMealLogged} defaultMealType={defaultMealType} />
       )}
       {showScanModal && (
-        <ScanModal session={session} onClose={() => setShowScanModal(false)} onSaved={handleMealLogged} />
+        <ScanModal session={session} onClose={() => setShowScanModal(false)} onSaved={handleMealLogged} defaultMealType={defaultMealType} />
       )}
       {showReward && rewardData && (
         <MealRewardModal

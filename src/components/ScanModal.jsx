@@ -388,10 +388,13 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
 }
 
 // ── Main ScanModal ────────────────────────────────────────────────────────────
-export default function ScanModal({ session, onClose, onSaved }) {
+export default function ScanModal({ session, onClose, onSaved, defaultMealType }) {
   const [step,      setStep]      = useState('select')  // select|analyzing|candidates|result|barcode
   const [error,     setError]     = useState('')
-  const [mealType,  setMealType]  = useState(() => getDefaultMealType())
+  const EN_TO_ZH = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '點心' }
+  const [mealType,  setMealType]  = useState(
+    () => (defaultMealType && EN_TO_ZH[defaultMealType]) || getDefaultMealType()
+  )
   const [saving,    setSaving]    = useState(false)
   const [dbReady,   setDbReady]   = useState(false)
   const [scanning,  setScanning]  = useState(false)
