@@ -1,11 +1,12 @@
 // ── Gemini AI Configuration ───────────────────────────────────────────────────
 // Primary model: set VITE_GEMINI_MODEL in .env to override
-export const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash'
+export const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash'
 
-// Fallback chain: primary → lite (separate quota bucket) → alias
+// Fallback chain: each model has its own separate daily quota bucket
 // gemini-1.5-flash / gemini-1.5-flash-latest are no longer available (404)
 const _chain = [
-  import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash',
+  import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash',
+  'gemini-2.5-flash',
   'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
 ]
