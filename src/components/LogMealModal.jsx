@@ -5,6 +5,15 @@ import { calcPlateScore } from '../utils/scoring'
 
 const MEAL_TYPES = ['早餐', '午餐', '晚餐', '點心']
 const MEAL_TYPE_VAL = { '早餐': 'breakfast', '午餐': 'lunch', '晚餐': 'dinner', '點心': 'snack' }
+const EN_TO_ZH = { breakfast: '早餐', lunch: '午餐', dinner: '晚餐', snack: '點心' }
+
+function getDefaultMealType() {
+  const h = new Date().getHours()
+  if (h >= 5  && h < 11) return '早餐'
+  if (h >= 11 && h < 15) return '午餐'
+  if (h >= 15 && h < 21) return '晚餐'
+  return '點心'
+}
 
 // ── FDA Food Search Input ──────────────────────────────────────────────────────
 function FdaSearchInput({ onAdd }) {
@@ -89,9 +98,11 @@ function FoodItemRow({ entry, onChange, onRemove }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function LogMealModal({ session, onClose, onSaved }) {
+export default function LogMealModal({ session, onClose, onSaved, defaultMealType }) {
   const [tab,       setTab]       = useState('fda')   // 'fda' | 'manual'
-  const [mealType,  setMealType]  = useState('午餐')
+  const [mealType,  setMealType]  = useState(
+    () => (defaultMealType && EN_TO_ZH[defaultMealType]) || getDefaultMealType()
+  )
   const [mealName,  setMealName]  = useState('')
   const [entries,   setEntries]   = useState([])      // [{item, grams}]
   const [dbReady,   setDbReady]   = useState(false)

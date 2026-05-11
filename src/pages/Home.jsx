@@ -282,7 +282,7 @@ export default function Home({ session, profile, onLogMeal }) {
               )
             })}
             {missingTypes.map(type => (
-              <div key={type} className="meal-card placeholder" onClick={onLogMeal}>
+              <div key={type} className="meal-card placeholder" onClick={() => onLogMeal(type)}>
                 <span className="meal-emoji">➕</span>
                 <div className="meal-info">
                   <p className="meal-name">Log {type.charAt(0).toUpperCase() + type.slice(1)}</p>

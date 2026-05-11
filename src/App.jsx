@@ -22,6 +22,7 @@ export default function App() {
   const [rewardData, setRewardData] = useState(null)
   const [autoOpenRoom, setAutoOpenRoom] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [defaultMealType, setDefaultMealType] = useState(null)
   const [careEnergy, setCareEnergy] = useState(() =>
     Math.max(0, parseInt(localStorage.getItem('zp_care_energy') || '0'))
   )
@@ -90,7 +91,7 @@ export default function App() {
 
       <main className="tab-content">
         {activeTab === 'home' && (
-          <Home key={refreshKey} session={session} profile={profile} onLogMeal={() => setShowLogModal(true)} />
+          <Home key={refreshKey} session={session} profile={profile} onLogMeal={(type) => { setDefaultMealType(type ?? null); setShowLogModal(true) }} />
         )}
         {activeTab === 'stats' && (
           <Stats key={refreshKey} session={session} profile={profile} />
@@ -103,7 +104,7 @@ export default function App() {
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} onCamera={() => setShowScanModal(true)} />
 
       {showLogModal && (
-        <LogMealModal session={session} onClose={() => setShowLogModal(false)} onSaved={handleMealLogged} />
+        <LogMealModal session={session} onClose={() => setShowLogModal(false)} onSaved={handleMealLogged} defaultMealType={defaultMealType} />
       )}
       {showScanModal && (
         <ScanModal session={session} onClose={() => setShowScanModal(false)} onSaved={handleMealLogged} />
