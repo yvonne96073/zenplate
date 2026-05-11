@@ -2,12 +2,12 @@
 // Primary model: set VITE_GEMINI_MODEL in .env to override
 export const GEMINI_MODEL = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash'
 
-// Fallback chain: primary → stable → legacy
-// Note: gemini-1.5-flash-latest is deprecated (404) — use gemini-1.5-flash instead
+// Fallback chain: primary → lite (separate quota bucket) → alias
+// gemini-1.5-flash / gemini-1.5-flash-latest are no longer available (404)
 const _chain = [
   import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.0-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-flash',
+  'gemini-2.0-flash-lite',
 ]
 // Deduplicate in case env var matches a default
 export const GEMINI_FALLBACK_MODELS = [...new Set(_chain)]
