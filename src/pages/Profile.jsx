@@ -374,7 +374,6 @@ export default function Profile({ session, profile, updateProfile, autoOpenRoom,
               <span className="wd-chip-name">{ACCESSORIES.find(a => a.id === equippedAcc)?.name}</span>
             </div>
           </div>
-          <button className="wd-manage-btn" onClick={() => setShowAllWardrobe(true)}>Edit ›</button>
         </div>
       </div>
 
