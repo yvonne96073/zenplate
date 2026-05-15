@@ -666,7 +666,10 @@ body {
   padding-bottom: env(safe-area-inset-bottom, 24px);
 }
 .modal-sheet::-webkit-scrollbar { display: none; }
-.modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto; }
+.modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 12px auto 0; }
+.modal-sticky-header { position: sticky; top: 0; z-index: 10; background: white; padding-bottom: 2px; }
+.modal-title-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 20px 0 24px; }
+.modal-title-row .modal-title { margin-bottom: 10px; }
 .modal-content { padding: 8px 24px 0; }
 .modal-title { font-size: 20px; font-weight: 900; color: var(--dark); margin-bottom: 20px; }
 

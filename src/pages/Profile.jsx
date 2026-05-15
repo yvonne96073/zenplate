@@ -20,9 +20,17 @@ function Modal({ onClose, title, children }) {
   return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-sheet" onClick={e => e.stopPropagation()}>
-        <div className="modal-handle" />
+        {/* Sticky header: handle + title + close button */}
+        <div className="modal-sticky-header">
+          <div className="modal-handle" />
+          {title && (
+            <div className="modal-title-row">
+              <h3 className="modal-title">{title}</h3>
+              <button className="rm-close" onClick={onClose}>✕</button>
+            </div>
+          )}
+        </div>
         <div className="modal-content">
-          {title && <h3 className="modal-title">{title}</h3>}
           {children}
         </div>
       </div>
