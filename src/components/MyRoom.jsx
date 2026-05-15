@@ -181,8 +181,9 @@ const SPRITE_CFG = {
   lowMood:        { src: '/sprites/walk.png',    frames: 5, origH: 185 },
 }
 
-// States where sprite shows as still (first frame only)
-const STILL_STATES = new Set(['idle', 'hungry', 'hungryCritical', 'veryHungry', 'lowMood', 'lookingOutside', 'watching', 'eating', 'sleeping', 'lying'])
+// States where sprite shows as still (no frame cycling); sleeping/lying excluded
+// so their breathing animation plays
+const STILL_STATES = new Set(['idle', 'hungry', 'hungryCritical', 'veryHungry', 'lowMood', 'lookingOutside', 'watching', 'eating'])
 const ORIG_STRIP_W = 1408
 
 function CatSprite({ state }) {
@@ -203,6 +204,7 @@ function CatSprite({ state }) {
         backgroundRepeat: 'no-repeat',
         backgroundPosition: '0 0',
         imageRendering: 'auto',
+        overflow: 'hidden',
       }}
     />
   )
@@ -378,6 +380,7 @@ function RoomSupplies({ purchased, catState }) {
 function CatActor({ catState, position, facing, hearts, onCatClick, accEmoji }) {
   const showZzz = catState === 'sleeping'
   const eatAnim = catState === 'eating'
+  const isFlat  = catState === 'sleeping' || catState === 'lying'
   const showAcc = accEmoji && !['sleeping', 'lying'].includes(catState)
 
   return (
@@ -406,7 +409,7 @@ function CatActor({ catState, position, facing, hearts, onCatClick, accEmoji }) 
       ))}
 
       {/* Sprite — single source of truth for cat visual */}
-      <div className={`rm-cat-body${eatAnim ? ' rm-cat-eating' : ''}`}>
+      <div className={`rm-cat-body${eatAnim ? ' rm-cat-eating' : ''}${isFlat ? ' rm-cat-body--flat' : ''}`}>
         <CatSprite state={catState} />
       </div>
 

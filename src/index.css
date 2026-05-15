@@ -2298,6 +2298,7 @@ body {
   background: #FFF8EE;
   border-bottom: 2px solid #EFE0C8;
   flex-shrink: 0;
+  position: sticky; top: 0; z-index: 10;
 }
 .rm-header-left { display: flex; flex-direction: column; gap: 1px; }
 .rm-title { font-size: 15px; font-weight: 900; color: #3D2B1A; }
@@ -2741,6 +2742,8 @@ body {
 
 /* ── Cat sprite integration ──────────────────────────────── */
 .rm-cat-body > div { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
+/* Sleeping/lying cats are flat — drop-shadow creates a "second cat" silhouette; remove it */
+.rm-cat-body--flat > div { filter: none; }
 
 /* ── Info strip — Bond XP + Care Energy ─────────────────── */
 .rm-info-strip {
