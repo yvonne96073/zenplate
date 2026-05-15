@@ -202,6 +202,31 @@ export const COMPONENTS = {
     count_based: false, tags: [],
   },
 
+  // ── Coffee ────────────────────────────────────────────────────────────────
+  black_coffee: {
+    id: 'black_coffee', name_zh: '黑咖啡', name_en: 'Black Coffee / Americano',
+    keywords: ['黑咖啡', '美式咖啡', 'americano', 'black coffee', '無糖咖啡', 'long black',
+                'CITY CAFÉ美式', '7-11咖啡', '超商黑咖啡'],
+    portions: { small: 180, medium: 240, large: 480 }, default_g: 240,
+    per100g: { cal: 2, pro: 0.1, carb: 0.3, fat: 0 },
+    count_based: false, tags: ['drink'],
+  },
+  latte_coffee: {
+    id: 'latte_coffee', name_zh: '拿鐵咖啡', name_en: 'Latte / Cappuccino',
+    keywords: ['拿鐵', '拿鐵咖啡', 'latte', '卡布奇諾', 'cappuccino', '咖啡拿鐵',
+                'CITY CAFÉ拿鐵', '全家拿鐵', '超商拿鐵', '鮮奶咖啡', '牛奶咖啡'],
+    portions: { small: 240, medium: 360, large: 480 }, default_g: 360,
+    per100g: { cal: 44, pro: 2.8, carb: 4.2, fat: 1.8 },
+    count_based: false, tags: ['drink'],
+  },
+  mocha_coffee: {
+    id: 'mocha_coffee', name_zh: '摩卡咖啡', name_en: 'Mocha Coffee',
+    keywords: ['摩卡', 'mocha', '巧克力咖啡', '可可拿鐵'],
+    portions: { small: 240, medium: 360, large: 480 }, default_g: 360,
+    per100g: { cal: 65, pro: 2.5, carb: 8.5, fat: 2.5 },
+    count_based: false, tags: ['drink', 'sweet'],
+  },
+
   // ── Drinks ────────────────────────────────────────────────────────────────
   bubble_tea: {
     id: 'bubble_tea', name_zh: '珍珠奶茶', name_en: 'Bubble Tea',

@@ -3,7 +3,8 @@ import { BrowserMultiFormatReader } from '@zxing/library'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import { supabase } from '../lib/supabase'
 import { loadFdaDb, lookupByName, searchFda, calcNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
-import { matchNycuDish } from '../utils/nycuDb'
+import { matchNycuDish, isNycuContext, searchNycuDb } from '../utils/nycuDb'
+import { is7ElevenContext, search7Eleven } from '../utils/sevenElevenDb'
 import { lookupPackagedFood } from '../data/packagedFoods'
 import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByCategory } from '../utils/subwayDb'
 import { isMcdonaldsContext, matchMcdonaldsItem } from '../utils/mcdonaldsDb'
@@ -88,7 +89,9 @@ ${COMPONENT_ID_LIST}
 13. 看到 Subway 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "Subway"，name 填菜單品項中文名稱
 14. 看到 McDonald's/麥當勞 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "McDonald's"，name 填菜單品項中文名稱（如：大麥克、麥克鷄塊、薯條）
 15. cal_est/pro_est/carb_est/fat_est：只在 name 為中文且完全找不到對應 component_id 時填入（該 grams 份量的總估計值，不是每100g）；有 component_id 匹配就填 null
-16. 看到全家/FamilyMart 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "FamilyMart"，name 填商品名稱（如：鮪魚飯糰、雞腿便當、關東煮）`
+16. 看到全家/FamilyMart 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "FamilyMart"，name 填商品名稱（如：鮪魚飯糰、雞腿便當、關東煮）
+17. 看到交大/陽明交大/NYCU/交大餐廳/學餐/菁英餐廳/味仙/和食軒/阿嬤的飯桶/太祖/好時光/強尼兄弟/拉亞漢堡 → food_type:"chain_restaurant"，brand 填 "NYCU"，name 填完整中文餐點名稱（如：炸雞腿排套餐、拿鐵咖啡、牛肉丼飯）
+18. 看到 7-Eleven/7-11/統一超商/CITY CAFÉ 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "7-Eleven"，name 填商品名稱（如：CITY CAFÉ拿鐵、CITY CAFÉ美式、茶葉蛋）`
 
 // ── Food type badges ──────────────────────────────────────────────────────────
 const FOOD_TYPE_LABEL = {
@@ -119,21 +122,51 @@ function applyLevel(comp, level) {
 }
 
 // ── Source metadata ───────────────────────────────────────────────────────────
-const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方', family: '全家官方' }
-const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED', mcd: '#DA291C', family: '#009944' }
+const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方', family: '全家官方', seven: '7-Eleven官方' }
+const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED', mcd: '#DA291C', family: '#009944', seven: '#EE1C25' }
 
 // ── Default Subway config ─────────────────────────────────────────────────────
 const DEFAULT_SUBWAY = { sandwichId: null, breadId: 'bread_white', sauceIds: [], sizeMult: 1 }
 
 // ── Build a component from FamilyMart official nutrition data ─────────────────
 function buildFamilyComp(nut) {
+  // Sanity cap: FamilyMart single item shouldn't exceed 1500 kcal
+  const safeCal = nut.calories > 1500 ? null : nut.calories
+  if (nut.calories > 1500) {
+    console.warn('[SCAN] FamilyMart calorie sanity cap triggered:', nut.name, nut.calories, '→ null')
+  }
   return {
     name: nut.name, aiName: nut.name,
     grams: 1, baseGrams: 1,
     portionMult: 1, portionLevel: 'standard', correctionDir: null,
-    calEst: nut.calories, source: 'family', familyItem: nut,
+    calEst: safeCal ?? 0, source: 'family', familyItem: { ...nut, calories: safeCal ?? 0 },
     fdaItem: null, nycuDish: null, portionItem: null,
-    portionConf: 95, portionReason: '全家便利商店官方營養資料',
+    portionConf: safeCal ? 95 : 40, portionReason: safeCal ? '全家便利商店官方營養資料' : '⚠️ 熱量資料異常，請手動確認',
+  }
+}
+
+// ── Build a component from NYCU official nutrition data ───────────────────────
+function buildNycuComp(nycuResult) {
+  const { dish } = nycuResult
+  return {
+    name: dish.dishZh, aiName: dish.dishZh,
+    grams: 1, baseGrams: 1,
+    portionMult: 1, portionLevel: 'standard', correctionDir: null,
+    calEst: dish.cal, source: 'nycu', nycuDish: dish,
+    fdaItem: null, portionItem: null,
+    portionConf: 90, portionReason: `交大${dish.restaurantZh || ''}官方營養資料`,
+  }
+}
+
+// ── Build a component from 7-Eleven static DB ─────────────────────────────────
+function build7ElevenComp(item) {
+  return {
+    name: item.name, aiName: item.name,
+    grams: 1, baseGrams: 1,
+    portionMult: 1, portionLevel: 'standard', correctionDir: null,
+    calEst: item.cal, source: 'seven', sevenItem: item,
+    fdaItem: null, nycuDish: null, portionItem: null, familyItem: null,
+    portionConf: 90, portionReason: '7-Eleven 官方營養資料',
   }
 }
 
@@ -162,9 +195,10 @@ function enrichComp(ai, dbReady, adjustments = {}) {
     fatEst:  ai.fat_est  ?? null,
   }
 
-  // 1. NYCU campus DB
-  const nycu = matchNycuDish(ai.name)
+  // 1. NYCU campus DB — try both English component ID and any Chinese name
+  const nycu = matchNycuDish(ai.name) || matchNycuDish(ai.hint || '')
   if (nycu && nycu.score >= 70) {
+    console.log('[SCAN] enrichComp NYCU match:', ai.name, '→', nycu.dish.dishZh, 'score:', nycu.score)
     return { ...base, name: nycu.dish.dishZh, source: 'nycu', nycuDish: nycu.dish, fdaItem: null, portionItem: null }
   }
 
@@ -179,6 +213,7 @@ function enrichComp(ai, dbReady, adjustments = {}) {
       { level: 'extra',    g: portionItem.portions.large  },
     ]
     const best = opts.reduce((a, b) => Math.abs(a.g - adjustedAiG) < Math.abs(b.g - adjustedAiG) ? a : b)
+    console.log('[SCAN] enrichComp portionDb match:', ai.name, '→', portionItem.name_zh, `${best.g}g`, `(AI said ${rawAiG}g)`)
     return {
       ...base,
       name: portionItem.name_zh, source: 'portion', portionItem,
@@ -191,10 +226,14 @@ function enrichComp(ai, dbReady, adjustments = {}) {
   // 3. FDA DB
   if (dbReady) {
     const fda = lookupByName(ai.name) || (searchFda(ai.name, 1)[0] || null)
-    if (fda) return { ...base, name: fda.n, source: 'fda', fdaItem: fda, nycuDish: null, portionItem: null }
+    if (fda) {
+      console.log('[SCAN] enrichComp FDA match:', ai.name, '→', fda.n, `cal/100g=${fda.cal}`)
+      return { ...base, name: fda.n, source: 'fda', fdaItem: fda, nycuDish: null, portionItem: null }
+    }
   }
 
   // 4. AI estimate fallback
+  console.log('[SCAN] enrichComp AI fallback:', ai.name, `calEst=${ai.cal_est}`)
   return { ...base, name: ai.name, source: 'ai', fdaItem: null, nycuDish: null, portionItem: null }
 }
 
@@ -236,6 +275,17 @@ function calcCompNut(comp) {
       protein:  +(item.protein * m).toFixed(1),
       carbs:    +(item.carbs   * m).toFixed(1),
       fat:      +(item.fat     * m).toFixed(1),
+      fiber:    null,
+    }
+  }
+  if (comp.source === 'seven' && comp.sevenItem) {
+    const item = comp.sevenItem
+    const m = comp.portionMult || 1
+    return {
+      calories: Math.round(item.cal * m),
+      protein:  +(item.pro  * m).toFixed(1),
+      carbs:    +(item.carb * m).toFixed(1),
+      fat:      +(item.fat  * m).toFixed(1),
       fiber:    null,
     }
   }
@@ -309,7 +359,7 @@ function FdaSearch({ initialQuery = '', onSelect, compact = false }) {
 function ComponentRow({ comp, onChange, onRemove, dbReady }) {
   const nut            = calcCompNut(comp)
   const isMcdBased     = comp.source === 'mcd'    && comp.mcdItem
-  const isFamilyBased  = comp.source === 'family' && comp.familyItem
+  const isFamilyBased  = (comp.source === 'family' && comp.familyItem) || (comp.source === 'seven' && comp.sevenItem)
   const portionLow     = (comp.portionConf ?? 55) < 55
   const currentLevel = comp.portionLevel || 'standard'
 
@@ -542,6 +592,7 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
     setConfirmedCandidate(cand)
 
     const ft = cand.food_type || (cand.packaged ? 'packaged_food' : 'general_meal')
+    console.log('[SCAN] confirmCandidate:', cand.name, '— food_type:', ft, '— brand:', cand.brand, '— confidence:', cand.confidence)
 
     // ── chain_restaurant: FamilyMart, McDonald's, or Subway ───────────────
     if (ft === 'chain_restaurant') {
@@ -596,6 +647,34 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
         setStep('subway')
         return
       }
+        // NYCU campus restaurants
+      if (isNycuContext(cand.brand || '') || isNycuContext(cand.name || '')) {
+        console.log('[SCAN] NYCU context detected, searching DB for:', cand.name)
+        const nycuResults = searchNycuDb(cand.name, '', 5)
+        console.log('[SCAN] NYCU search results:', nycuResults.map(r => `${r.dish.dishZh}(${r.score})`))
+        if (nycuResults.length > 0 && nycuResults[0].score >= 50) {
+          setComponents([buildNycuComp(nycuResults[0])])
+          setMealName(nycuResults[0].dish.dishZh)
+          setStep('result')
+          return
+        }
+        // Low-score match: fall through to general_meal but components may still enrich via enrichComp
+      }
+
+      // 7-Eleven
+      if (is7ElevenContext(cand.brand || '') || is7ElevenContext(cand.name || '')) {
+        console.log('[SCAN] 7-Eleven context detected, searching DB for:', cand.name)
+        const sevenResults = search7Eleven(cand.name, 3)
+        console.log('[SCAN] 7-Eleven search results:', sevenResults.map(i => i.name))
+        if (sevenResults.length > 0) {
+          setComponents([build7ElevenComp(sevenResults[0])])
+          setMealName(sevenResults[0].name)
+          setStep('result')
+          return
+        }
+        // Not a coffee item → fall through to general_meal pipeline
+      }
+
       // Unknown chain → fall through to general_meal pipeline
     }
 
@@ -621,6 +700,7 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       ? cand.components
       : [{ name: cand.name, grams: 200, portion_confidence: 50, portion_reason: '', hint: '1份' }]
 
+    console.log('[SCAN] general_meal enriching', aiComps.length, 'components:', aiComps.map(c => c.name))
     setComponents(aiComps.map(ai => enrichComp(ai, dbReady, portionAdjustments)))
     setStep('result')
   }
@@ -639,9 +719,35 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       }
     } else {
       const total   = sumComps(components)
+
+      // ── Calorie sanity validation ────────────────────────────────────────
+      const COFFEE_NAMES = /咖啡|coffee|latte|americano|cappuccino|mocha|摩卡|拿鐵|美式/i
+      for (const comp of components) {
+        if (COFFEE_NAMES.test(comp.name) || COFFEE_NAMES.test(comp.aiName || '')) {
+          const compNut = calcCompNut(comp)
+          if (compNut.calories > 500) {
+            console.warn('[SCAN] sanity: coffee calorie spike', comp.name, compNut.calories, 'kcal — source:', comp.source)
+            setError(`⚠️ ${comp.name} 熱量異常（${compNut.calories} kcal），請調整份量後再儲存`)
+            setSaving(false)
+            return
+          }
+        }
+      }
+      if (total.calories > 2500) {
+        console.warn('[SCAN] sanity: total calories very high:', total.calories)
+        setError(`⚠️ 總熱量 ${total.calories} kcal 看起來偏高，請確認份量是否正確`)
+        setSaving(false)
+        return
+      }
+
+      console.log('[SCAN] handleSave — total:', total, '— sources:', components.map(c => `${c.name}(${c.source}/${c.grams}g)`))
+
       const sources = [...new Set(components.map(c => SRC_LABEL[c.source]))]
       const srcStr  = sources.length === 1
-        ? (sources[0] === 'FDA' ? 'Taiwan FDA 2025' : sources[0] === '交大' ? 'NYCU 交大官方資料' : sources[0])
+        ? (sources[0] === 'FDA'        ? 'Taiwan FDA 2025'
+         : sources[0] === '交大'       ? 'NYCU 交大官方資料'
+         : sources[0] === '7-Eleven官方' ? '7-Eleven Taiwan 官方'
+         : sources[0])
         : sources.join(' + ')
       payload = {
         user_id: session.user.id, name: mealName, meal_type: MEAL_TYPE_V[mealType],

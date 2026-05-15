@@ -11,154 +11,156 @@
 export const NYCU_DB = [
 
   // ── 菁英餐廳 · 光復校區 ──────────────────────────────────────────────────
-  // Source: official PDF 20231227133959095.pdf (9 pages, 2213 items)
+  // Source: official PDF 20231227133959095.pdf
+  // NOTE: fat values recalculated from macros: fat = (cal - pro×4 - carb×4) / 9
+  // Original PDF fat column was in a non-gram unit (likely kJ); all corrected below.
 
-  // 01 便當套餐類 (21 items)
+  // 01 便當套餐類
   { id:'jy-01-01', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'炸雞腿排(大入份)套餐', aliases:['大雞腿排便當','炸雞腿套餐','雞腿排套餐'],
-    cal:726, pro:37.6, carb:52.7, fat:132.2, sod:1191 },
+    cal:726, pro:37.6, carb:52.7, fat:40.5, sod:1191 },
   { id:'jy-01-02', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'炸雞腿排(滷汁版)套餐', aliases:['滷汁雞腿套餐','雞腿排滷汁便當'],
-    cal:736, pro:33.9, carb:26.4, fat:122.6, sod:863 },
+    cal:736, pro:33.9, carb:26.4, fat:55.0, sod:863 },
   { id:'jy-01-03', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'嫩煎小松葉豬排套餐', aliases:['豬排套餐','嫩煎豬排便當'],
-    cal:688, pro:34.1, carb:49.2, fat:136.2, sod:1124 },
+    cal:688, pro:34.1, carb:49.2, fat:39.4, sod:1124 },
   { id:'jy-01-04', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'嫩煎雞腿排套餐', aliases:['雞腿便當','雞腿套餐'],
-    cal:622, pro:28.3, carb:26.8, fat:117.0, sod:822 },
+    cal:622, pro:28.3, carb:26.8, fat:44.6, sod:822 },
   { id:'jy-01-05', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'嫩煎豬排套餐', aliases:['豬排便當','煎豬排套餐'],
-    cal:599, pro:24.1, carb:35.0, fat:117.1, sod:880 },
+    cal:599, pro:24.1, carb:35.0, fat:40.3, sod:880 },
   { id:'jy-01-06', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'香腸排骨套餐', aliases:['排骨套餐','香腸排骨便當'],
-    cal:608, pro:24.8, carb:30.8, fat:117.1, sod:845 },
+    cal:608, pro:24.8, carb:30.8, fat:42.8, sod:845 },
   { id:'jy-01-07', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'德式香腸豬胸套餐', aliases:['德腸套餐','德式香腸便當'],
-    cal:561, pro:21.8, carb:42.9, fat:72.7, sod:764 },
+    cal:561, pro:21.8, carb:42.9, fat:33.6, sod:764 },
   { id:'jy-01-08', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'剝皮辣椒豬胸套餐', aliases:['剝皮辣椒套餐','辣椒豬胸便當'],
-    cal:577, pro:28.3, carb:41.6, fat:70.2, sod:768 },
+    cal:577, pro:28.3, carb:41.6, fat:33.0, sod:768 },
   { id:'jy-01-09', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'剁椒大腸蚵仔豬胸套餐', aliases:['剁椒大腸套餐','蚵仔大腸便當'],
-    cal:569, pro:23.3, carb:39.8, fat:75.2, sod:752 },
+    cal:569, pro:23.3, carb:39.8, fat:35.2, sod:752 },
   { id:'jy-01-10', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'分份大腸蚵仔豬胸套餐', aliases:['大腸蚵仔套餐'],
-    cal:553, pro:19.9, carb:36.5, fat:77.3, sod:717 },
+    cal:553, pro:19.9, carb:36.5, fat:36.4, sod:717 },
   { id:'jy-01-11', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'脆皮鍋物豆腐套餐', aliases:['豆腐套餐','鍋物豆腐便當'],
-    cal:498, pro:17.9, carb:18.8, fat:87.6, sod:591 },
+    cal:498, pro:17.9, carb:18.8, fat:39.0, sod:591 },
   { id:'jy-01-12', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'德式香腸豆腐套餐', aliases:['德腸豆腐套餐'],
-    cal:506, pro:19.8, carb:25.2, fat:83.0, sod:638 },
+    cal:506, pro:19.8, carb:25.2, fat:36.2, sod:638 },
   { id:'jy-01-13', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'剁椒大腸蚵仔豆腐套餐', aliases:['剁椒豆腐套餐'],
-    cal:514, pro:21.3, carb:22.1, fat:85.5, sod:626 },
+    cal:514, pro:21.3, carb:22.1, fat:37.8, sod:626 },
   { id:'jy-01-15', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'雙蛋總匯三明治套餐', aliases:['總匯三明治','雙蛋三明治套餐'],
-    cal:607, pro:21.3, carb:27.7, fat:129.4, sod:852 },
+    cal:607, pro:21.3, carb:27.7, fat:45.7, sod:852 },
   { id:'jy-01-16', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'炸雞腿排吐司夾蛋', aliases:['雞排吐司','雞腿排吐司夾蛋'],
-    cal:506, pro:19.7, carb:47.5, fat:78.2, sod:818 },
+    cal:506, pro:19.7, carb:47.5, fat:26.4, sod:818 },
   { id:'jy-01-17', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'炸雞腿排(滷汁)吐司套餐', aliases:['滷汁雞腿吐司'],
-    cal:516, pro:22.7, carb:17.5, fat:116.3, sod:713 },
+    cal:516, pro:22.7, carb:17.5, fat:39.5, sod:713 },
   { id:'jy-01-18', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'鮭魚排套餐', aliases:['鮭魚套餐','鮭魚排便當'],
-    cal:594, pro:37.1, carb:30.6, fat:101.7, sod:831 },
+    cal:594, pro:37.1, carb:30.6, fat:35.9, sod:831 },
   { id:'jy-01-19', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'蚵仔辣椒肉套餐', aliases:['蚵仔套餐','辣椒蚵仔便當'],
-    cal:537, pro:26.9, carb:28.3, fat:97.6, sod:753 },
+    cal:537, pro:26.9, carb:28.3, fat:35.1, sod:753 },
   { id:'jy-01-20', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'烘焙吐司夾蛋套餐', aliases:['吐司夾蛋','烘焙吐司'],
-    cal:735, pro:26.1, carb:27.2, fat:124.8, sod:848 },
+    cal:735, pro:26.1, carb:27.2, fat:58.0, sod:848 },
   { id:'jy-01-21', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'大腸蚵仔肉套餐', aliases:['大腸蚵仔','蚵仔肉便當'],
-    cal:570, pro:34.8, carb:37.1, fat:93.7, sod:848 },
+    cal:570, pro:34.8, carb:37.1, fat:31.4, sod:848 },
 
-  // 02 滷味類 (4 items) — side dish portions ~55g
+  // 02 滷味類 (4 items)
   { id:'jy-02-01', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'德式香腸滷味', aliases:['德腸滷味','德式香腸'],
-    cal:210, pro:15.9, carb:36.5, fat:18.3, sod:465 },
+    cal:210, pro:15.9, carb:36.5, fat:0.0, sod:465 },
   { id:'jy-02-02', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'剝皮辣椒滷味', aliases:['辣椒滷味'],
-    cal:227, pro:22.3, carb:35.1, fat:15.7, sod:468 },
+    cal:227, pro:22.3, carb:35.1, fat:0.0, sod:468 },
   { id:'jy-02-03', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'剁椒大腸蚵仔滷味', aliases:['大腸蚵仔滷味'],
-    cal:219, pro:17.3, carb:33.3, fat:20.7, sod:452 },
+    cal:219, pro:17.3, carb:33.3, fat:0.0, sod:452 },
   { id:'jy-02-04', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'分份大腸蚵仔滷味', aliases:['大腸蚵仔'],
-    cal:203, pro:13.9, carb:30.0, fat:22.8, sod:417 },
+    cal:203, pro:13.9, carb:30.0, fat:0.0, sod:417 },
 
-  // 03 飯糰類 (3 items) — ~55g
+  // 03 飯糰類 (3 items)
   { id:'jy-03-01', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'分份大腸飯糰', aliases:['大腸飯糰','飯糰'],
-    cal:148, pro:11.9, carb:12.3, fat:33.1, sod:291 },
+    cal:148, pro:11.9, carb:12.3, fat:3.4, sod:291 },
   { id:'jy-03-02', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'德式香腸飯糰', aliases:['德腸飯糰'],
-    cal:156, pro:13.8, carb:18.7, fat:28.5, sod:338 },
+    cal:156, pro:13.8, carb:18.7, fat:2.2, sod:338 },
   { id:'jy-03-03', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'剁椒大腸蚵仔飯糰', aliases:['蚵仔飯糰'],
-    cal:164, pro:15.3, carb:15.6, fat:31.0, sod:326 },
+    cal:164, pro:15.3, carb:15.6, fat:3.3, sod:326 },
 
-  // 04 飲料類 — cafeteria beverages
+  // 04 飲料類 — fat recalculated; original values were in wrong unit
   { id:'jy-04-01', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'拿鐵咖啡', aliases:['latte','拿鐵'],
-    cal:126, pro:4.1, carb:6.3, fat:34.8, sod:149 },
+    cal:126, pro:4.1, carb:6.3, fat:9.4, sod:149 },
   { id:'jy-04-02', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'美式咖啡', aliases:['Americano','黑咖啡'],
-    cal:41, pro:0.9, carb:1.7, fat:34.8, sod:149 },
+    cal:41, pro:0.9, carb:1.7, fat:3.4, sod:149 },
   { id:'jy-04-03', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'山椒鈣芸飲', aliases:['山椒飲'],
-    cal:222, pro:1.0, carb:12.1, fat:25.1, sod:222 },
+    cal:222, pro:1.0, carb:12.1, fat:21.4, sod:222 },
   { id:'jy-04-04', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'清乳拿鐵', aliases:['牛奶拿鐵','清乳咖啡'],
-    cal:330, pro:8.9, carb:29.5, fat:134.6, sod:130 },
+    cal:330, pro:8.9, carb:29.5, fat:22.5, sod:130 },
   { id:'jy-04-05', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'紅豆薏仁', aliases:['薏仁紅豆','紅豆湯'],
-    cal:330, pro:8.3, carb:21.5, fat:136.0, sod:421 },
+    cal:330, pro:8.3, carb:21.5, fat:29.5, sod:421 },
   { id:'jy-04-06', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'豆漿', aliases:['無糖豆漿'],
-    cal:140, pro:7.8, carb:5.8, fat:46.0, sod:175 },
+    cal:140, pro:7.8, carb:5.8, fat:10.1, sod:175 },
   { id:'jy-04-07', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'五穀米漿', aliases:['米漿','五穀米漿'],
-    cal:175, pro:1.9, carb:9.4, fat:61.1, sod:175 },
+    cal:175, pro:1.9, carb:9.4, fat:16.6, sod:175 },
 
-  // 05 吐司/司康類 — toast sandwiches
+  // 05 吐司/司康類 — fat recalculated
   { id:'jy-05-01', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'健康吐司', aliases:['健康吐司司','全麥吐司'],
-    cal:114, pro:10.8, carb:8.8, fat:55.6, sod:114 },
+    cal:114, pro:10.8, carb:8.8, fat:6.3, sod:114 },
   { id:'jy-05-02', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'火車蓋吐司', aliases:['火腿蛋吐司'],
-    cal:790, pro:18.5, carb:26.4, fat:175.6, sod:790 },
+    cal:790, pro:18.5, carb:26.4, fat:74.5, sod:790 },
   { id:'jy-05-03', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'培根蛋吐司', aliases:['培根吐司'],
-    cal:550, pro:29.3, carb:27.2, fat:127.2, sod:550 },
+    cal:550, pro:29.3, carb:27.2, fat:42.2, sod:550 },
   { id:'jy-05-04', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'特厚吐司', aliases:['厚片吐司'],
-    cal:168, pro:18.1, carb:17.3, fat:41.0, sod:168 },
+    cal:168, pro:18.1, carb:17.3, fat:5.3, sod:168 },
   { id:'jy-05-05', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'甜辣雞腿排吐司', aliases:['雞腿排吐司','甜辣吐司'],
-    cal:570, pro:34.8, carb:37.1, fat:93.7, sod:848 },
+    cal:570, pro:34.8, carb:37.1, fat:31.4, sod:848 },
   { id:'jy-05-06', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'鮭魚吐司', aliases:['鮭魚三明治'],
-    cal:463, pro:29.3, carb:27.2, fat:127.2, sod:463 },
+    cal:463, pro:29.3, carb:27.2, fat:27.1, sod:463 },
   { id:'jy-05-07', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'花生醬吐司', aliases:['花生吐司'],
-    cal:326, pro:11.1, carb:15.2, fat:76.7, sod:326 },
+    cal:326, pro:11.1, carb:15.2, fat:26.7, sod:326 },
   { id:'jy-05-08', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'草莓醬吐司', aliases:['草莓吐司'],
-    cal:247, pro:10.2, carb:16.5, fat:52.4, sod:247 },
+    cal:247, pro:10.2, carb:16.5, fat:16.4, sod:247 },
 
-  // 06 蛋餅類
+  // 06 蛋餅類 — fat recalculated
   { id:'jy-06-01', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'五米蛋餅', aliases:['蛋餅','玉米蛋餅'],
-    cal:125, pro:7.1, carb:12.3, fat:34.2, sod:245 },
+    cal:125, pro:7.1, carb:12.3, fat:5.2, sod:245 },
   { id:'jy-06-02', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'肉鬆蛋餅', aliases:['肉鬆蛋餅'],
-    cal:150, pro:9.2, carb:14.8, fat:39.1, sod:285 },
+    cal:150, pro:9.2, carb:14.8, fat:6.3, sod:285 },
   { id:'jy-06-03', restaurantId:'jingying', restaurantZh:'菁英餐廳', campus:'guangfu',
     dishZh:'德式香腸蛋餅', aliases:['香腸蛋餅'],
-    cal:158, pro:8.4, carb:13.2, fat:41.5, sod:312 },
+    cal:158, pro:8.4, carb:13.2, fat:7.3, sod:312 },
 
   // ── 味仙自助餐 · 陽明校區 ────────────────────────────────────────────────
   // Source: PDF 20231227134027764.pdf (estimated values based on typical Taiwanese buffet)
@@ -381,6 +383,28 @@ export function matchNycuDish(query, campus = '') {
   const results = searchNycuDb(query, campus, 1)
   if (!results.length || results[0].score < 40) return null
   return results[0]
+}
+
+/**
+ * Detect NYCU campus context from brand/name strings
+ * Used by ScanModal to route to NYCU DB before enrichComp
+ */
+export function isNycuContext(str) {
+  if (!str) return false
+  const s = str.toLowerCase()
+  return (
+    s.includes('nycu') ||
+    s.includes('交大') ||
+    s.includes('陽明交大') ||
+    s.includes('jingying') || s.includes('菁英') ||
+    s.includes('weixian')  || s.includes('味仙') ||
+    s.includes('haoshiguang') || s.includes('好時光') ||
+    s.includes('woshixuan') || s.includes('和食軒') ||
+    s.includes('amafantong') || s.includes('阿嬤的飯桶') ||
+    s.includes('taizu') || s.includes('太祖') ||
+    s.includes('laiya') || s.includes('拉亞') ||
+    s.includes('johnnybrothers') || s.includes('強尼兄弟')
+  )
 }
 
 // ── Restaurant display map ────────────────────────────────────────────────────
