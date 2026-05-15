@@ -71,7 +71,7 @@ ${COMPONENT_ID_LIST}
 }
 
 規則：
-1. 永遠回傳 3 個 candidates，由高到低信心度排序
+1. 永遠回傳 3 個 candidates，由高到低信心度排序；3 個 candidates 必須是完全不同的食物（例如：蘋果片、梨子片、芭樂片），絕對禁止重複同一種食物名稱或近似名稱（禁止：蘋果片 90%、蘋果片 85%、蘋果片 80%）
 2. food_type 必須是：packaged_food / chain_restaurant / general_meal 三選一
 3. confidence / portion_confidence：0-100 整數
 4. portion_confidence 判斷基準：
@@ -168,6 +168,43 @@ function build7ElevenComp(item) {
     fdaItem: null, nycuDish: null, portionItem: null, familyItem: null,
     portionConf: 90, portionReason: '7-Eleven 官方營養資料',
   }
+}
+
+// ── Deduplicate AI candidates by name similarity ─────────────────────────────
+function normCandName(s) {
+  return (s || '')
+    .toLowerCase()
+    .replace(/[（）()\s\-_,.，。！？!?]/g, '')
+    .replace(/切片|片|塊|小份|中份|大份|small|medium|large/g, '')
+}
+
+function deduplicateCandidates(cands) {
+  if (!cands?.length) return cands
+  const kept = []
+  for (const c of cands) {
+    const cn = normCandName(c.name)
+    const isDupe = kept.some(r => {
+      const rn = normCandName(r.name)
+      if (cn === rn) return true
+      // one string contains the other (e.g. "apple" vs "apple slices")
+      if (cn.length >= 2 && rn.length >= 2 && (cn.includes(rn) || rn.includes(cn))) return true
+      // char overlap ≥ 85 % of the shorter string
+      const [shorter, longer] = cn.length <= rn.length ? [cn, rn] : [rn, cn]
+      if (shorter.length >= 3) {
+        const overlap = [...shorter].filter(ch => longer.includes(ch)).length
+        if (overlap / shorter.length >= 0.85) return true
+      }
+      return false
+    })
+    if (!isDupe) kept.push(c)
+  }
+  return kept.slice(0, 3)
+}
+
+// ── Confidence display label ──────────────────────────────────────────────────
+function confLabel(confidence, rank) {
+  if (typeof confidence === 'number' && confidence > 0) return `${confidence}%`
+  return rank === 0 ? 'likely' : rank === 1 ? 'possible' : 'less likely'
 }
 
 // ── Enrich one AI component with DB data ─────────────────────────────────────
@@ -420,6 +457,7 @@ function ComponentRow({ comp, onChange, onRemove, dbReady }) {
         {nut.protein != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">蛋白 {nut.protein}g</span></>}
         {nut.carbs   != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">碳水 {nut.carbs}g</span></>}
         {nut.fat     != null && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">脂肪 {nut.fat}g</span></>}
+        {nut.fiber   != null && nut.fiber > 0 && <><span className="comp-nut-dot">·</span><span className="comp-nut-m">纖維 {nut.fiber}g</span></>}
       </div>
 
       {/* FDA override: power-user search (secondary) */}
@@ -569,11 +607,33 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       const match = text.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('FORMAT_ERROR')
 
-      const parsed = JSON.parse(match[0])
-      const cands  = (parsed.candidates || []).filter(c => c.name)
-      if (!cands.length) throw new Error('NO_CANDIDATES')
+      const parsed   = JSON.parse(match[0])
+      const rawCands = (parsed.candidates || []).filter(c => c.name)
+      if (!rawCands.length) throw new Error('NO_CANDIDATES')
 
-      setCandidates(cands); setChosenIdx(0); setStep('candidates')
+      // ── Debug: full AI output before any formatting ──────────────────────
+      console.log('[ZenPlate AI] Raw candidates from model:',
+        rawCands.map((c, i) => `[${i}] ${c.name} conf=${c.confidence} type=${c.food_type}`).join(' | '))
+      console.log('[ZenPlate AI] Full parsed JSON:', JSON.stringify(rawCands))
+
+      // ── Deduplicate (catches model returning same food with diff scores) ─
+      const cands = deduplicateCandidates(rawCands)
+      if (cands.length < rawCands.length) {
+        console.warn('[ZenPlate AI] Duplicates removed:', rawCands.length, '→', cands.length,
+          '— raw names:', rawCands.map(c => c.name).join(', '))
+      }
+
+      setCandidates(cands)
+      setChosenIdx(0)
+
+      // ── High confidence (≥ 85 %): skip selection, go straight to result ─
+      if ((cands[0]?.confidence ?? 0) >= 85) {
+        console.log('[ZenPlate AI] High confidence', cands[0].confidence, '% — auto-confirming:', cands[0].name)
+        await confirmCandidate(0, cands[0])
+        return
+      }
+
+      setStep('candidates')
     } catch (err) {
       console.error('[ZenPlate AI] Recognition error:', err)
       const msg =
@@ -586,8 +646,9 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
   }
 
   // ── User confirms a candidate → route by food_type ───────────────────────
-  const confirmCandidate = async (idx) => {
-    const cand = candidates[idx]
+  // candOverride: pass candidate directly when calling before state commits (e.g. auto-confirm)
+  const confirmCandidate = async (idx, candOverride = null) => {
+    const cand = candOverride ?? candidates[idx]
     setMealName(cand.name)
     setConfirmedCandidate(cand)
 
@@ -922,10 +983,7 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
             <>
               <h3 className="modal-title">這是什麼食物？</h3>
               <p className="candidates-subtitle">
-                {candidates[0]?.confidence >= 70
-                  ? `AI 認為是「${candidates[0].name}」（${candidates[0].confidence}%）— 如果正確直接確認`
-                  : `AI 不太確定（${candidates[0]?.confidence ?? 0}%），請選最接近的選項：`
-                }
+                {`AI 不太確定（${confLabel(candidates[0]?.confidence, 0)}），請選最接近的選項：`}
               </p>
 
               <div className="candidates-list">
@@ -936,10 +994,10 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
                   >
                     <div className="candidate-card-top">
                       <span className="candidate-name">{c.name}</span>
-                      <span className="candidate-pct">{c.confidence}%</span>
+                      <span className="candidate-pct">{confLabel(c.confidence, i)}</span>
                     </div>
                     <div className="candidate-conf-bar">
-                      <div className="candidate-conf-fill" style={{ width: `${c.confidence}%` }}/>
+                      <div className="candidate-conf-fill" style={{ width: `${c.confidence ?? 30}%` }}/>
                     </div>
                     <div className="candidate-meta">
                       {c.food_type && (
@@ -989,7 +1047,14 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
                 </div>
               )}
 
-              {/* 2. Needs-confirmation banner */}
+              {/* 2a. High-confidence banner */}
+              {(confirmedCandidate?.confidence ?? 0) >= 85 && (
+                <div className="confirm-banner confirm-banner--ok">
+                  ✅ AI 高度確認（{confirmedCandidate.confidence}%）— 如果辨識錯誤請重新拍照
+                </div>
+              )}
+
+              {/* 2b. Needs-confirmation banner */}
               {confirmedCandidate?.needs_confirmation && (
                 <div className="confirm-banner">
                   ⚠️ AI 對份量不太確定，請確認每項食材的份量是否正確
@@ -1042,8 +1107,19 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
                     </div>
                   ))}
                 </div>
+                {total.fiber != null && total.fiber > 0 && (
+                  <div className="result-fiber-row">
+                    <span className="result-fiber-label">膳食纖維</span>
+                    <span className="result-fiber-val">{total.fiber} g</span>
+                  </div>
+                )}
                 {hasAiEstimate && (
                   <p className="result-total-warn">⚠ 含 AI 估算，實際數值可能略有差異</p>
+                )}
+                {total.fiber == null && (
+                  <p className="result-total-warn" style={{ color: '#aaa' }}>
+                    膳食纖維：此食物來源暫無纖維資料（僅 FDA 資料庫含纖維數據）
+                  </p>
                 )}
               </div>
 
