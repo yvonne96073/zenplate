@@ -921,10 +921,13 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
     <div className="rm-bg" onClick={onClose}>
       <div className="rm-modal" onClick={e => e.stopPropagation()}>
 
+        {/* ── Floating close — absolute so overflow:hidden on rm-modal
+               doesn't break visibility regardless of scroll position ── */}
+        <button className="rm-close rm-close-float" onClick={onClose}>✕</button>
+
         {/* ── HEADER ─────────────────────────────────────────────────────── */}
         <div className="rm-header">
           <span className="rm-title">🐱 My Room</span>
-          <button className="rm-close" onClick={onClose}>✕</button>
         </div>
 
         {/* ── INFO STRIP — Bond XP + Care Energy ─────────────────────────── */}
