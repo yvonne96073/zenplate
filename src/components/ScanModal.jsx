@@ -251,12 +251,17 @@ function enrichComp(ai, dbReady, adjustments = {}) {
     ]
     const best = opts.reduce((a, b) => Math.abs(a.g - adjustedAiG) < Math.abs(b.g - adjustedAiG) ? a : b)
     console.log('[SCAN] enrichComp portionDb match:', ai.name, '→', portionItem.name_zh, `${best.g}g`, `(AI said ${rawAiG}g)`)
+    // Also look up FDA for fiber data (portionDb has no fiber)
+    const fdaForFiber = dbReady
+      ? (lookupByName(portionItem.name_zh) || lookupByName(ai.name) || searchFda(portionItem.name_zh, 1)[0] || null)
+      : null
+    if (fdaForFiber) console.log('[SCAN] portionDb+FDA fiber:', portionItem.name_zh, '→', fdaForFiber.n, `fib=${fdaForFiber.fib}`)
     return {
       ...base,
       name: portionItem.name_zh, source: 'portion', portionItem,
       grams: best.g, baseGrams: rawAiG,
       portionLevel: best.level, portionMult: LEVEL_FACTORS[best.level],
-      fdaItem: null, nycuDish: null,
+      fdaItem: fdaForFiber, nycuDish: null,
     }
   }
 
@@ -281,7 +286,11 @@ function calcCompNut(comp) {
     return calcNutrition(comp.fdaItem, comp.grams)
   if (comp.source === 'portion' && comp.portionItem) {
     const nut = compNutrition(comp.portionItem, comp.grams)
-    return { calories: nut.calories, protein: nut.protein, carbs: nut.carbs, fat: nut.fat, fiber: null }
+    // Get fiber from FDA if available (portionDb has no fiber field)
+    const fiber = comp.fdaItem?.fib != null
+      ? Math.round(comp.fdaItem.fib * comp.grams / 100 * 10) / 10
+      : null
+    return { calories: nut.calories, protein: nut.protein, carbs: nut.carbs, fat: nut.fat, fiber }
   }
   if (comp.source === 'nycu' && comp.nycuDish) {
     const d = comp.nycuDish
