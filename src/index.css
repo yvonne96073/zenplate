@@ -2462,6 +2462,11 @@ body {
   background: radial-gradient(ellipse at center, rgba(0,0,0,0.3) 0%, transparent 70%);
   pointer-events: none;
 }
+/* Flat (sleeping/lying) cats are wider — widen shadow to match; soften opacity */
+.rm-cat--flat .rm-cat-shadow {
+  width: 130px; height: 10px;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18) 0%, transparent 70%);
+}
 
 /* ── Cat sprite animations ─────────────────────────────── */
 /* CAT_W=160 → 5-frame strip = 800px total, 4-frame strip = 640px total */
@@ -2472,16 +2477,14 @@ body {
 @keyframes cat-scratch { to { background-position-x: -800px; } }
 
 .cat-sprite-anim-walking    { animation: cat-walk    0.625s steps(5) infinite; }
-.cat-sprite-anim-sleeping   { animation: cat-breathe 3.6s ease-in-out infinite; }
-@keyframes cat-breathe {
-  0%, 100% { transform: scaleY(1);    opacity: 1;    }
-  45%       { transform: scaleY(0.93); opacity: 0.88; }
-}
+/* sleeping/lying: cycle through all 4 frames of sleep.png so eyes blink/close;
+   frame 0 alone looks "awake" — the steps(4) cycle shows the cat drifting to sleep */
+.cat-sprite-anim-sleeping   { animation: cat-sleep   4.0s   steps(4) infinite; }
+.cat-sprite-anim-lying       { animation: cat-sleep   5.5s   steps(4) infinite; }
 .cat-sprite-anim-eating     { animation: cat-eat     0.833s steps(5) infinite; }
 .cat-sprite-anim-playing     { animation: cat-play    0.714s steps(5) infinite; }
 .cat-sprite-anim-scratching  { animation: cat-scratch 1.0s   steps(5) infinite; }
-/* New idle behavior states — reuse existing keyframes at relaxed speeds */
-.cat-sprite-anim-lying       { animation: cat-breathe 4.2s   ease-in-out infinite; }
+/* Other idle behavior states */
 .cat-sprite-anim-stretching  { animation: cat-scratch 1.8s   steps(5) infinite; }
 .cat-sprite-anim-grooming    { animation: cat-walk    1.5s   steps(5) infinite; }
 .cat-sprite-anim-playingIdle { animation: cat-play    1.4s   steps(5) infinite; }

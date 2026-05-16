@@ -385,7 +385,7 @@ function CatActor({ catState, position, facing, hearts, onCatClick, accEmoji }) 
 
   return (
     <div
-      className="rm-cat"
+      className={`rm-cat${isFlat ? ' rm-cat--flat' : ''}`}
       style={{
         left:            `${position.x}%`,
         bottom:          `${position.y}%`,
