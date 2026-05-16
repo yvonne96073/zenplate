@@ -58,16 +58,26 @@ export const THEMES = [
   { id: 'night',   name: 'Night',  emoji: '🌙', req: '10 ⭐',           unlock: (c) => c.purchased.includes('night') },
 ]
 
-// ── Cat accessories ──────────────────────────────────────────────────────────
+// ── Cat accessories / outfits ─────────────────────────────────────────────────
 export const ACCESSORIES = [
-  { id: 'none',         name: 'None',         emoji: '—',  dispEmoji: null, req: null,             unlock: () => true },
-  { id: 'green_collar', name: 'Green Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',         unlock: () => true },
-  { id: 'bell_collar',  name: 'Bell Collar',  emoji: '🔔', dispEmoji: '🔔', req: '3-day streak',   unlock: (c) => c.streak >= 3 },
-  { id: 'sunny_scarf',  name: 'Sunny Scarf',  emoji: '🌻', dispEmoji: '🌻', req: '5 meals',        unlock: (c) => c.mealCount >= 5 },
-  { id: 'leaf_collar',  name: 'Leaf Collar',  emoji: '🍃', dispEmoji: '🍃', req: '3 ⭐',           unlock: (c) => c.purchased.includes('leaf_collar') },
-  { id: 'wave_scarf',   name: 'Wave Scarf',   emoji: '〰️', dispEmoji: '〰️', req: '5 ⭐',           unlock: (c) => c.purchased.includes('wave_scarf') },
-  { id: 'flower_crown', name: 'Flower Crown', emoji: '🌺', dispEmoji: '🌺', req: '8 ⭐',           unlock: (c) => c.purchased.includes('flower_crown') },
+  { id: 'none',         name: 'No Outfit',     emoji: '—',  dispEmoji: null, req: null,           unlock: () => true },
+  { id: 'green_collar', name: 'Emerald Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',       unlock: () => true },
+  { id: 'bell_collar',  name: 'Bell Collar',    emoji: '🔔', dispEmoji: '🔔', req: '3-day streak', unlock: (c) => c.streak >= 3 },
+  { id: 'sunny_scarf',  name: 'Sunny Crown',    emoji: '🌻', dispEmoji: '🌻', req: '5 meals',      unlock: (c) => c.mealCount >= 5 },
+  { id: 'leaf_collar',  name: 'Forest Cape',    emoji: '🍃', dispEmoji: '🍃', req: '3 ⭐',         unlock: (c) => c.purchased.includes('leaf_collar') },
+  { id: 'wave_scarf',   name: 'Ocean Scarf',    emoji: '🌊', dispEmoji: '🌊', req: '5 ⭐',         unlock: (c) => c.purchased.includes('wave_scarf') },
+  { id: 'flower_crown', name: 'Bloom Crown',    emoji: '🌸', dispEmoji: '🌸', req: '8 ⭐',         unlock: (c) => c.purchased.includes('flower_crown') },
 ]
+
+// ── Outfit colour config — used by wardrobe preview ──────────────────────────
+export const OUTFIT_CONFIG = {
+  green_collar: { color: '#4CAF50', accent: '#C8E6C9', label: 'Collar' },
+  bell_collar:  { color: '#8D6E63', accent: '#FFD54F', label: 'Collar' },
+  sunny_scarf:  { color: '#FDD835', accent: '#FF8F00', label: 'Crown'  },
+  leaf_collar:  { color: '#388E3C', accent: '#A5D6A7', label: 'Cape'   },
+  wave_scarf:   { color: '#1976D2', accent: '#90CAF9', label: 'Scarf'  },
+  flower_crown: { color: '#EC407A', accent: '#F8BBD0', label: 'Crown'  },
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DAILY QUOTE
@@ -375,13 +385,193 @@ function RoomSupplies({ purchased, catState }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// OUTFIT OVERLAY — CSS-drawn clothing layered over the sprite
+// Coordinates are tuned for: standing 160×105px · flat 160×56px
+// The parent .rm-cat already applies scaleX(-1) when facing left, so
+// everything here auto-mirrors; design for right-facing only.
+// ─────────────────────────────────────────────────────────────────────────────
+function OutfitOverlay({ accId, isFlat }) {
+  if (!accId || accId === 'none') return null
+
+  const wrap = {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    pointerEvents: 'none', zIndex: 6, overflow: 'visible',
+  }
+
+  // ── Emerald Collar ────────────────────────────────────────────────
+  if (accId === 'green_collar') return (
+    <div style={wrap}>
+      {isFlat ? (
+        <div style={{ position:'absolute', left:57, top:20, width:26, height:10,
+          borderRadius:5, background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
+          boxShadow:'0 2px 4px rgba(0,0,0,0.3)' }} />
+      ) : (<>
+        <div style={{ position:'absolute', left:25, top:52, width:38, height:12,
+          borderRadius:6, transform:'rotate(-10deg)',
+          background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
+          boxShadow:'0 2px 5px rgba(0,0,0,0.3)' }} />
+        {/* small round tag */}
+        <div style={{ position:'absolute', left:44, top:61, width:9, height:9,
+          borderRadius:'50%', background:'#A5D6A7', border:'1.5px solid #2E7D32' }} />
+      </>)}
+    </div>
+  )
+
+  // ── Bell Collar ───────────────────────────────────────────────────
+  if (accId === 'bell_collar') return (
+    <div style={wrap}>
+      {isFlat ? (<>
+        <div style={{ position:'absolute', left:55, top:20, width:28, height:8,
+          borderRadius:4, background:'linear-gradient(90deg,#A1887F,#6D4C41)',
+          boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+        <div style={{ position:'absolute', left:67, top:27, width:9, height:10,
+          borderRadius:'2px 2px 5px 5px',
+          background:'linear-gradient(180deg,#FFD740,#FF8F00)' }} />
+      </>) : (<>
+        <div style={{ position:'absolute', left:23, top:53, width:40, height:9,
+          borderRadius:5, transform:'rotate(-10deg)',
+          background:'linear-gradient(90deg,#A1887F,#6D4C41)',
+          boxShadow:'0 2px 4px rgba(0,0,0,0.3)' }} />
+        {/* bell */}
+        <div style={{ position:'absolute', left:39, top:60, width:13, height:16,
+          borderRadius:'3px 3px 7px 7px',
+          background:'linear-gradient(160deg,#FFD740,#FF8F00)',
+          boxShadow:'0 3px 6px rgba(0,0,0,0.3)' }} />
+        <div style={{ position:'absolute', left:44, top:74, width:3, height:3,
+          borderRadius:'50%', background:'#5D4037' }} />
+      </>)}
+    </div>
+  )
+
+  // ── Sunny Crown ───────────────────────────────────────────────────
+  if (accId === 'sunny_scarf') return (
+    <div style={wrap}>
+      {isFlat ? (<>
+        {/* stem band on head */}
+        <div style={{ position:'absolute', left:16, top:3, width:38, height:8,
+          borderRadius:4, background:'#8BC34A' }} />
+        {[{l:18,c:'#FF7043'},{l:28,c:'#FDD835'},{l:38,c:'#FF7043'},{l:48,c:'#FDD835'}].map(({l,c},i) => (
+          <div key={i} style={{ position:'absolute', left:l, top:-6, width:11, height:11,
+            borderRadius:'50%', background:c, border:'2px solid white',
+            boxShadow:'0 2px 4px rgba(0,0,0,0.2)' }} />
+        ))}
+      </>) : (<>
+        {/* headband */}
+        <div style={{ position:'absolute', left:5, top:12, width:46, height:10,
+          borderRadius:'5px 5px 0 0', background:'#8BC34A',
+          boxShadow:'0 2px 4px rgba(0,0,0,0.2)' }} />
+        {/* sunflowers */}
+        {[{l:4,c:'#FF7043'},{l:15,c:'#FDD835'},{l:26,c:'#FF7043'},{l:37,c:'#FDD835'}].map(({l,c},i) => (
+          <div key={i} style={{ position:'absolute', left:l, top:1, width:14, height:14,
+            borderRadius:'50%', background:c, border:'2px solid white',
+            boxShadow:'0 2px 5px rgba(0,0,0,0.25)' }}>
+            {/* centre dot */}
+            <div style={{ position:'absolute', top:4, left:4, width:6, height:6,
+              borderRadius:'50%', background:'#5D4037' }} />
+          </div>
+        ))}
+      </>)}
+    </div>
+  )
+
+  // ── Forest Cape ───────────────────────────────────────────────────
+  if (accId === 'leaf_collar') return (
+    <div style={wrap}>
+      {isFlat ? (<>
+        <div style={{ position:'absolute', left:48, top:12, width:80, height:28,
+          borderRadius:10, background:'linear-gradient(135deg,#66BB6A,#1B5E20)',
+          opacity:0.88 }} />
+        {/* leaf veins */}
+        <div style={{ position:'absolute', left:65, top:18, width:40, height:2,
+          borderRadius:1, background:'rgba(255,255,255,0.25)' }} />
+        <div style={{ position:'absolute', left:75, top:24, width:28, height:2,
+          borderRadius:1, background:'rgba(255,255,255,0.2)' }} />
+      </>) : (<>
+        {/* cape body over torso */}
+        <div style={{ position:'absolute', left:36, top:40, width:92, height:54,
+          borderRadius:'6px 22px 22px 6px',
+          background:'linear-gradient(135deg,#43A047,#1B5E20)', opacity:0.9 }} />
+        {/* cape collar around neck */}
+        <div style={{ position:'absolute', left:20, top:46, width:50, height:26,
+          borderRadius:13, transform:'rotate(-5deg)',
+          background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
+          boxShadow:'0 3px 6px rgba(0,0,0,0.25)' }} />
+        {/* leaf detail shine */}
+        <div style={{ position:'absolute', left:58, top:44, width:22, height:32,
+          borderRadius:'50% 0 50% 50%', transform:'rotate(-20deg)',
+          background:'rgba(255,255,255,0.13)' }} />
+        {/* clasp */}
+        <div style={{ position:'absolute', left:38, top:52, width:10, height:10,
+          borderRadius:'50%', background:'#FDD835',
+          border:'1.5px solid #F9A825', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+      </>)}
+    </div>
+  )
+
+  // ── Ocean Scarf ───────────────────────────────────────────────────
+  if (accId === 'wave_scarf') return (
+    <div style={wrap}>
+      {isFlat ? (<>
+        <div style={{ position:'absolute', left:52, top:16, width:34, height:14,
+          borderRadius:7, background:'linear-gradient(135deg,#42A5F5,#0D47A1)',
+          boxShadow:'0 2px 5px rgba(0,0,0,0.3)' }} />
+        <div style={{ position:'absolute', left:52, top:24, width:34, height:3,
+          borderRadius:2, background:'rgba(255,255,255,0.25)' }} />
+      </>) : (<>
+        {/* scarf loop around neck */}
+        <div style={{ position:'absolute', left:22, top:50, width:52, height:16,
+          borderRadius:8, transform:'rotate(-8deg)',
+          background:'linear-gradient(135deg,#42A5F5,#1565C0)',
+          boxShadow:'0 3px 6px rgba(0,0,0,0.3)' }} />
+        {/* hanging tail */}
+        <div style={{ position:'absolute', left:32, top:62, width:18, height:34,
+          borderRadius:'0 0 10px 10px',
+          background:'linear-gradient(180deg,#42A5F5,#1E88E5)' }} />
+        {/* wave stripe */}
+        <div style={{ position:'absolute', left:22, top:57, width:52, height:4,
+          borderRadius:2, background:'rgba(255,255,255,0.28)' }} />
+        {/* tail stripe */}
+        <div style={{ position:'absolute', left:37, top:74, width:8, height:14,
+          borderRadius:2, background:'rgba(255,255,255,0.2)' }} />
+      </>)}
+    </div>
+  )
+
+  // ── Bloom Crown ───────────────────────────────────────────────────
+  if (accId === 'flower_crown') {
+    const flowers = isFlat
+      ? [{l:17,c:'#EF5350'},{l:27,c:'#FDD835'},{l:37,c:'#EC407A'},{l:47,c:'#AB47BC'}]
+      : [{l:4, c:'#EF5350'},{l:15,c:'#FDD835'},{l:26,c:'#EC407A'},{l:37,c:'#AB47BC'}]
+    return (
+      <div style={wrap}>
+        {/* vine band */}
+        <div style={{ position:'absolute',
+          left: isFlat ? 14 : 2, top: isFlat ? 4 : 13,
+          width: isFlat ? 44 : 52, height: isFlat ? 8 : 10,
+          borderRadius: 5, background:'linear-gradient(90deg,#81C784,#A5D6A7)' }} />
+        {flowers.map(({l,c},i) => (
+          <div key={i} style={{ position:'absolute', left:l,
+            top: isFlat ? -5 : 2,
+            width:14, height:14, borderRadius:'50%', background:c,
+            border:'2px solid white', boxShadow:'0 2px 5px rgba(0,0,0,0.25)' }}>
+            <div style={{ position:'absolute', top:4, left:4, width:6, height:6,
+              borderRadius:'50%', background:'#FFF9C4' }} />
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  return null
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // CAT ACTOR — single component, single catState, one cat on screen at a time
 // ─────────────────────────────────────────────────────────────────────────────
-function CatActor({ catState, position, facing, hearts, onCatClick, accEmoji }) {
+function CatActor({ catState, position, facing, hearts, onCatClick, accId }) {
   const showZzz = catState === 'sleeping'
   const eatAnim = catState === 'eating'
   const isFlat  = catState === 'sleeping' || catState === 'lying'
-  const showAcc = accEmoji && !['sleeping', 'lying'].includes(catState)
 
   return (
     <div
@@ -413,8 +603,8 @@ function CatActor({ catState, position, facing, hearts, onCatClick, accEmoji }) 
         <CatSprite state={catState} />
       </div>
 
-      {/* Accessory */}
-      {showAcc && <div className="rm-cat-acc">{accEmoji}</div>}
+      {/* Outfit overlay — CSS-drawn clothing on top of sprite */}
+      <OutfitOverlay accId={accId} isFlat={isFlat} />
 
       {/* Floor shadow */}
       <div className="rm-cat-shadow" />
@@ -973,7 +1163,7 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
             facing={catFacing}
             hearts={hearts}
             onCatClick={handleCatClick}
-            accEmoji={activeAcc?.dispEmoji}
+            accId={equippedAcc}
           />
 
           {/* XP flash */}

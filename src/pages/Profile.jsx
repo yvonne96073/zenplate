@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { getLevel, getLevelXp, getNextLevelXp } from '../hooks/useProfile'
 import { calcStars } from '../utils/scoring'
 import { calcNutritionGoals } from '../utils/nutrition'
-import MyRoom, { THEMES, ACCESSORIES } from '../components/MyRoom'
+import MyRoom, { THEMES, ACCESSORIES, OUTFIT_CONFIG } from '../components/MyRoom'
 
 const AVATAR_SEEDS = ['Felix', 'Lily', 'Zoe', 'Luna', 'Mia', 'Kai', 'Leo', 'Aria', 'Sam', 'Nova']
 const DICEBEAR = (seed) => `https://api.dicebear.com/9.x/initials/svg?seed=${seed}&backgroundColor=2BB5A0&textColor=ffffff&fontSize=40`
@@ -112,12 +112,12 @@ const THEME_SHOP = [
 ]
 
 const ACC_SHOP = [
-  { id: 'green_collar', price: 0, desc: 'A gentle hello. Always yours.' },
-  { id: 'bell_collar',  price: 0, desc: 'Soft jingles as your cat walks.' },
-  { id: 'sunny_scarf',  price: 0, desc: 'Bright like a sunflower morning.' },
-  { id: 'leaf_collar',  price: 3, desc: 'Fresh from the garden, cool and quiet.' },
-  { id: 'wave_scarf',   price: 5, desc: 'Soft as sea foam on a calm afternoon.' },
-  { id: 'flower_crown', price: 8, desc: 'For the loveliest cat in the room.' },
+  { id: 'green_collar', price: 0, desc: 'A classic emerald collar — always yours, always chic.' },
+  { id: 'bell_collar',  price: 0, desc: 'A leather collar with a tiny golden bell. *jingle jingle*' },
+  { id: 'sunny_scarf',  price: 0, desc: 'A cheerful sunflower crown. Bright like your best mornings.' },
+  { id: 'leaf_collar',  price: 3, desc: 'A forest-green cape with leaf details. Mysterious and cool.' },
+  { id: 'wave_scarf',   price: 5, desc: 'An ocean-blue scarf that flows like sea foam.' },
+  { id: 'flower_crown', price: 8, desc: 'An elaborate crown of blooms. For the royalty of the room.' },
 ]
 
 // ── Quest pool: 10 quests, pick 3 per day by date-seed ───────
@@ -376,9 +376,13 @@ export default function Profile({ session, profile, updateProfile, autoOpenRoom,
             </div>
           </div>
           <div className="wd-preview-chip">
-            <span className="wd-chip-icon">{ACCESSORIES.find(a => a.id === equippedAcc)?.emoji}</span>
+            <span className="wd-chip-icon"
+              style={{ background: OUTFIT_CONFIG[equippedAcc]?.accent || '#E0E0E0',
+                       borderRadius: 8, fontSize: 18, display:'flex', alignItems:'center', justifyContent:'center', width:36, height:36 }}>
+              {ACCESSORIES.find(a => a.id === equippedAcc)?.emoji}
+            </span>
             <div className="wd-chip-info">
-              <span className="wd-chip-label">Accessory</span>
+              <span className="wd-chip-label">{OUTFIT_CONFIG[equippedAcc]?.label || 'Outfit'}</span>
               <span className="wd-chip-name">{ACCESSORIES.find(a => a.id === equippedAcc)?.name}</span>
             </div>
           </div>
@@ -620,36 +624,76 @@ export default function Profile({ session, profile, updateProfile, autoOpenRoom,
             <p className="wd-unlock-hint">Unlock more looks from Cat Supplies.</p>
           )}
 
-          {/* ── Accessories by slot ── */}
-          <p className="wd-section-label" style={{ marginTop: 18 }}>✨ Accessories</p>
-          {ownedAccs.length === 0 ? (
-            <p className="wd-unlock-hint">Unlock more looks from Cat Supplies.</p>
-          ) : (
-            <>
-              {SLOT_ORDER.map(slot => {
-                const slotAccs = ownedAccs.filter(a => ACC_SLOTS[a.id] === slot)
-                if (slotAccs.length === 0) return null
-                return (
-                  <div key={slot} className="wd-slot-group">
-                    <p className="wd-slot-label">{SLOT_EMOJI[slot]} {slot}</p>
-                    <div className="wd-grid-acc">
-                      {slotAccs.map(a => {
-                        const isOn = equippedAcc === a.id
-                        return (
-                          <div key={a.id} className={`wd-card ${isOn ? 'wd-on' : ''}`}
-                            onClick={() => handleEquipAcc(a.id)}>
-                            <div className="wd-card-emoji">{a.emoji}</div>
-                            <div className="wd-card-name">{a.name}</div>
-                            <div className="wd-card-status">{isOn ? '✓ Wearing' : 'Tap to wear'}</div>
-                          </div>
-                        )
-                      })}
+          {/* ── Outfits grid ── */}
+          <p className="wd-section-label" style={{ marginTop: 18 }}>🎽 Outfits</p>
+          <div className="wd-outfit-grid">
+            {/* No outfit card */}
+            {(() => {
+              const isOn = equippedAcc === 'none'
+              return (
+                <div className={`wd-outfit-card ${isOn ? 'wd-on' : ''}`}
+                  onClick={() => handleEquipAcc('none')}>
+                  <div className="wd-outfit-preview" style={{ background:'#F5F5F5' }}>
+                    <div className="wd-mini-cat">
+                      <div className="wd-mini-ear wd-mini-ear-l" />
+                      <div className="wd-mini-ear wd-mini-ear-r" />
+                      <div className="wd-mini-head" />
+                      <div className="wd-mini-eyes">
+                        <div className="wd-mini-eye" /><div className="wd-mini-eye" />
+                      </div>
+                      <div className="wd-mini-body" />
                     </div>
                   </div>
-                )
-              })}
-            </>
-          )}
+                  <div className="wd-outfit-name">No Outfit</div>
+                  <div className="wd-outfit-type">Plain</div>
+                  {isOn && <div className="wd-outfit-worn">✓ Wearing</div>}
+                </div>
+              )
+            })()}
+            {/* All collected outfits */}
+            {ownedAccs.map(a => {
+              const isOn = equippedAcc === a.id
+              const cfg  = OUTFIT_CONFIG[a.id]
+              return (
+                <div key={a.id} className={`wd-outfit-card ${isOn ? 'wd-on' : ''}`}
+                  onClick={() => handleEquipAcc(a.id)}>
+                  <div className="wd-outfit-preview"
+                    style={{ background: cfg ? cfg.accent + '55' : '#F0F0F0' }}>
+                    <div className="wd-mini-cat">
+                      <div className="wd-mini-ear wd-mini-ear-l" />
+                      <div className="wd-mini-ear wd-mini-ear-r" />
+                      <div className="wd-mini-head" />
+                      <div className="wd-mini-eyes">
+                        <div className="wd-mini-eye" /><div className="wd-mini-eye" />
+                      </div>
+                      <div className="wd-mini-body" />
+                      {/* Outfit indicator on mini cat */}
+                      {cfg && (cfg.label === 'Collar' || cfg.label === 'Cape' || cfg.label === 'Scarf') && (
+                        <div className="wd-mini-collar" style={{ background: cfg.color }} />
+                      )}
+                      {cfg && cfg.label === 'Cape' && (
+                        <div className="wd-mini-cape" style={{ background: cfg.color }} />
+                      )}
+                      {cfg && cfg.label === 'Scarf' && (
+                        <div className="wd-mini-scarf" style={{ background: cfg.color }} />
+                      )}
+                      {cfg && cfg.label === 'Crown' && (
+                        <div className="wd-mini-crown" style={{ background: cfg.color }} />
+                      )}
+                    </div>
+                  </div>
+                  <div className="wd-outfit-name">{a.name}</div>
+                  <div className="wd-outfit-type">{cfg?.label || 'Outfit'}</div>
+                  {isOn && <div className="wd-outfit-worn">✓ Wearing</div>}
+                </div>
+              )
+            })}
+            {ownedAccs.length === 0 && (
+              <p className="wd-unlock-hint" style={{ gridColumn:'1/-1' }}>
+                Unlock outfits from Cat Supplies to dress up your cat!
+              </p>
+            )}
+          </div>
         </Modal>
       )}
 
