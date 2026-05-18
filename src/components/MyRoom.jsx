@@ -63,20 +63,16 @@ export const ACCESSORIES = [
   { id: 'none',         name: 'No Outfit',     emoji: '—',  dispEmoji: null, req: null,           unlock: () => true },
   { id: 'green_collar', name: 'Emerald Collar', emoji: '💚', dispEmoji: '💚', req: 'Always',       unlock: () => true },
   { id: 'bell_collar',  name: 'Bell Collar',    emoji: '🔔', dispEmoji: '🔔', req: '3-day streak', unlock: (c) => c.streak >= 3 },
-  { id: 'sunny_scarf',  name: 'Sunny Crown',    emoji: '🌻', dispEmoji: '🌻', req: '5 meals',      unlock: (c) => c.mealCount >= 5 },
   { id: 'leaf_collar',  name: 'Forest Cape',    emoji: '🍃', dispEmoji: '🍃', req: '3 ⭐',         unlock: (c) => c.purchased.includes('leaf_collar') },
   { id: 'wave_scarf',   name: 'Ocean Scarf',    emoji: '🌊', dispEmoji: '🌊', req: '5 ⭐',         unlock: (c) => c.purchased.includes('wave_scarf') },
-  { id: 'flower_crown', name: 'Bloom Crown',    emoji: '🌸', dispEmoji: '🌸', req: '8 ⭐',         unlock: (c) => c.purchased.includes('flower_crown') },
 ]
 
 // ── Outfit colour config — used by wardrobe preview ──────────────────────────
 export const OUTFIT_CONFIG = {
   green_collar: { color: '#4CAF50', accent: '#C8E6C9', label: 'Collar' },
   bell_collar:  { color: '#8D6E63', accent: '#FFD54F', label: 'Collar' },
-  sunny_scarf:  { color: '#FDD835', accent: '#FF8F00', label: 'Crown'  },
   leaf_collar:  { color: '#388E3C', accent: '#A5D6A7', label: 'Cape'   },
   wave_scarf:   { color: '#1976D2', accent: '#90CAF9', label: 'Scarf'  },
-  flower_crown: { color: '#EC407A', accent: '#F8BBD0', label: 'Crown'  },
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -464,39 +460,6 @@ function OutfitOverlay({ accId, isFlat }) {
     </div>
   )
 
-  // ── Sunny Crown — vine headband + sunflowers on top of head ───────
-  if (accId === 'sunny_scarf') return (
-    <div style={wrap}>
-      {isFlat ? (<>
-        {/* vine band on lying head */}
-        <div style={{ position:'absolute', left:14, top:3, width:34, height:6,
-          borderRadius:3, background:'#558B2F' }} />
-        {[14, 23, 34].map((l, i) => (
-          <div key={i} style={{ position:'absolute', left:l, top:-6, width:11, height:11,
-            borderRadius:'50%', background: i === 1 ? '#FDD835' : '#FF7043',
-            border:'2px solid white', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}>
-            <div style={{ position:'absolute', top:3, left:3, width:5, height:5,
-              borderRadius:'50%', background: i === 1 ? '#5D4037' : '#FDD835' }} />
-          </div>
-        ))}
-      </>) : (<>
-        {/* vine headband across head */}
-        <div style={{ position:'absolute', left:4, top:11, width:44, height:9,
-          borderRadius:'5px 5px 3px 3px', background:'#558B2F',
-          boxShadow:'0 2px 4px rgba(0,0,0,0.2)' }} />
-        {/* 4 sunflowers sitting on the headband */}
-        {[4, 13, 23, 33].map((l, i) => (
-          <div key={i} style={{ position:'absolute', left:l, top:0, width:13, height:13,
-            borderRadius:'50%', background: i % 2 === 0 ? '#FF7043' : '#FDD835',
-            border:'2px solid white', boxShadow:'0 2px 4px rgba(0,0,0,0.25)' }}>
-            <div style={{ position:'absolute', top:3, left:3, width:7, height:7,
-              borderRadius:'50%', background: i % 2 === 0 ? '#FDD835' : '#5D4037' }} />
-          </div>
-        ))}
-      </>)}
-    </div>
-  )
-
   // ── Forest Cape — green cloak draping over the back + gold clasp ──
   if (accId === 'leaf_collar') return (
     <div style={wrap}>
@@ -560,42 +523,6 @@ function OutfitOverlay({ accId, isFlat }) {
       </>)}
     </div>
   )
-
-  // ── Bloom Crown — vine headband + colorful flowers ────────────────
-  if (accId === 'flower_crown') {
-    const standFlowers = [
-      { l:3,  c:'#EF5350' },
-      { l:14, c:'#FDD835' },
-      { l:25, c:'#EC407A' },
-      { l:36, c:'#AB47BC' },
-    ]
-    const flatFlowers = [
-      { l:13, c:'#EF5350' },
-      { l:22, c:'#FDD835' },
-      { l:33, c:'#EC407A' },
-    ]
-    const flowers = isFlat ? flatFlowers : standFlowers
-    return (
-      <div style={wrap}>
-        {/* vine base band */}
-        <div style={{ position:'absolute',
-          left: isFlat ? 11 : 2, top: isFlat ? 3 : 10,
-          width: isFlat ? 38 : 48, height: 9,
-          borderRadius: 5,
-          background:'linear-gradient(90deg,#558B2F,#7CB342,#558B2F)' }} />
-        {/* flower blossoms on top of band */}
-        {flowers.map(({ l, c }, i) => (
-          <div key={i} style={{ position:'absolute', left:l, top: isFlat ? -5 : 0,
-            width:14, height:14, borderRadius:'50%', background:c,
-            border:'2px solid white', boxShadow:'0 2px 5px rgba(0,0,0,0.25)' }}>
-            {/* flower centre */}
-            <div style={{ position:'absolute', top:4, left:4, width:6, height:6,
-              borderRadius:'50%', background:'#FFF9C4' }} />
-          </div>
-        ))}
-      </div>
-    )
-  }
 
   return null
 }
@@ -727,7 +654,15 @@ export default function MyRoom({ avatar, xp, streak, mealCount, level, onClose, 
     try { return localStorage.getItem('zp_theme') || 'japandi' } catch { return 'japandi' }
   })
   const [equippedAcc, setEquippedAcc] = useState(() => {
-    try { return localStorage.getItem('zp_acc') || 'green_collar' } catch { return 'green_collar' }
+    try {
+      const v = localStorage.getItem('zp_acc') || 'green_collar'
+      // sunny_scarf and flower_crown were removed — reset to green_collar
+      if (v === 'sunny_scarf' || v === 'flower_crown') {
+        localStorage.setItem('zp_acc', 'green_collar')
+        return 'green_collar'
+      }
+      return v
+    } catch { return 'green_collar' }
   })
 
   // ── Purchased supplies ─────────────────────────────────────────────────────

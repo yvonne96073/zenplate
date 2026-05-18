@@ -90,17 +90,15 @@ const CAT_SUPPLIES = [
   { id: 'brush',            emoji: '🪮', name: 'Grooming Brush',    price: 4, effect: 'Comfort improves Mood more.' },
 ]
 
-// ── Accessory slot map (Neck / Scarf / Head) ──────────────────────
+// ── Accessory slot map (Neck / Scarf) ─────────────────────────────
 const ACC_SLOTS = {
   green_collar: 'Neck',
   bell_collar:  'Neck',
   leaf_collar:  'Neck',
-  sunny_scarf:  'Scarf',
   wave_scarf:   'Scarf',
-  flower_crown: 'Head',
 }
-const SLOT_ORDER  = ['Neck', 'Scarf', 'Head']
-const SLOT_EMOJI  = { Neck: '🐾', Scarf: '🧣', Head: '👑' }
+const SLOT_ORDER  = ['Neck', 'Scarf']
+const SLOT_EMOJI  = { Neck: '🐾', Scarf: '🧣' }
 
 // ── Theme & Accessory shop display data ──────────────────────────
 const THEME_SHOP = [
@@ -114,10 +112,8 @@ const THEME_SHOP = [
 const ACC_SHOP = [
   { id: 'green_collar', price: 0, desc: 'A classic emerald collar — always yours, always chic.' },
   { id: 'bell_collar',  price: 0, desc: 'A leather collar with a tiny golden bell. *jingle jingle*' },
-  { id: 'sunny_scarf',  price: 0, desc: 'A cheerful sunflower crown. Bright like your best mornings.' },
   { id: 'leaf_collar',  price: 3, desc: 'A forest-green cape with leaf details. Mysterious and cool.' },
   { id: 'wave_scarf',   price: 5, desc: 'An ocean-blue scarf that flows like sea foam.' },
-  { id: 'flower_crown', price: 8, desc: 'An elaborate crown of blooms. For the royalty of the room.' },
 ]
 
 // ── Quest pool: 10 quests, pick 3 per day by date-seed ───────
