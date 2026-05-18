@@ -131,6 +131,29 @@ export const PACKAGED_FOODS = [
     per: 100, cal100: 426, pro100: 9.5, carb100: 62.0, fat100: 15.7, sod100: 1050,
   },
 
+  // ─── 味味A Veve / 味丹 Vedan ──────────────────────────
+  {
+    id: 'weiweia-paigu-bowl',
+    brand: '味味A', name: '排骨雞湯麵',
+    aliases: ['味味A排骨', '排骨雞湯', '排骨湯麵', '味味A碗麵', '味丹排骨', '排骨麵'],
+    visual: ['紅黃色碗裝', '大碗泡麵', '排骨'],
+    per: 85, cal100: 445, pro100: 10.6, carb100: 68, fat100: 13, sod100: 1765,
+  },
+  {
+    id: 'weiweia-beef-bowl',
+    brand: '味味A', name: '牛肉湯麵',
+    aliases: ['味味A牛肉', '牛肉湯麵', '味味牛肉'],
+    visual: ['紅色碗裝'],
+    per: 85, cal100: 440, pro100: 10.5, carb100: 67, fat100: 12.5, sod100: 1750,
+  },
+  {
+    id: 'weiweia-spicy-bowl',
+    brand: '味味A', name: '麻辣排骨麵',
+    aliases: ['味味A麻辣', '麻辣排骨', '味味麻辣'],
+    visual: ['紅黃色碗裝'],
+    per: 85, cal100: 455, pro100: 10.8, carb100: 68, fat100: 14, sod100: 1800,
+  },
+
   // ─── 味王 Wang ────────────────────────────────────────
   {
     id: 'wang-beef-noodle',
