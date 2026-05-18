@@ -405,7 +405,8 @@ function OutfitOverlay({ accId, isFlat }) {
 
   const wrap = {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-    pointerEvents: 'none', zIndex: 6, overflow: 'visible',
+    pointerEvents: 'none', zIndex: 10, overflow: 'visible',
+    transform: 'translateZ(0)',
   }
 
   // ── Emerald Collar — thin green band at neck + small round tag ────
