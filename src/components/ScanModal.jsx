@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { loadFdaDb, lookupByName, searchFda, calcNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
 import { matchNycuDish, isNycuContext, searchNycuDb } from '../utils/nycuDb'
 import { is7ElevenContext, search7Eleven } from '../utils/sevenElevenDb'
-import { lookupPackagedFood, lookupPackagedFoodCandidates } from '../data/packagedFoods'
+import { lookupPackagedFood, lookupPackagedFoodCandidates, debugScoreAll } from '../data/packagedFoods'
 import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByCategory } from '../utils/subwayDb'
 import { isMcdonaldsContext, matchMcdonaldsItem } from '../utils/mcdonaldsDb'
 import { isFamilyMartContext, searchFamilyMart, getFamilyMartNutrition } from '../utils/familymartDb'
@@ -650,7 +650,9 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       if (!resp) throw new Error(lastErr?.message === 'TIMEOUT' ? 'TIMEOUT' : lastErr?.message)
 
       const text  = resp.response.text().trim()
-      console.log('[ZenPlate AI] Raw response (first 300 chars):', text.slice(0, 300))
+      console.log('[ZenPlate AI] ── RAW GEMINI RESPONSE ──────────────────────')
+      console.log(text)
+      console.log('[ZenPlate AI] ─────────────────────────────────────────────')
       const match = text.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('FORMAT_ERROR')
 
@@ -701,6 +703,51 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
 
     const ft = cand.food_type || (cand.packaged ? 'packaged_food' : 'general_meal')
     console.log('[SCAN] confirmCandidate:', cand.name, '— food_type:', ft, '— brand:', cand.brand, '— confidence:', cand.confidence)
+
+    // ── Packaged food debug trace (runs for every scan) ───────────────────
+    ;(() => {
+      console.group('[PKG DEBUG] Packaged food pipeline trace')
+      console.log('1. food_type returned by Gemini:', cand.food_type, '→ resolved ft:', ft)
+      console.log('2. packaged flag:', cand.packaged)
+      console.log('3. brand from Gemini:', JSON.stringify(cand.brand))
+      console.log('4. name from Gemini:', JSON.stringify(cand.name))
+      console.log('5. components[0].name:', JSON.stringify(cand.components?.[0]?.name))
+      console.log('6. OCR clues (raw):', JSON.stringify(cand.clues))
+      console.log('7. container_clue:', JSON.stringify(cand.container_clue))
+      console.log('8. full candidate object:', JSON.stringify(cand, null, 2))
+
+      // Always attempt DB lookup regardless of food_type — log every score
+      const ocrFragments  = cand.clues || []
+      const productQuery  = cand.components?.[0]?.name || cand.name || ''
+      const brandQuery    = cand.brand || ''
+      console.log('9. DB query → brand:', JSON.stringify(brandQuery), '  product:', JSON.stringify(productQuery), '  ocrFragments:', JSON.stringify(ocrFragments))
+
+      // Show ALL DB item scores (sorted desc) so we can see why something isn't matching
+      const allScores = debugScoreAll(brandQuery, productQuery, ocrFragments)
+      const relevant  = allScores.filter(r => r.score > 0.15)
+      console.log('10. Full DB scores (score > 0.15):')
+      if (relevant.length === 0) {
+        console.log('    → NOTHING scored above 0.15 — OCR may be blank or misidentified')
+      } else {
+        relevant.slice(0, 12).forEach(r => {
+          const verdict = r.score >= 0.82 ? '✅ auto'
+            : r.score >= 0.65 ? '🟡 picker(strict)'
+            : r.score >= 0.42 ? '🟡 picker'
+            : '❌ no match'
+          console.log(`    ${verdict}  score=${r.score}  →  ${r.label}`)
+        })
+      }
+      console.log('    (full table:)')
+      console.table(allScores.slice(0, 20))
+
+      const willEnterPackagedBlock = ft === 'packaged_food' || !!cand.packaged
+      if (!willEnterPackagedBlock) {
+        console.warn('11. ⚠️  food_type is "' + ft + '" and packaged=false — packaged block would be SKIPPED without fallback')
+      } else {
+        console.log('11. food_type / packaged flag → packaged block will run ✓')
+      }
+      console.groupEnd()
+    })()
 
     // ── chain_restaurant: FamilyMart, McDonald's, or Subway ───────────────
     if (ft === 'chain_restaurant') {
@@ -807,32 +854,51 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       return
     }
 
-    // ── packaged_food: fuzzy DB lookup with 3-tier confidence ─────────────
-    if (ft === 'packaged_food' || cand.packaged) {
+    // ── packaged_food: fuzzy DB lookup (runs for packaged_food AND general_meal fallback)
+    // Reason: Gemini frequently returns food_type:'general_meal' even for packaged items.
+    // We always try the DB; if there's a confident match we use it regardless of food_type.
+    {
+      const isExplicitPackaged = ft === 'packaged_food' || !!cand.packaged
       const ocrFragments = cand.clues || []
       const productQuery = cand.components?.[0]?.name || cand.name || ''
       const pkgCandidates = lookupPackagedFoodCandidates(
         cand.brand || '', productQuery, ocrFragments, 3
       )
-      console.log('[SCAN] packaged lookup:', productQuery, '→', pkgCandidates.map(c => `${c.item.name}(${c.score.toFixed(2)})`))
+      console.log('[SCAN] packaged lookup (ft=' + ft + '):', productQuery,
+        '→', pkgCandidates.length > 0
+          ? pkgCandidates.map(c => `${c.item.brand} ${c.item.name}(${c.score.toFixed(2)})`).join(', ')
+          : 'no candidates'
+      )
 
       if (pkgCandidates.length > 0) {
         const top = pkgCandidates[0]
-        if (top.score >= 0.82) {
-          // High confidence — auto-confirm
+        // For general_meal fallback, require higher confidence to avoid false positives
+        const autoThreshold   = isExplicitPackaged ? 0.82 : 0.88
+        const pickerThreshold = isExplicitPackaged ? 0.42 : 0.65
+
+        if (top.score >= autoThreshold) {
+          console.log('[SCAN] packaged auto-confirm:', top.item.brand, top.item.name, 'score:', top.score.toFixed(3))
           setComponents([buildPackagedComp(top.item, cand)])
           setMealName(`${top.item.brand} ${top.item.name}`)
           setStep('result')
           return
         }
-        if (top.score >= 0.42) {
-          // Medium confidence — show picker
+        if (top.score >= pickerThreshold) {
+          console.log('[SCAN] packaged show picker, top score:', top.score.toFixed(3))
           setPackagedCandidates(pkgCandidates)
           setStep('packaged_pick')
           return
         }
+        console.log('[SCAN] packaged: best score', top.score.toFixed(3), '< threshold (', pickerThreshold, ') — falling through to enrichComp')
+      } else {
+        console.log('[SCAN] packaged: no DB candidates — falling through to enrichComp')
       }
-      // Low/no confidence — fall through to enrichComp
+
+      // Only bail out here if Gemini explicitly said packaged_food
+      // (for general_meal we continue to enrichComp below)
+      if (isExplicitPackaged && pkgCandidates.length === 0) {
+        // No match at all for a confirmed packaged item — still proceed to enrichComp
+      }
     }
 
     // ── general_meal (or fallback): component breakdown + enrichComp ──────

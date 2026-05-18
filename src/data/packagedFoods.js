@@ -625,3 +625,34 @@ export function lookupPackagedFoodCandidates(brandName = '', productName = '', o
   results.sort((a, b) => b.score - a.score)
   return results.slice(0, topN)
 }
+
+/**
+ * Debug: return ALL items with their scores, sorted DESC.
+ * Use in browser console or debug traces to diagnose why a product isn't matching.
+ * Does NOT filter by threshold.
+ */
+export function debugScoreAll(brandName = '', productName = '', ocrFragments = []) {
+  return PACKAGED_FOODS
+    .map(item => ({
+      id: item.id,
+      label: `${item.brand} ${item.name}`,
+      score: +scoreItem(brandName, productName, ocrFragments, item).toFixed(4),
+    }))
+    .sort((a, b) => b.score - a.score)
+}
+
+/**
+ * Quick console helper — call from browser devtools:
+ *   import('/src/data/packagedFoods.js').then(m => m.traceMatch('統一', '滿漢大餐麻辣', ['麻辣', '牛肉麵']))
+ */
+export function traceMatch(brand, name, clues = []) {
+  console.group(`[PKG traceMatch] brand="${brand}" name="${name}" clues=${JSON.stringify(clues)}`)
+  const all = debugScoreAll(brand, name, clues)
+  console.table(all.slice(0, 15))
+  const top = all[0]
+  if (top.score >= 0.82) console.log('✅ Would AUTO-CONFIRM:', top.label)
+  else if (top.score >= 0.42) console.log('🟡 Would show PICKER, top:', top.label)
+  else console.log('❌ Would FALL THROUGH (best score', top.score, '< 0.42)')
+  console.groupEnd()
+  return all
+}
