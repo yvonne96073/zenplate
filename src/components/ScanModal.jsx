@@ -1402,20 +1402,6 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
                 disabled={saving || components.length === 0}>
                 {saving ? '儲存中...' : `✓ 記錄餐點（${total.calories ?? 0} kcal）`}
               </button>
-              <button className="boba-manual-btn" onClick={() => {
-                const cand = confirmedCandidate || { name: '手搖飲料', confidence: 30 }
-                const meta = parseBobaMeta(cand)
-                setBobaMeta(meta)
-                setBobaOrder({
-                  brandKey: meta.brandKey, drinkKey: meta.drinkKey,
-                  cat: meta.cat, displayBrand: meta.displayBrand,
-                  displayDrink: meta.displayDrink, size: meta.size,
-                  sugarKey: null, iceKey: null, toppings: [...meta.toppings],
-                })
-                setStep('boba')
-              }}>
-                🧋 這其實是手搖飲料
-              </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
           )}
