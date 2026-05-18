@@ -620,13 +620,11 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
     console.log('[ZenPlate AI] Upload received:', file.name, file.type, `${(file.size / 1024).toFixed(1)}KB`)
 
     try {
-      const base64 = await fileToBase64(file)
-      // Normalize MIME type: Safari omits it, Android Chrome may report 'image/jpg' (non-standard)
-      const rawMime = file.type || ''
-      const mimeType = rawMime === 'image/jpg' ? 'image/jpeg'
-                     : rawMime.startsWith('image/') ? rawMime
-                     : 'image/jpeg'
-      console.log('[ZenPlate AI] MIME:', rawMime, '→', mimeType)
+      // Always compress to JPEG ≤ 3 MB — avoids Gemini 400 errors from large iPhone photos
+      const compressed = await compressImage(file)
+      const base64 = compressed || await fileToBase64(file)
+      const mimeType = 'image/jpeg'
+      console.log('[ZenPlate AI] Final base64 size:', Math.round(base64.length * 0.75 / 1024), 'KB')
       const imgPart  = { inlineData: { data: base64.split(',')[1], mimeType } }
       const timeout  = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('TIMEOUT')), ms))])
 
@@ -1032,6 +1030,32 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
 
   const fileToBase64 = f => new Promise((res, rej) => {
     const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f)
+  })
+
+  // Compress image before sending to Gemini — iPhone photos can be 10-20 MB which causes API errors
+  const compressImage = (file, maxSizeKB = 3000, maxDim = 1280) => new Promise((resolve) => {
+    const img = new Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const { naturalWidth: w, naturalHeight: h } = img
+      const scale = Math.min(1, maxDim / Math.max(w, h))
+      const cw = Math.round(w * scale), ch = Math.round(h * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = cw; canvas.height = ch
+      canvas.getContext('2d').drawImage(img, 0, 0, cw, ch)
+      // Try quality 0.85 first, drop to 0.70 if still too large
+      const tryQuality = (q) => {
+        const data = canvas.toDataURL('image/jpeg', q)
+        const kb = Math.round(data.length * 0.75 / 1024)
+        console.log(`[ZenPlate AI] Compressed: ${cw}×${ch} q=${q} → ${kb}KB`)
+        if (kb > maxSizeKB && q > 0.5) return tryQuality(+(q - 0.15).toFixed(2))
+        return data
+      }
+      resolve(tryQuality(0.85))
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
+    img.src = url
   })
 
   const reset = () => {
