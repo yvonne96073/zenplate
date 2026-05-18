@@ -656,7 +656,14 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       const match = text.match(/\{[\s\S]*\}/)
       if (!match) throw new Error('FORMAT_ERROR')
 
-      const parsed   = JSON.parse(match[0])
+      let parsed
+      try {
+        parsed = JSON.parse(match[0])
+      } catch (jsonErr) {
+        console.error('[ZenPlate AI] JSON.parse failed:', jsonErr.message)
+        console.error('[ZenPlate AI] Attempted to parse:', match[0].slice(0, 500))
+        throw new Error('FORMAT_ERROR')
+      }
       const rawCands = (parsed.candidates || []).filter(c => c.name)
       if (!rawCands.length) throw new Error('NO_CANDIDATES')
 
@@ -685,11 +692,15 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       setStep('candidates')
     } catch (err) {
       console.error('[ZenPlate AI] Recognition error:', err)
+      const code = err.message || 'UNKNOWN'
       const msg =
-        err.message === 'TIMEOUT'      ? 'AI 回應逾時，請稍後再試或改用手動搜尋。' :
-        err.message === 'FORMAT_ERROR' ? 'AI 回傳格式異常，請重試或改用手動搜尋。' :
-        err.message === 'NO_CANDIDATES' ? 'AI 無法辨識這張圖片，請換一張或改用手動搜尋。' :
-        'AI 辨識暫時失敗，請稍後再試或改用手動搜尋。'
+        code === 'TIMEOUT'       ? 'AI 回應逾時，請稍後再試或改用手動搜尋。' :
+        code === 'FORMAT_ERROR'  ? 'AI 回傳格式異常，請重試。' :
+        code === 'NO_CANDIDATES' ? 'AI 無法辨識這張圖片，請換一張或改用手動搜尋。' :
+        code.includes('503')     ? 'AI 服務暫時忙碌（503），請稍後再試。' :
+        code.includes('429')     ? 'AI 請求過多（429），請等 30 秒再試。' :
+        code.includes('400')     ? '圖片格式或大小有問題（400），請換一張照片。' :
+        `AI 辨識失敗：${code.slice(0, 80)}`
       setError(msg); setStep('select')
     }
   }
