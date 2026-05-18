@@ -3556,3 +3556,55 @@ body {
   scrollbar-width: none;
 }
 .boba-chips-scroll::-webkit-scrollbar { display: none; }
+
+/* ── Packaged food candidate picker ─────────────────────────── */
+.pkg-pick-subtitle {
+  font-size: 13px; color: var(--muted); font-weight: 600;
+  margin: 0 0 14px; text-align: center;
+}
+
+.pkg-pick-list {
+  display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px;
+}
+
+.pkg-pick-card {
+  width: 100%; text-align: left;
+  background: var(--card); border: 1.5px solid var(--border);
+  border-radius: 14px; padding: 14px 16px;
+  cursor: pointer; transition: all 0.15s;
+}
+.pkg-pick-card:hover, .pkg-pick-card:active {
+  border-color: var(--primary); background: #F0FAF8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(43,181,160,0.15);
+}
+
+.pkg-pick-card-top {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 4px;
+}
+.pkg-pick-brand {
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.pkg-pick-conf {
+  font-size: 11px; font-weight: 700;
+}
+.pkg-pick-name {
+  font-size: 15px; font-weight: 800; color: var(--dark);
+  margin-bottom: 8px; line-height: 1.3;
+}
+.pkg-pick-meta {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--muted); font-weight: 600;
+}
+.pkg-pick-dot { color: var(--border); }
+
+.pkg-pick-none-btn {
+  width: 100%; padding: 11px;
+  border: 1.5px dashed var(--border); border-radius: 20px;
+  background: transparent; color: var(--muted);
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: all 0.15s;
+}
+.pkg-pick-none-btn:hover { border-color: var(--muted); color: var(--dark); }

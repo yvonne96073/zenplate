@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import { loadFdaDb, lookupByName, searchFda, calcNutrition, CATEGORY_EMOJI } from '../utils/fdaDb'
 import { matchNycuDish, isNycuContext, searchNycuDb } from '../utils/nycuDb'
 import { is7ElevenContext, search7Eleven } from '../utils/sevenElevenDb'
-import { lookupPackagedFood } from '../data/packagedFoods'
+import { lookupPackagedFood, lookupPackagedFoodCandidates } from '../data/packagedFoods'
 import { isSubwayContext, matchSubwayItems, calcSubwayMeal, SUBWAY_DB, subwayByCategory } from '../utils/subwayDb'
 import { isMcdonaldsContext, matchMcdonaldsItem } from '../utils/mcdonaldsDb'
 import { isFamilyMartContext, searchFamilyMart, getFamilyMartNutrition } from '../utils/familymartDb'
@@ -88,7 +88,7 @@ ${COMPONENT_ID_LIST}
 7. portion_reason = 簡短說明份量估算依據（例：「標準碗，八分滿，約220g」）
 8. 不要在 components 裡計算卡路里或巨量營養素，只給份量
 9. 多個食物 → components 分列每個品項，每個都要估算 grams 和 portion_confidence
-10. packaged_food → packaged:true，brand 填品牌名
+10. 【包裝食品偵測】看到任何有包裝的食品（洋芋片袋、泡麵袋/碗/杯、餅乾盒、飲料瓶/罐、牛奶盒、飯糰包裝）→ packaged:true，food_type:"packaged_food"。【OCR非常重要】：仔細讀取包裝上所有可見文字，包含：品牌logo（如統一、義美、光泉、維力、日清、農心、卡迪那、乖乖、旺旺）、產品名稱（正面大字）、口味描述、淨重/份量標示。brand 填品牌名，name 填完整產品名稱，clues 填所有OCR到的文字片段（即使不完整也填入），container_clue 填包裝視覺特徵（如：「紅色袋裝」「黃色大碗泡麵」「筒裝洋芋片」）
 11. 就算不確定也要給最佳猜測，不可回傳空 candidates
 12. component name 欄位：優先用上方清單的英文 ID，找不到才用中文
 13. 看到 Subway 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "Subway"，name 填菜單品項中文名稱
@@ -161,6 +161,21 @@ function buildNycuComp(nycuResult) {
     calEst: dish.cal, source: 'nycu', nycuDish: dish,
     fdaItem: null, portionItem: null,
     portionConf: 90, portionReason: `交大${dish.restaurantZh || ''}官方營養資料`,
+  }
+}
+
+// ── Build a component from packaged food DB ───────────────────────────────────
+function buildPackagedComp(item, cand) {
+  return {
+    name: `${item.brand} ${item.name}`,
+    aiName: cand?.name || item.name,
+    grams: item.per, baseGrams: item.per,
+    portionMult: 1, portionLevel: 'standard', correctionDir: null,
+    calEst: 0, hint: `${item.per}g/份`,
+    portionReason: `包裝標示：每份 ${item.per}g`,
+    portionConf: 92,
+    source: 'packaged', packagedItem: { item, servingG: item.per },
+    fdaItem: null, nycuDish: null, portionItem: null,
   }
 }
 
@@ -539,6 +554,9 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
   const [bobaMeta,   setBobaMeta]   = useState(null)   // parsed order from AI
   const [bobaOrder,  setBobaOrder]  = useState(null)   // user-confirmed order state
 
+  // Packaged food candidate picker
+  const [packagedCandidates, setPackagedCandidates] = useState([])  // top-N ranked candidates
+
   const videoRef     = useRef(null)
   const codeRef      = useRef(null)
   const fileInputRef = useRef(null)
@@ -789,21 +807,32 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
       return
     }
 
-    // ── packaged_food: local packaged DB → fallback to enrichComp ─────────
+    // ── packaged_food: fuzzy DB lookup with 3-tier confidence ─────────────
     if (ft === 'packaged_food' || cand.packaged) {
-      const pkg = lookupPackagedFood(cand.brand || '', cand.components?.[0]?.name || cand.name)
-      if (pkg) {
-        setComponents([{
-          name: `${pkg.item.brand} ${pkg.item.name}`,
-          aiName: cand.name, grams: pkg.item.per, baseGrams: pkg.item.per,
-          portionMult: 1, portionLevel: 'standard', correctionDir: null,
-          calEst: 0, hint: `${pkg.item.per}g/份`,
-          portionReason: '', portionConf: 90,
-          source: 'packaged', packagedItem: pkg, fdaItem: null, nycuDish: null,
-        }])
-        setStep('result')
-        return
+      const ocrFragments = cand.clues || []
+      const productQuery = cand.components?.[0]?.name || cand.name || ''
+      const pkgCandidates = lookupPackagedFoodCandidates(
+        cand.brand || '', productQuery, ocrFragments, 3
+      )
+      console.log('[SCAN] packaged lookup:', productQuery, '→', pkgCandidates.map(c => `${c.item.name}(${c.score.toFixed(2)})`))
+
+      if (pkgCandidates.length > 0) {
+        const top = pkgCandidates[0]
+        if (top.score >= 0.82) {
+          // High confidence — auto-confirm
+          setComponents([buildPackagedComp(top.item, cand)])
+          setMealName(`${top.item.brand} ${top.item.name}`)
+          setStep('result')
+          return
+        }
+        if (top.score >= 0.42) {
+          // Medium confidence — show picker
+          setPackagedCandidates(pkgCandidates)
+          setStep('packaged_pick')
+          return
+        }
       }
+      // Low/no confidence — fall through to enrichComp
     }
 
     // ── general_meal (or fallback): component breakdown + enrichComp ──────
@@ -935,6 +964,7 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
     setFamilyMatches([]); setFamilySelected(null)
     setConfirmedCandidate(null)
     setBobaMeta(null); setBobaOrder(null)
+    setPackagedCandidates([])
   }
 
   // ── Confirm boba order → build component → go to result ──────────────────
@@ -1092,6 +1122,61 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
                 setStep('boba')
               }}>
                 🧋 這是手搖飲料
+              </button>
+              <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新拍照</button>
+            </>
+          )}
+
+          {/* ── Packaged food candidate picker ── */}
+          {step === 'packaged_pick' && (
+            <>
+              <h3 className="modal-title">是哪個商品？📦</h3>
+              <p className="pkg-pick-subtitle">找到幾個可能相符的包裝食品，請選一個：</p>
+
+              <div className="pkg-pick-list">
+                {packagedCandidates.map(({ item, score }, i) => {
+                  const calPer = Math.round(item.cal100 * item.per / 100)
+                  const conf = score >= 0.75 ? '非常可能' : score >= 0.55 ? '可能' : '也許'
+                  const confColor = score >= 0.75 ? '#2BB5A0' : score >= 0.55 ? '#FF9800' : '#9E9E9E'
+                  return (
+                    <button key={item.id} className="pkg-pick-card"
+                      onClick={() => {
+                        setComponents([buildPackagedComp(item, confirmedCandidate)])
+                        setMealName(`${item.brand} ${item.name}`)
+                        setStep('result')
+                      }}
+                    >
+                      <div className="pkg-pick-card-top">
+                        <span className="pkg-pick-brand">{item.brand}</span>
+                        <span className="pkg-pick-conf" style={{ color: confColor }}>{conf}</span>
+                      </div>
+                      <p className="pkg-pick-name">{item.name}</p>
+                      <div className="pkg-pick-meta">
+                        <span>每份 {item.per}g</span>
+                        <span className="pkg-pick-dot">·</span>
+                        <span>{calPer} kcal/份</span>
+                        <span className="pkg-pick-dot">·</span>
+                        <span>蛋白 {(item.pro100 * item.per / 100).toFixed(1)}g</span>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button className="pkg-pick-none-btn"
+                onClick={() => {
+                  // Fall through to general_meal enrichment
+                  if (confirmedCandidate) {
+                    const aiComps = confirmedCandidate.components?.length
+                      ? confirmedCandidate.components
+                      : [{ name: confirmedCandidate.name, grams: 200, portion_confidence: 50, portion_reason: '' }]
+                    setComponents(aiComps.map(ai => enrichComp(ai, dbReady, portionAdjustments)))
+                    setMealName(confirmedCandidate.name)
+                  }
+                  setStep('result')
+                }}
+              >
+                都不是，用 AI 估算
               </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新拍照</button>
             </>
