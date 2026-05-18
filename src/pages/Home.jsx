@@ -66,7 +66,9 @@ const FOOD_EMOJI_MAP = [
   [/麵/, '🍜'],
 ]
 
-function getFoodEmoji(name = '', mealType = '') {
+function getFoodEmoji(name = '', mealType = '', dataSource = '') {
+  // Hand-shaken drink: data_source is always '手搖飲料庫'
+  if (dataSource === '手搖飲料庫') return '🧋'
   const n = name.toLowerCase()
   for (const [pattern, emoji] of FOOD_EMOJI_MAP) {
     if (pattern.test(n)) return emoji
@@ -251,7 +253,7 @@ export default function Home({ session, profile, onLogMeal }) {
                   style={{ cursor: 'pointer', flexWrap: 'wrap' }}
                 >
                   {/* 主列 */}
-                  <span className="meal-emoji">{getFoodEmoji(meal.name, meal.meal_type)}</span>
+                  <span className="meal-emoji">{getFoodEmoji(meal.name, meal.meal_type, meal.data_source || '')}</span>
                   <div className="meal-info">
                     <p className="meal-name">{meal.name}</p>
                     <p className="meal-meta">{formatTime(meal.logged_at)} · {MEAL_TYPE_ZH[meal.meal_type] || meal.meal_type}</p>
