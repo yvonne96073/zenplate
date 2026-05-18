@@ -386,9 +386,19 @@ function RoomSupplies({ purchased, catState }) {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // OUTFIT OVERLAY — CSS-drawn clothing layered over the sprite
-// Coordinates are tuned for: standing 160×105px · flat 160×56px
-// The parent .rm-cat already applies scaleX(-1) when facing left, so
-// everything here auto-mirrors; design for right-facing only.
+//
+// Sprite reference (both are 1408px wide originals, displayed at CAT_W=160px):
+//   Standing  walk.png  5 frames → display 160 × 105 px  (head on LEFT)
+//   Flat      sleep.png 4 frames → display 160 × 56 px   (head on LEFT, lying)
+//
+// Approximate landmarks (standing, head-on-left):
+//   Ear tips  x  8-25   y  0-10
+//   Head      x  8-50   y  8-45   center ≈ (28, 27)
+//   Neck      x 32-56   y 48-60
+//   Body/back x 55-140  y 40-90
+//   Tail      x130-160  y 25-65
+//
+// The parent .rm-cat applies scaleX(-1) when facing left → overlay auto-mirrors.
 // ─────────────────────────────────────────────────────────────────────────────
 function OutfitOverlay({ accId, isFlat }) {
   if (!accId || accId === 'none') return null
@@ -398,162 +408,186 @@ function OutfitOverlay({ accId, isFlat }) {
     pointerEvents: 'none', zIndex: 6, overflow: 'visible',
   }
 
-  // ── Emerald Collar ────────────────────────────────────────────────
+  // ── Emerald Collar — thin green band at neck + small round tag ────
   if (accId === 'green_collar') return (
     <div style={wrap}>
-      {isFlat ? (
-        <div style={{ position:'absolute', left:57, top:20, width:26, height:10,
-          borderRadius:5, background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
-          boxShadow:'0 2px 4px rgba(0,0,0,0.3)' }} />
-      ) : (<>
-        <div style={{ position:'absolute', left:25, top:52, width:38, height:12,
-          borderRadius:6, transform:'rotate(-10deg)',
-          background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
-          boxShadow:'0 2px 5px rgba(0,0,0,0.3)' }} />
-        {/* small round tag */}
-        <div style={{ position:'absolute', left:44, top:61, width:9, height:9,
+      {isFlat ? (<>
+        {/* collar band (cat lying flat — neck visible around x=50-75) */}
+        <div style={{ position:'absolute', left:50, top:17, width:26, height:8,
+          borderRadius:4, background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
+          boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+        {/* round tag */}
+        <div style={{ position:'absolute', left:61, top:23, width:9, height:9,
           borderRadius:'50%', background:'#A5D6A7', border:'1.5px solid #2E7D32' }} />
+      </>) : (<>
+        {/* collar band across neck */}
+        <div style={{ position:'absolute', left:28, top:50, width:32, height:9,
+          borderRadius:5, transform:'rotate(-8deg)',
+          background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
+          boxShadow:'0 2px 4px rgba(0,0,0,0.3)' }} />
+        {/* round metal tag hanging below */}
+        <div style={{ position:'absolute', left:42, top:57, width:11, height:11,
+          borderRadius:'50%', background:'#C8E6C9',
+          border:'1.5px solid #2E7D32', boxShadow:'0 1px 3px rgba(0,0,0,0.25)' }} />
       </>)}
     </div>
   )
 
-  // ── Bell Collar ───────────────────────────────────────────────────
+  // ── Bell Collar — dark leather band + golden bell pendant ─────────
   if (accId === 'bell_collar') return (
     <div style={wrap}>
       {isFlat ? (<>
-        <div style={{ position:'absolute', left:55, top:20, width:28, height:8,
-          borderRadius:4, background:'linear-gradient(90deg,#A1887F,#6D4C41)',
+        <div style={{ position:'absolute', left:50, top:17, width:26, height:8,
+          borderRadius:4, background:'linear-gradient(90deg,#795548,#4E342E)',
           boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
-        <div style={{ position:'absolute', left:67, top:27, width:9, height:10,
-          borderRadius:'2px 2px 5px 5px',
-          background:'linear-gradient(180deg,#FFD740,#FF8F00)' }} />
+        {/* small bell */}
+        <div style={{ position:'absolute', left:61, top:23, width:9, height:11,
+          borderRadius:'3px 3px 5px 5px',
+          background:'linear-gradient(180deg,#FFD740,#FF8F00)',
+          boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
       </>) : (<>
-        <div style={{ position:'absolute', left:23, top:53, width:40, height:9,
-          borderRadius:5, transform:'rotate(-10deg)',
-          background:'linear-gradient(90deg,#A1887F,#6D4C41)',
+        {/* leather collar band */}
+        <div style={{ position:'absolute', left:27, top:50, width:32, height:9,
+          borderRadius:5, transform:'rotate(-8deg)',
+          background:'linear-gradient(90deg,#795548,#4E342E)',
           boxShadow:'0 2px 4px rgba(0,0,0,0.3)' }} />
-        {/* bell */}
-        <div style={{ position:'absolute', left:39, top:60, width:13, height:16,
+        {/* bell body */}
+        <div style={{ position:'absolute', left:40, top:57, width:13, height:16,
           borderRadius:'3px 3px 7px 7px',
           background:'linear-gradient(160deg,#FFD740,#FF8F00)',
-          boxShadow:'0 3px 6px rgba(0,0,0,0.3)' }} />
-        <div style={{ position:'absolute', left:44, top:74, width:3, height:3,
+          boxShadow:'0 2px 5px rgba(0,0,0,0.3)' }} />
+        {/* clapper dot inside bell */}
+        <div style={{ position:'absolute', left:45, top:71, width:3, height:3,
           borderRadius:'50%', background:'#5D4037' }} />
       </>)}
     </div>
   )
 
-  // ── Sunny Crown ───────────────────────────────────────────────────
+  // ── Sunny Crown — vine headband + sunflowers on top of head ───────
   if (accId === 'sunny_scarf') return (
     <div style={wrap}>
       {isFlat ? (<>
-        {/* stem band on head */}
-        <div style={{ position:'absolute', left:16, top:3, width:38, height:8,
-          borderRadius:4, background:'#8BC34A' }} />
-        {[{l:18,c:'#FF7043'},{l:28,c:'#FDD835'},{l:38,c:'#FF7043'},{l:48,c:'#FDD835'}].map(({l,c},i) => (
+        {/* vine band on lying head */}
+        <div style={{ position:'absolute', left:14, top:3, width:34, height:6,
+          borderRadius:3, background:'#558B2F' }} />
+        {[14, 23, 34].map((l, i) => (
           <div key={i} style={{ position:'absolute', left:l, top:-6, width:11, height:11,
-            borderRadius:'50%', background:c, border:'2px solid white',
-            boxShadow:'0 2px 4px rgba(0,0,0,0.2)' }} />
+            borderRadius:'50%', background: i === 1 ? '#FDD835' : '#FF7043',
+            border:'2px solid white', boxShadow:'0 1px 3px rgba(0,0,0,0.2)' }}>
+            <div style={{ position:'absolute', top:3, left:3, width:5, height:5,
+              borderRadius:'50%', background: i === 1 ? '#5D4037' : '#FDD835' }} />
+          </div>
         ))}
       </>) : (<>
-        {/* headband */}
-        <div style={{ position:'absolute', left:5, top:12, width:46, height:10,
-          borderRadius:'5px 5px 0 0', background:'#8BC34A',
+        {/* vine headband across head */}
+        <div style={{ position:'absolute', left:4, top:11, width:44, height:9,
+          borderRadius:'5px 5px 3px 3px', background:'#558B2F',
           boxShadow:'0 2px 4px rgba(0,0,0,0.2)' }} />
-        {/* sunflowers */}
-        {[{l:4,c:'#FF7043'},{l:15,c:'#FDD835'},{l:26,c:'#FF7043'},{l:37,c:'#FDD835'}].map(({l,c},i) => (
-          <div key={i} style={{ position:'absolute', left:l, top:1, width:14, height:14,
-            borderRadius:'50%', background:c, border:'2px solid white',
-            boxShadow:'0 2px 5px rgba(0,0,0,0.25)' }}>
-            {/* centre dot */}
-            <div style={{ position:'absolute', top:4, left:4, width:6, height:6,
-              borderRadius:'50%', background:'#5D4037' }} />
+        {/* 4 sunflowers sitting on the headband */}
+        {[4, 13, 23, 33].map((l, i) => (
+          <div key={i} style={{ position:'absolute', left:l, top:0, width:13, height:13,
+            borderRadius:'50%', background: i % 2 === 0 ? '#FF7043' : '#FDD835',
+            border:'2px solid white', boxShadow:'0 2px 4px rgba(0,0,0,0.25)' }}>
+            <div style={{ position:'absolute', top:3, left:3, width:7, height:7,
+              borderRadius:'50%', background: i % 2 === 0 ? '#FDD835' : '#5D4037' }} />
           </div>
         ))}
       </>)}
     </div>
   )
 
-  // ── Forest Cape ───────────────────────────────────────────────────
+  // ── Forest Cape — green cloak draping over the back + gold clasp ──
   if (accId === 'leaf_collar') return (
     <div style={wrap}>
       {isFlat ? (<>
-        <div style={{ position:'absolute', left:48, top:12, width:80, height:28,
-          borderRadius:10, background:'linear-gradient(135deg,#66BB6A,#1B5E20)',
-          opacity:0.88 }} />
-        {/* leaf veins */}
-        <div style={{ position:'absolute', left:65, top:18, width:40, height:2,
-          borderRadius:1, background:'rgba(255,255,255,0.25)' }} />
-        <div style={{ position:'absolute', left:75, top:24, width:28, height:2,
-          borderRadius:1, background:'rgba(255,255,255,0.2)' }} />
+        {/* cape draped over lying body */}
+        <div style={{ position:'absolute', left:48, top:10, width:78, height:30,
+          borderRadius:'6px 18px 18px 6px',
+          background:'linear-gradient(135deg,#66BB6A,#1B5E20)', opacity:0.9 }} />
+        {/* vein line across */}
+        <div style={{ position:'absolute', left:60, top:18, width:48, height:2,
+          borderRadius:1, background:'rgba(255,255,255,0.22)' }} />
       </>) : (<>
-        {/* cape body over torso */}
-        <div style={{ position:'absolute', left:36, top:40, width:92, height:54,
-          borderRadius:'6px 22px 22px 6px',
-          background:'linear-gradient(135deg,#43A047,#1B5E20)', opacity:0.9 }} />
-        {/* cape collar around neck */}
-        <div style={{ position:'absolute', left:20, top:46, width:50, height:26,
-          borderRadius:13, transform:'rotate(-5deg)',
+        {/* cape body — covers cat's back and sides */}
+        <div style={{ position:'absolute', left:50, top:40, width:88, height:58,
+          borderRadius:'4px 26px 22px 4px',
+          background:'linear-gradient(145deg,#43A047,#1B5E20)', opacity:0.9 }} />
+        {/* collar piece — wraps around neck, slightly lighter */}
+        <div style={{ position:'absolute', left:26, top:44, width:36, height:22,
+          borderRadius:12, transform:'rotate(-5deg)',
           background:'linear-gradient(135deg,#66BB6A,#2E7D32)',
-          boxShadow:'0 3px 6px rgba(0,0,0,0.25)' }} />
-        {/* leaf detail shine */}
-        <div style={{ position:'absolute', left:58, top:44, width:22, height:32,
-          borderRadius:'50% 0 50% 50%', transform:'rotate(-20deg)',
-          background:'rgba(255,255,255,0.13)' }} />
-        {/* clasp */}
-        <div style={{ position:'absolute', left:38, top:52, width:10, height:10,
-          borderRadius:'50%', background:'#FDD835',
+          boxShadow:'0 2px 5px rgba(0,0,0,0.25)' }} />
+        {/* gold clasp at collar center */}
+        <div style={{ position:'absolute', left:42, top:51, width:10, height:10,
+          borderRadius:'50%', background:'#FFD740',
           border:'1.5px solid #F9A825', boxShadow:'0 1px 3px rgba(0,0,0,0.3)' }} />
+        {/* cape highlight */}
+        <div style={{ position:'absolute', left:60, top:45, width:32, height:2,
+          borderRadius:1, background:'rgba(255,255,255,0.18)' }} />
       </>)}
     </div>
   )
 
-  // ── Ocean Scarf ───────────────────────────────────────────────────
+  // ── Ocean Scarf — blue scarf around neck with hanging tail ────────
   if (accId === 'wave_scarf') return (
     <div style={wrap}>
       {isFlat ? (<>
-        <div style={{ position:'absolute', left:52, top:16, width:34, height:14,
-          borderRadius:7, background:'linear-gradient(135deg,#42A5F5,#0D47A1)',
-          boxShadow:'0 2px 5px rgba(0,0,0,0.3)' }} />
-        <div style={{ position:'absolute', left:52, top:24, width:34, height:3,
-          borderRadius:2, background:'rgba(255,255,255,0.25)' }} />
+        {/* scarf wrapped around neck area */}
+        <div style={{ position:'absolute', left:48, top:14, width:30, height:14,
+          borderRadius:8, background:'linear-gradient(135deg,#42A5F5,#0D47A1)',
+          boxShadow:'0 2px 4px rgba(0,0,0,0.3)' }} />
+        {/* white stripe detail */}
+        <div style={{ position:'absolute', left:49, top:22, width:30, height:3,
+          borderRadius:2, background:'rgba(255,255,255,0.3)' }} />
       </>) : (<>
         {/* scarf loop around neck */}
-        <div style={{ position:'absolute', left:22, top:50, width:52, height:16,
-          borderRadius:8, transform:'rotate(-8deg)',
+        <div style={{ position:'absolute', left:22, top:48, width:40, height:16,
+          borderRadius:9, transform:'rotate(-7deg)',
           background:'linear-gradient(135deg,#42A5F5,#1565C0)',
           boxShadow:'0 3px 6px rgba(0,0,0,0.3)' }} />
-        {/* hanging tail */}
-        <div style={{ position:'absolute', left:32, top:62, width:18, height:34,
-          borderRadius:'0 0 10px 10px',
-          background:'linear-gradient(180deg,#42A5F5,#1E88E5)' }} />
-        {/* wave stripe */}
-        <div style={{ position:'absolute', left:22, top:57, width:52, height:4,
-          borderRadius:2, background:'rgba(255,255,255,0.28)' }} />
-        {/* tail stripe */}
-        <div style={{ position:'absolute', left:37, top:74, width:8, height:14,
-          borderRadius:2, background:'rgba(255,255,255,0.2)' }} />
+        {/* white stripe on scarf */}
+        <div style={{ position:'absolute', left:22, top:55, width:40, height:3,
+          borderRadius:2, background:'rgba(255,255,255,0.3)' }} />
+        {/* hanging tail piece */}
+        <div style={{ position:'absolute', left:30, top:61, width:17, height:36,
+          borderRadius:'3px 3px 10px 10px',
+          background:'linear-gradient(180deg,#42A5F5,#1E88E5)',
+          boxShadow:'0 2px 4px rgba(0,0,0,0.2)' }} />
+        {/* stripe on tail */}
+        <div style={{ position:'absolute', left:33, top:76, width:11, height:3,
+          borderRadius:2, background:'rgba(255,255,255,0.25)' }} />
       </>)}
     </div>
   )
 
-  // ── Bloom Crown ───────────────────────────────────────────────────
+  // ── Bloom Crown — vine headband + colorful flowers ────────────────
   if (accId === 'flower_crown') {
-    const flowers = isFlat
-      ? [{l:17,c:'#EF5350'},{l:27,c:'#FDD835'},{l:37,c:'#EC407A'},{l:47,c:'#AB47BC'}]
-      : [{l:4, c:'#EF5350'},{l:15,c:'#FDD835'},{l:26,c:'#EC407A'},{l:37,c:'#AB47BC'}]
+    const standFlowers = [
+      { l:3,  c:'#EF5350' },
+      { l:14, c:'#FDD835' },
+      { l:25, c:'#EC407A' },
+      { l:36, c:'#AB47BC' },
+    ]
+    const flatFlowers = [
+      { l:13, c:'#EF5350' },
+      { l:22, c:'#FDD835' },
+      { l:33, c:'#EC407A' },
+    ]
+    const flowers = isFlat ? flatFlowers : standFlowers
     return (
       <div style={wrap}>
-        {/* vine band */}
+        {/* vine base band */}
         <div style={{ position:'absolute',
-          left: isFlat ? 14 : 2, top: isFlat ? 4 : 13,
-          width: isFlat ? 44 : 52, height: isFlat ? 8 : 10,
-          borderRadius: 5, background:'linear-gradient(90deg,#81C784,#A5D6A7)' }} />
-        {flowers.map(({l,c},i) => (
-          <div key={i} style={{ position:'absolute', left:l,
-            top: isFlat ? -5 : 2,
+          left: isFlat ? 11 : 2, top: isFlat ? 3 : 10,
+          width: isFlat ? 38 : 48, height: 9,
+          borderRadius: 5,
+          background:'linear-gradient(90deg,#558B2F,#7CB342,#558B2F)' }} />
+        {/* flower blossoms on top of band */}
+        {flowers.map(({ l, c }, i) => (
+          <div key={i} style={{ position:'absolute', left:l, top: isFlat ? -5 : 0,
             width:14, height:14, borderRadius:'50%', background:c,
             border:'2px solid white', boxShadow:'0 2px 5px rgba(0,0,0,0.25)' }}>
+            {/* flower centre */}
             <div style={{ position:'absolute', top:4, left:4, width:6, height:6,
               borderRadius:'50%', background:'#FFF9C4' }} />
           </div>

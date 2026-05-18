@@ -2853,9 +2853,8 @@ body {
 
 
 /* ── Cat sprite integration ──────────────────────────────── */
-.rm-cat-body > div { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35)); }
-/* Sleeping/lying cats are flat — drop-shadow creates a "second cat" silhouette; remove it */
-.rm-cat-body--flat > div { filter: none; }
+/* drop-shadow removed — it creates a ghost cat silhouette behind the sprite.
+   Floor shadow is handled by .rm-cat-shadow radial-gradient. */
 
 /* ── Info strip — Bond XP + Care Energy ─────────────────── */
 .rm-info-strip {
@@ -3426,3 +3425,134 @@ body {
   padding: 4px 8px;
 }
 .mrew-dismiss:hover { color: #666; }
+
+/* ══════════════════════════════════════════════════════════════
+   BUBBLE TEA PIPELINE UI
+   Step: boba — Taiwan hand-shaken drink recognition
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Header ────────────────────────────────────────────────── */
+.boba-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 4px 8px;
+  border-bottom: 1.5px solid #FFE0CC;
+  margin-bottom: 8px;
+}
+.boba-logo { font-size: 28px; line-height: 1; flex-shrink: 0; }
+.boba-header-text { display: flex; flex-direction: column; gap: 2px; }
+.boba-title {
+  font-size: 16px; font-weight: 800; color: #D84315; letter-spacing: 0.3px;
+}
+.boba-ocr-hint {
+  font-size: 11px; color: #FF8A65; font-weight: 600;
+  background: #FFF3E0; border-radius: 6px; padding: 2px 7px; width: fit-content;
+}
+
+/* ── Section ───────────────────────────────────────────────── */
+.boba-section { margin-bottom: 10px; }
+.boba-section-label {
+  font-size: 11.5px; font-weight: 800; color: #795548;
+  text-transform: uppercase; letter-spacing: 0.5px;
+  margin: 0 0 6px;
+}
+.boba-section-sub { font-size: 10px; color: #BCAAA4; font-weight: 500; text-transform: none; }
+
+/* ── Chips ─────────────────────────────────────────────────── */
+.boba-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.boba-chip {
+  padding: 5px 11px; border-radius: 20px; font-size: 12.5px; font-weight: 600;
+  border: 1.5px solid #FFCCBC; background: #FFF8F5; color: #5D4037;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap;
+  display: flex; align-items: center; gap: 3px;
+}
+.boba-chip:hover { border-color: #FF8A65; background: #FFF3E0; }
+.boba-chip-on {
+  background: #FF6B6B; border-color: #FF6B6B; color: #fff;
+  box-shadow: 0 2px 6px rgba(255,107,107,0.35);
+}
+.boba-chip-on:hover { background: #E53935; border-color: #E53935; }
+.boba-chip-cal {
+  font-size: 10.5px; opacity: 0.8; font-weight: 500;
+}
+.boba-chip-clear {
+  border-color: #BCAAA4; color: #8D6E63; background: #F5EFEB;
+}
+.boba-chip-clear:hover { border-color: #795548; }
+
+/* ── Live nutrition preview ────────────────────────────────── */
+.boba-nut-preview {
+  background: linear-gradient(135deg, #FFF3E0, #FBE9E7);
+  border: 1.5px solid #FFCCBC; border-radius: 14px;
+  padding: 12px 14px; margin: 10px 0;
+}
+.boba-nut-row {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px;
+  margin-bottom: 6px;
+}
+.boba-nut-item { display: flex; flex-direction: column; align-items: center; gap: 1px; }
+.boba-nut-val {
+  font-size: 18px; font-weight: 900; color: #D84315; line-height: 1.1;
+}
+.boba-nut-lbl { font-size: 9.5px; color: #8D6E63; font-weight: 600; text-align: center; }
+.boba-nut-note {
+  font-size: 10px; color: #BCAAA4; text-align: center; margin: 0;
+  line-height: 1.4;
+}
+
+/* Manual hand-shaken drink override button */
+.boba-manual-btn {
+  width: 100%; margin-top: 8px;
+  padding: 10px; border-radius: 20px;
+  border: 1.5px dashed #FFAB91; background: #FFF8F5;
+  color: #BF360C; font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.15s;
+}
+.boba-manual-btn:hover { background: #FFF3E0; border-color: #FF7043; }
+
+/* ── V2 additions ──────────────────────────────────────────── */
+/* Detected brand/drink in header */
+.boba-brand-detected {
+  font-size: 12px; font-weight: 700; color: #BF360C;
+}
+
+/* Low-confidence warning banner */
+.boba-conf-warn {
+  background: #FFF8E1; border: 1.5px solid #FFE082; border-radius: 10px;
+  padding: 9px 13px; font-size: 12.5px; font-weight: 600; color: #F57F17;
+  margin-bottom: 10px;
+}
+
+/* Drink category grid — 4-column icon+label buttons */
+.boba-cat-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.boba-cat-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 7px 4px; border-radius: 10px; border: 1.5px solid #FFCCBC;
+  background: #FFF8F5; color: #5D4037; cursor: pointer;
+  transition: all 0.15s; font-size: 11px;
+}
+.boba-cat-btn:hover { border-color: #FF8A65; background: #FFF3E0; }
+.boba-cat-emoji { font-size: 18px; line-height: 1; }
+.boba-cat-label { font-size: 10.5px; font-weight: 700; text-align: center; line-height: 1.2; }
+
+/* Required field indicator */
+.boba-required { color: #E53935; font-size: 11px; font-weight: 700; margin-left: 2px; }
+.boba-required-note {
+  color: #EF9A9A; font-size: 10px; font-weight: 500;
+  text-transform: none; letter-spacing: 0; margin-left: 4px;
+}
+
+/* Sub-label inside chip (e.g. ml) */
+.boba-chip-sub { font-size: 10px; opacity: 0.7; font-weight: 500; }
+
+/* Horizontally scrollable chip row (brand / drink lists) */
+.boba-chips-scroll {
+  flex-wrap: nowrap; overflow-x: auto;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.boba-chips-scroll::-webkit-scrollbar { display: none; }

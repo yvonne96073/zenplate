@@ -13,6 +13,11 @@ import { lookupComponent, compNutrition, COMPONENT_ID_LIST } from '../utils/port
 import { calcPlateScore, scoreInfo, getScoreBreakdown } from '../utils/scoring'
 import { loadPortionAdjustments, savePortionCorrections, hasPersonalization } from '../utils/portionLearning'
 import { GEMINI_FALLBACK_MODELS } from '../config/ai'
+import {
+  isHandShakeDrink as isBubbleTea, parseBobaMeta, buildBobaComponent, getBobaSuggestions,
+  BOBA_TOPPINGS, BOBA_BRANDS,
+  DRINK_CATEGORIES, DRINK_SIZES, SUGAR_LEVELS, ICE_LEVELS, calcDrinkTotal,
+} from '../utils/bubbleTeaPipeline'
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY)
 
@@ -91,7 +96,8 @@ ${COMPONENT_ID_LIST}
 15. cal_est/pro_est/carb_est/fat_est：只在 name 為中文且完全找不到對應 component_id 時填入（該 grams 份量的總估計值，不是每100g）；有 component_id 匹配就填 null
 16. 看到全家/FamilyMart 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "FamilyMart"，name 填商品名稱（如：鮪魚飯糰、雞腿便當、關東煮）
 17. 看到交大/陽明交大/NYCU/交大餐廳/學餐/菁英餐廳/味仙/和食軒/阿嬤的飯桶/太祖/好時光/強尼兄弟/拉亞漢堡 → food_type:"chain_restaurant"，brand 填 "NYCU"，name 填完整中文餐點名稱（如：炸雞腿排套餐、拿鐵咖啡、牛肉丼飯）
-18. 看到 7-Eleven/7-11/統一超商/CITY CAFÉ 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "7-Eleven"，name 填商品名稱（如：CITY CAFÉ拿鐵、CITY CAFÉ美式、茶葉蛋）`
+18. 看到 7-Eleven/7-11/統一超商/CITY CAFÉ 店面/包裝/logo → food_type:"chain_restaurant"，brand 填 "7-Eleven"，name 填商品名稱（如：CITY CAFÉ拿鐵、CITY CAFÉ美式、茶葉蛋）
+19. 【手搖飲料偵測】看到下列任一視覺特徵 → 立刻判定為手搖飲料，food_type:"chain_restaurant"：(a)有封膜的外帶杯；(b)插著吸管的塑膠/紙杯；(c)杯身印有品牌logo/貼紙；(d)黃色杯身+藍色圓點圖案（50嵐）；(e)任何明顯的飲料外帶杯形狀。【OCR第一優先，非常重要】：仔細讀取杯身、貼紙、封膜、logo上的每一個文字，常見品牌：50嵐（黃杯藍點）、CoCo都可、麻古茶坊、清心福全、迷客夏（紫）、得正、茶湯會、老虎堂、一沐日、可不可熟成茶館、珍煮丹、春水堂、大苑子、先喝道、貢茶。brand填品牌名（如：50嵐），name填飲料名（如：四季春、鮮奶茶、珍珠奶茶），container_clue填杯型（小杯/中杯/大杯），clues填所有OCR到的文字片段（品牌名、飲料名、甜度、冰量、貼紙上任何文字），components填一個品項（name=飲料名，grams=400小/700中/900大）。`
 
 // ── Food type badges ──────────────────────────────────────────────────────────
 const FOOD_TYPE_LABEL = {
@@ -122,8 +128,8 @@ function applyLevel(comp, level) {
 }
 
 // ── Source metadata ───────────────────────────────────────────────────────────
-const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方', family: '全家官方', seven: '7-Eleven官方' }
-const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED', mcd: '#DA291C', family: '#009944', seven: '#EE1C25' }
+const SRC_LABEL = { fda: 'FDA', nycu: '交大', packaged: '包裝', ai: 'AI估算', subway: 'Subway官方', portion: '份量庫', mcd: '麥當勞官方', family: '全家官方', seven: '7-Eleven官方', boba: '手搖飲料庫' }
+const SRC_COLOR = { fda: '#2BB5A0', nycu: '#4CAF50', packaged: '#FF9800', ai: '#9E9E9E', subway: '#00833D', portion: '#7C3AED', mcd: '#DA291C', family: '#009944', seven: '#EE1C25', boba: '#FF6B6B' }
 
 // ── Default Subway config ─────────────────────────────────────────────────────
 const DEFAULT_SUBWAY = { sandwichId: null, breadId: 'bread_white', sauceIds: [], sizeMult: 1 }
@@ -346,6 +352,16 @@ function calcCompNut(comp) {
       fiber: null,
     }
   }
+  // Boba — pre-calculated in buildBobaComponent via calcBobaTotal
+  if (comp.source === 'boba' && comp.bobaTotal) {
+    return {
+      calories: comp.bobaTotal.calories,
+      protein:  comp.bobaTotal.protein,
+      carbs:    comp.bobaTotal.carbs,
+      fat:      comp.bobaTotal.fat,
+      fiber:    null,
+    }
+  }
   // AI estimate — use AI macro estimates when available
   return {
     calories: Math.round((comp.calEst  || 0) * m),
@@ -518,6 +534,10 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
   // FamilyMart pipeline
   const [familyMatches,  setFamilyMatches]  = useState([])
   const [familySelected, setFamilySelected] = useState(null)
+
+  // Bubble tea pipeline
+  const [bobaMeta,   setBobaMeta]   = useState(null)   // parsed order from AI
+  const [bobaOrder,  setBobaOrder]  = useState(null)   // user-confirmed order state
 
   const videoRef     = useRef(null)
   const codeRef      = useRef(null)
@@ -745,7 +765,28 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
         // Not a coffee item → fall through to general_meal pipeline
       }
 
-      // Unknown chain → fall through to general_meal pipeline
+        // Unknown chain → fall through to general_meal pipeline
+    }
+
+    // ── Bubble tea: dedicated OCR-first pipeline ──────────────────────────
+    if (isBubbleTea(cand)) {
+      console.log('[SCAN] Bubble tea detected — launching boba pipeline for:', cand.name)
+      const meta = parseBobaMeta(cand)
+      console.log('[SCAN] Boba meta:', meta)
+      setBobaMeta(meta)
+      setBobaOrder({
+        brandKey:    meta.brandKey,
+        drinkKey:    meta.drinkKey,
+        cat:         meta.cat,
+        displayBrand: meta.displayBrand,
+        displayDrink: meta.displayDrink,
+        size:        meta.size,
+        sugarKey:    null,   // ALWAYS null — user must confirm
+        iceKey:      null,
+        toppings:    [...meta.toppings],
+      })
+      setStep('boba')
+      return
     }
 
     // ── packaged_food: local packaged DB → fallback to enrichComp ─────────
@@ -893,6 +934,16 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
     setSubwayConfig(DEFAULT_SUBWAY); setSubwayMatches([])
     setFamilyMatches([]); setFamilySelected(null)
     setConfirmedCandidate(null)
+    setBobaMeta(null); setBobaOrder(null)
+  }
+
+  // ── Confirm boba order → build component → go to result ──────────────────
+  const handleBobaConfirm = () => {
+    if (!bobaOrder || !bobaOrder.sugarKey || !bobaOrder.size) return
+    const comp = buildBobaComponent({ ...bobaOrder })
+    setMealName(comp.name)
+    setComponents([comp])
+    setStep('result')
   }
 
   // Derived totals for result step
@@ -1027,6 +1078,21 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
               <button className="submit-btn" onClick={() => confirmCandidate(chosenIdx)}>
                 確認「{candidates[chosenIdx]?.name}」→
               </button>
+              {/* Manual hand-shaken drink override */}
+              <button className="boba-manual-btn" onClick={() => {
+                const cand = candidates[chosenIdx] || candidates[0]
+                const meta = parseBobaMeta(cand || { name: '手搖飲料', confidence: 30 })
+                setBobaMeta(meta)
+                setBobaOrder({
+                  brandKey: meta.brandKey, drinkKey: meta.drinkKey,
+                  cat: meta.cat, displayBrand: meta.displayBrand,
+                  displayDrink: meta.displayDrink, size: meta.size,
+                  sugarKey: null, iceKey: null, toppings: [...meta.toppings],
+                })
+                setStep('boba')
+              }}>
+                🧋 這是手搖飲料
+              </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新拍照</button>
             </>
           )}
@@ -1149,6 +1215,20 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
               <button className="submit-btn" onClick={handleSave}
                 disabled={saving || components.length === 0}>
                 {saving ? '儲存中...' : `✓ 記錄餐點（${total.calories ?? 0} kcal）`}
+              </button>
+              <button className="boba-manual-btn" onClick={() => {
+                const cand = confirmedCandidate || { name: '手搖飲料', confidence: 30 }
+                const meta = parseBobaMeta(cand)
+                setBobaMeta(meta)
+                setBobaOrder({
+                  brandKey: meta.brandKey, drinkKey: meta.drinkKey,
+                  cat: meta.cat, displayBrand: meta.displayBrand,
+                  displayDrink: meta.displayDrink, size: meta.size,
+                  sugarKey: null, iceKey: null, toppings: [...meta.toppings],
+                })
+                setStep('boba')
+              }}>
+                🧋 這其實是手搖飲料
               </button>
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
@@ -1335,6 +1415,228 @@ export default function ScanModal({ session, onClose, onSaved, defaultMealType }
               <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
             </>
           )}
+
+          {/* ── Hand-shaken drink confirm ── */}
+          {step === 'boba' && bobaOrder && (() => {
+            const previewNut = calcDrinkTotal({ ...bobaOrder, sugarKey: bobaOrder.sugarKey || 'half' })
+            const allBrands  = Object.keys(BOBA_BRANDS)
+            const allDrinks  = bobaOrder.brandKey
+              ? Object.keys(BOBA_BRANDS[bobaOrder.brandKey]?.drinks || {})
+              : []
+            const lowConf   = (bobaMeta?.confidence ?? 50) < 55
+            const sugarReady = !!bobaOrder.sugarKey
+            const sizeReady  = !!bobaOrder.size
+
+            return (
+              <>
+                {/* Header */}
+                <div className="boba-header">
+                  <span className="boba-logo">🧋</span>
+                  <div className="boba-header-text">
+                    <span className="boba-title">手搖飲料</span>
+                    {(bobaMeta?.displayBrand || bobaMeta?.displayDrink) && (
+                      <span className="boba-brand-detected">
+                        {[bobaMeta.displayBrand, bobaMeta.displayDrink].filter(Boolean).join(' · ')}
+                      </span>
+                    )}
+                    {bobaMeta?.ocrSnippets?.length > 0 && (
+                      <span className="boba-ocr-hint">
+                        🔍 OCR：{bobaMeta.ocrSnippets.slice(0, 3).join(' · ')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Low confidence banner */}
+                {lowConf && (
+                  <div className="boba-conf-warn">
+                    🤔 不太確定，但這看起來是手搖飲料 — 請確認以下資訊
+                  </div>
+                )}
+
+                {/* Drink category — shown when brand/drink unknown or low confidence */}
+                {(!bobaOrder.drinkKey || lowConf) && (
+                  <div className="boba-section">
+                    <p className="boba-section-label">飲料類型</p>
+                    <div className="boba-cat-grid">
+                      {Object.entries(DRINK_CATEGORIES).map(([key, cat]) => (
+                        <button key={key}
+                          className={`boba-cat-btn ${bobaOrder.cat === key ? 'boba-chip-on' : ''}`}
+                          onClick={() => setBobaOrder(o => ({
+                            ...o,
+                            cat: key,
+                            displayDrink: o.drinkKey || cat.label_zh,
+                          }))}>
+                          <span className="boba-cat-emoji">{cat.emoji}</span>
+                          <span className="boba-cat-label">{cat.label_zh}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Brand selector */}
+                <div className="boba-section">
+                  <p className="boba-section-label">品牌 <span className="boba-section-sub">（選填）</span></p>
+                  <div className="boba-chips boba-chips-scroll">
+                    {allBrands.map(b => (
+                      <button key={b}
+                        className={`boba-chip ${bobaOrder.brandKey === b ? 'boba-chip-on' : ''}`}
+                        onClick={() => setBobaOrder(o => ({
+                          ...o,
+                          brandKey:     b,
+                          displayBrand: BOBA_BRANDS[b].display,
+                          drinkKey:     null,
+                        }))}>
+                        {BOBA_BRANDS[b].display}
+                      </button>
+                    ))}
+                    <button
+                      className={`boba-chip ${!bobaOrder.brandKey ? 'boba-chip-on' : ''}`}
+                      onClick={() => setBobaOrder(o => ({ ...o, brandKey: null, drinkKey: null, displayBrand: null }))}>
+                      其他 / 不確定
+                    </button>
+                  </div>
+                </div>
+
+                {/* Drink selector — only if brand is known */}
+                {bobaOrder.brandKey && allDrinks.length > 0 && (
+                  <div className="boba-section">
+                    <p className="boba-section-label">品項</p>
+                    <div className="boba-chips boba-chips-scroll">
+                      {allDrinks.map(d => (
+                        <button key={d}
+                          className={`boba-chip ${bobaOrder.drinkKey === d ? 'boba-chip-on' : ''}`}
+                          onClick={() => setBobaOrder(o => ({ ...o, drinkKey: d, displayDrink: d }))}>
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cup size — all 4 options */}
+                <div className="boba-section">
+                  <p className="boba-section-label">
+                    杯型{!sizeReady && <span className="boba-required"> *必填</span>}
+                  </p>
+                  <div className="boba-chips">
+                    {DRINK_SIZES.map(({ key, label, ml }) => (
+                      <button key={key}
+                        className={`boba-chip ${bobaOrder.size === key ? 'boba-chip-on' : ''}`}
+                        onClick={() => setBobaOrder(o => ({ ...o, size: key }))}>
+                        {label}
+                        <span className="boba-chip-sub"> {ml}ml</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sugar level — ALWAYS shown, ALWAYS required */}
+                <div className="boba-section">
+                  <p className="boba-section-label">
+                    甜度{!sugarReady && <span className="boba-required"> *必填</span>}
+                    {!sugarReady && <span className="boba-required-note">（圖片無法判斷，請手動選擇）</span>}
+                  </p>
+                  <div className="boba-chips">
+                    {SUGAR_LEVELS.map(({ key, label }) => (
+                      <button key={key}
+                        className={`boba-chip ${bobaOrder.sugarKey === key ? 'boba-chip-on' : ''}`}
+                        onClick={() => setBobaOrder(o => ({ ...o, sugarKey: key }))}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ice level — always shown */}
+                <div className="boba-section">
+                  <p className="boba-section-label">冰量</p>
+                  <div className="boba-chips">
+                    {ICE_LEVELS.map(({ key, label }) => (
+                      <button key={key}
+                        className={`boba-chip ${bobaOrder.iceKey === key ? 'boba-chip-on' : ''}`}
+                        onClick={() => setBobaOrder(o => ({ ...o, iceKey: key }))}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Toppings */}
+                <div className="boba-section">
+                  <p className="boba-section-label">加料 <span className="boba-section-sub">（可複選）</span></p>
+                  <div className="boba-chips">
+                    {Object.entries(BOBA_TOPPINGS).map(([t, info]) => {
+                      const on = bobaOrder.toppings.includes(t)
+                      return (
+                        <button key={t}
+                          className={`boba-chip ${on ? 'boba-chip-on' : ''}`}
+                          onClick={() => setBobaOrder(o => ({
+                            ...o,
+                            toppings: on
+                              ? o.toppings.filter(x => x !== t)
+                              : [...o.toppings, t],
+                          }))}>
+                          {info.emoji} {t}
+                          <span className="boba-chip-cal"> +{info.cal}</span>
+                        </button>
+                      )
+                    })}
+                    {bobaOrder.toppings.length > 0 && (
+                      <button className="boba-chip boba-chip-clear"
+                        onClick={() => setBobaOrder(o => ({ ...o, toppings: [] }))}>
+                        ✕ 不加料
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Live nutrition preview */}
+                <div className="boba-nut-preview">
+                  <div className="boba-nut-row">
+                    {[
+                      [previewNut.calories, 'kcal'],
+                      [previewNut.protein,  '蛋白質 g'],
+                      [previewNut.carbs,    '碳水 g'],
+                      [previewNut.fat,      '脂肪 g'],
+                    ].map(([val, lbl]) => (
+                      <div key={lbl} className="boba-nut-item">
+                        <span className="boba-nut-val">{val}</span>
+                        <span className="boba-nut-lbl">{lbl}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="boba-nut-note">
+                    {sugarReady
+                      ? `✦ ${SUGAR_LEVELS.find(s => s.key === bobaOrder.sugarKey)?.label} · 手搖飲料庫估算`
+                      : '✦ 以半糖預估 — 請選擇甜度以確認熱量'}
+                  </p>
+                </div>
+
+                {/* Meal type */}
+                <div className="form-group" style={{ marginTop: 10 }}>
+                  <label>餐別</label>
+                  <div className="meal-type-btns">
+                    {MEAL_TYPES.map(t => (
+                      <button key={t} type="button"
+                        className={`meal-type-btn ${mealType === t ? 'active' : ''}`}
+                        onClick={() => setMealType(t)}>{t}</button>
+                    ))}
+                  </div>
+                </div>
+
+                <button className="submit-btn"
+                  disabled={!sugarReady || !sizeReady}
+                  onClick={handleBobaConfirm}>
+                  {!sugarReady ? '⚠ 請先選擇甜度'
+                   : !sizeReady ? '⚠ 請先選擇杯型'
+                   : `✓ 確認（${previewNut.calories} kcal）→`}
+                </button>
+                <button className="signout-btn" style={{ marginTop: 8 }} onClick={reset}>← 重新掃描</button>
+              </>
+            )
+          })()}
 
           {/* ── Barcode result ── */}
           {step === 'barcode' && barcodeResult && (
