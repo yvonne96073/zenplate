@@ -208,7 +208,8 @@ function CatSprite({ state }) {
         backgroundImage: `url('${cfg.src}')`,
         backgroundSize: `${totalW}px ${dispH}px`,
         backgroundRepeat: 'no-repeat',
-        backgroundPosition: '0 0',
+        // sleeping/lying → show frame 1 (closed eyes); all others → frame 0
+        backgroundPosition: (key === 'sleeping' || key === 'lying') ? `${-CAT_W}px 0` : '0 0',
         imageRendering: 'auto',
         overflow: 'hidden',
       }}
@@ -398,6 +399,8 @@ function RoomSupplies({ purchased, catState }) {
 // ─────────────────────────────────────────────────────────────────────────────
 function OutfitOverlay({ accId, isFlat }) {
   if (!accId || accId === 'none') return null
+  // Hide collar/outfit while sleeping or lying — sprite pose doesn't align
+  if (isFlat) return null
 
   const wrap = {
     position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
